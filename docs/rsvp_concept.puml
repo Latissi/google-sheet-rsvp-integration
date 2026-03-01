@@ -1,0 +1,47 @@
+@startuml
+!theme plain
+skinparam componentStyle rectangle
+skinparam ArrowColor #666666
+skinparam defaultTextAlignment center
+skinparam packageBorderThickness 1.5
+skinparam ArrowThickness 1
+
+title Hybrides RSVP-System – Konzeptübersicht
+
+actor "Mitglied" as User
+actor "Trainer" as Trainer
+
+together {
+    package "Mitglieder-Schnittstellen" #E6F3FF {
+        component "Formular" as Form
+        component "Mail / Kalender\n(RSVP)" as RSVP
+    }
+
+    package "Trainings-Sheet" #E2F0D9 {
+        component "Teilnehmerliste" as Sheet
+    }
+}
+
+package "Backend (Google Workspace)" #FFF2CC {
+    component "Automatisierung\n(Apps Script)" as Logic
+    database "Kontaktdaten\n(privat)" as DB
+}
+
+' --- User interactions (top row) ---
+User -right-> Form     : Registrierung
+User -down->  Sheet    : Direkter Eintrag
+User -right-> RSVP     : Zu-/Absage
+
+' --- Onboarding flow ---
+Form -down-> DB        : E-Mail speichern
+Form -down-> Sheet     : Name eintragen
+
+' --- Backend flows ---
+DB    -right-> Logic   : Kontakte bereitstellen
+Logic -up->    RSVP    : Reminder senden
+Logic -up->    Sheet   : Teilnahme synchronisieren
+RSVP  -down->  Logic   : Status übermitteln
+
+' --- Trainer ---
+Trainer -up-> Sheet    : Training planen
+@enduml
