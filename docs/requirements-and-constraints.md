@@ -1,82 +1,78 @@
-# Requirements and Constraints — Hybrid RSVP System
+# Anforderungen und Einschränkungen — Trainings RSVP System
 
-This document centralizes the project requirements and constraints for the hybrid RSVP workflow.
+Dieses Dokument zentralisiert die Projektanforderungen und Einschränkungen für den Trainings [RSVP](https://en.wikipedia.org/wiki/RSVP)-Workflow.
 
-## Functional Requirements
+## Funktionale Anforderungen
 
-### FR-1 Member Onboarding
-- Provide a single, low-friction Google Form for member registration.
-- Capture at minimum: full name and e-mail address.
-- Capture preferred RSVP channel: `EMAIL`, `CALENDAR`, or `BOTH`.
-- On submit:
-  - write member name into trainer-visible training sheet,
-  - write e-mail and channel preference into hidden backend tab.
+### FR-1 RSVP-Regestrierung
+- Bereitstellung eines einfachen Google-Formulars zur Mitgliederregistrierung.
+- Erfassung Namen und E-Mail-Adresse. Der Name MUSS mit dem Sheet Namen übereinstimmen.
+- Erfassung, für welche Trainings die Benachrichtigung gelten sollen (z.b. Montag, Mittwoch...)
+- Erfassung des bevorzugten RSVP-Kanals: `E-MAIL`, `KALENDER` oder `BEIDE`.
+- Beim Absenden:
+  - Schreiben des Mitgliedsnamens in das für den Trainer sichtbare Trainingsblatt,
+  - Schreiben von E-Mail und Kanalpräferenz in einen ausgeblendeten Backend-Tab.
 
-### FR-2 Weekly Training Reminder
-- Send automated weekly reminders before each training session.
-- Deliver per member preference:
-  - e-mail reminder with RSVP actions,
-  - calendar invitation,
-  - or both.
+### FR-2 Wöchentliche Trainingserinnerung
+- Versenden automatisierter wöchentlicher Erinnerungen vor jeder Trainingseinheit, wenn Mitglied registriert ist und keine Rückmeldung gegeben hat.
+- Information: Indoor/Outdoor, Uhrzeit, Ort des Trainings
+- Typ des Trainings kann angegeben werden (single-gender oder mixed), evtl. weitere Informationen.
+- Zustellung nach Mitgliederpräferenz:
+  - E-Mail-Erinnerung mit RSVP-Aktionen,
+  - Kalendereinladung,
+  - oder beides.
 
 ### FR-3 One-Click RSVP
-- Support one-click confirm/decline via e-mail link to Apps Script Web App.
-- Support one-click confirm/decline via Google Calendar attendee response.
-- Members must never need direct access to the training sheet to RSVP.
+- Unterstützung von One-Click-Zusage/Absage via E-Mail-Link zur Apps Script Web App.
+- Unterstützung von One-Click-Zusage/Absage via Google Kalender Teilnehmerantwort.
+- Mitglieder benötigen niemals direkten Zugriff auf das Trainingsblatt für die RSVP (trotzdem möglich).
 
-### FR-4 Sheet Synchronization
-- Synchronize RSVP outcomes from mail and calendar into attendance cells.
-- Manual trainer edits remain possible at all times.
-- Do not overwrite manual values unless a newer explicit RSVP is received after the manual edit.
-- Maintain deterministic conflict handling using source + timestamp metadata.
+### FR-4 Blatt-Synchronisierung (Sheet-Sync)
+- Synchronisierung der RSVP-Ergebnisse aus E-Mail und Kalender in die Anwesenheitszellen.
+- Manuelle Bearbeitungen durch den Trainer sind jederzeit möglich.
+- Manuelle Werte dürfen nicht überschrieben werden, außer es geht eine neuere explizite RSVP nach der manuellen Änderung ein.
+- Gewährleistung einer deterministischen Konfliktlösung mittels Quelle + Zeitstempel-Metadaten.
+- Trainings 
 
-### FR-5 Training Cancellation Notification
-- Allow trainer-triggered cancellation via a single sheet action (e.g., control cell/checkbox).
-- Send cancellation e-mail to all registered members.
-- Optionally mark or cancel corresponding calendar event.
+### FR-5 Benachrichtigung bei Trainingsabsage
+- Ermöglichen einer trainer-ausgelösten Absage über eine einzelne Aktion im Blatt (z. B. Kontrollzelle/Checkbox).
+- Versenden einer Absage-E-Mail an alle registrierten Mitglieder und sagt Terminevent im Kalender ab.
 
-### FR-6 Contact Data Access
-- Restrict e-mail visibility to trainer/admin role only.
-- Shared training sheet views must not expose member e-mail addresses.
+### FR-6 Benachrichtigung der Trainer über Trainingsbeteiligung
+- Trainer erhalten vor dem Training Auskunft per Mail bezüglich der Trainingsbeteiligung (abhängig von Geschlecht)
 
-## Non-Functional Requirements
+### FR-7 Zugriff auf Kontaktdaten
+- Beschränkung der E-Mail-Sichtbarkeit auf die Trainer-/Admin-Rolle.
+- Gemeinsam genutzte Ansichten des Trainingsblatts dürfen keine E-Mail-Adressen von Mitgliedern offenlegen.
 
-### NFR-1 Maintainability
-- Keep implementation modular by domain (`config.ts`, `sheet.ts`, `mail.ts`, `calendar.ts`; optional `form.ts`, `webapp.ts`, `scheduler.ts`, `types.ts`).
-- Avoid monolithic scripts and hidden cross-module coupling.
+### FR-8 Statistiken (optional)
+- Statistiken über Trainingsbeteiligung (abhängig von der Zeit/Training)
 
-### NFR-2 Reliability
-- Graceful degradation is required: manual sheet workflow must continue if automation fails.
-- Use structured error handling around Google service calls.
-- Prefer idempotent operations and lock critical write regions with `LockService`.
+### FR-9 Turnierbenachrichtigung (optional)
 
-### NFR-3 Privacy and Data Protection
-- Store e-mails only in hidden/protected backend sheet.
-- Never expose full recipient lists in outbound e-mail (BCC or per-recipient sends).
-- Avoid logging personal data unless strictly required for debugging.
+## Qualitäts Anforderungen (ISO-25010)
 
-### NFR-4 Environment Isolation
-- Keep staging and production fully separated (Apps Script project and Google resources).
-- Store all environment/resource IDs in `PropertiesService` with validation.
+### Priority 1
+- Functional Suitability: Functional Correctness
+- Interaction Capability: Operarbility
 
-### NFR-5 Operational Compatibility
-- Existing Google Sheet remains the trainer’s primary frontend.
-- Runtime stays entirely on Google infrastructure.
+### Priority 2
+- Security: Confidentiality
+- Maintainability: Modifiability
+- Compatibility: Co-Existence (mit bisherigem Trainingssheet Workflow)
 
-## Constraints
+## Einschränkungen
 
-### Technical Constraints
-- Use only Google Workspace free-tier native tools: Sheets, Forms, Calendar, Gmail, Apps Script, Groups (optional).
-- No third-party automation/services unless explicitly approved.
-- Develop locally with VS Code + TypeScript + `clasp`.
-- Use GitHub branching workflow:
-  - `develop` for staging deployment,
-  - `main` for production deployment.
+### Kosten
+- Nur Einsatz von kostenlosen Tools
 
-### Data Constraints
-- Persist contact data exclusively in backend tab (`Backend DB`).
-- Ensure contact data remains inaccessible to regular sheet viewers.
+### Technische Einschränkungen
+- Verwendung ausschließlich nativer Google Workspace Free-Tier-Tools: Sheets, Forms, Kalender, Gmail, Apps Script, Groups (optional).
+- Keine Drittanbieter-Automatisierungen/Dienste ohne ausdrückliche Genehmigung.
 
-### Configuration Constraints
-- No hardcoded IDs/tokens in source code.
-- Required IDs and environment settings must be read from `PropertiesService`.
+### Datenbeschränkungen
+- Persistierung von Kontaktdaten ausschließlich im Backend-Tab (`Backend DB`).
+- Sicherstellen, dass Kontaktdaten für reguläre Betrachter des Blattes unzugänglich bleiben.
+
+### Datenbackend
+- Das Trainingsblatt bleibt die "Single Source of Truth".
