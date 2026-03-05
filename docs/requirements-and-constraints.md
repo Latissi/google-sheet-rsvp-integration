@@ -9,9 +9,7 @@ Dieses Dokument zentralisiert die Projektanforderungen und Einschränkungen für
 - Erfassung Namen und E-Mail-Adresse. Der Name MUSS mit dem Sheet Namen übereinstimmen.
 - Erfassung, für welche Trainings die Benachrichtigung gelten sollen (z.b. Montag, Mittwoch...)
 - Erfassung des bevorzugten RSVP-Kanals: `E-MAIL`, `KALENDER` oder `BEIDE`.
-- Beim Absenden:
-  - Schreiben des Mitgliedsnamens in das für den Trainer sichtbare Trainingsblatt,
-  - Schreiben von E-Mail und Kanalpräferenz in einen ausgeblendeten Backend-Tab.
+- Unterscheidung zwischen Trainer und Mitglied (siehe User Management)
 
 ### FR-2 Wöchentliche Trainingserinnerung
 - Versenden automatisierter wöchentlicher Erinnerungen vor jeder Trainingseinheit, wenn Mitglied registriert ist und keine Rückmeldung gegeben hat.
@@ -35,20 +33,27 @@ Dieses Dokument zentralisiert die Projektanforderungen und Einschränkungen für
 - Trainings 
 
 ### FR-5 Benachrichtigung bei Trainingsabsage
-- Ermöglichen einer trainer-ausgelösten Absage über eine einzelne Aktion im Blatt (z. B. Kontrollzelle/Checkbox).
+- Ermöglichen einer Trainer-ausgelösten Absage über eine einzelne Aktion im Blatt (z. B. Kontrollzelle/Checkbox).
 - Versenden einer Absage-E-Mail an alle registrierten Mitglieder und sagt Terminevent im Kalender ab.
 
 ### FR-6 Benachrichtigung der Trainer über Trainingsbeteiligung
+- Nur für Trainer (siehe User Management)
 - Trainer erhalten vor dem Training Auskunft per Mail bezüglich der Trainingsbeteiligung (abhängig von Geschlecht)
 
 ### FR-7 Zugriff auf Kontaktdaten
 - Beschränkung der E-Mail-Sichtbarkeit auf die Trainer-/Admin-Rolle.
 - Gemeinsam genutzte Ansichten des Trainingsblatts dürfen keine E-Mail-Adressen von Mitgliedern offenlegen.
 
-### FR-8 Statistiken (optional)
+### FR-8 User Management
+- Unterscheidung zwischen Mitglied und Trainer (und Interessent?)
+- Trainer verfügen über mehr Berechtigungen:
+  - Absage von Trainings
+  - Erhalten Trainingsbeteiligung
+
+### FR-9 Statistiken (optional)
 - Statistiken über Trainingsbeteiligung (abhängig von der Zeit/Training)
 
-### FR-9 Turnierbenachrichtigung (optional)
+### FR-10 Turnierbenachrichtigung (optional)
 
 ## Qualitäts Anforderungen (ISO-25010)
 
