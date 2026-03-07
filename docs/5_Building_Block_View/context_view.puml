@@ -17,20 +17,22 @@ skinparam package<<BlackBox>> {
 
 actor "Mitglied" as Member
 actor "Trainer" as Trainer
-note right of Trainer : Trainer ist \nauch Mitglied
 
 rectangle "Trainings Sheet" as Sheet
 
 package "Training-RSVP-System\n\n\n\n" <<BlackBox>> as RSVP {
 }
 
-Member --> RSVP : <<Formular>> Registrierung
-Member -> RSVP : <<Mail/Calendar Response>> Absage / Zusage
-RSVP --> Member : <<Mail/Calendar>> Erinnerung
+Member --> RSVP : Registrierung
+Member -> RSVP : Absage / Zusage
+RSVP --> Member : Erinnerung
 
-RSVP --> Trainer: <<Mail>> Teilnehmerliste
+Trainer --> RSVP : Registrierung
+Trainer -> RSVP : Absage / Zusage
+RSVP --> Trainer: Teilnehmerliste
+RSVP --> Trainer : Erinnerung
 
-Sheet -> RSVP
+Sheet -> RSVP 
 RSVP -> Sheet
 
 @enduml
