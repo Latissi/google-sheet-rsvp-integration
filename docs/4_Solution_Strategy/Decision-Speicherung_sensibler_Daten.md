@@ -16,7 +16,7 @@ Beide Optionen gehen von folgendem Setup aus:
 - Das **öffentliche Trainings-Sheet** bleibt Single Source of Truth für Termine, Anwesenheit, Absagen usw.
 - RSVP-Flows laufen über:
   - Google Form für Registrierung (FR‑1)
-  - E-Mail-/Kalender-Erinnerungen mit One‑Click‑RSVP (FR‑2, FR‑3)
+  - E-Mail-Erinnerungen mit One‑Click‑RSVP (FR‑2, FR‑3)
   - Web-App-Endpunkte für RSVP und Traineraktionen (FR‑3, FR‑5, FR‑6)
 - Trainer und Mitglieder erhalten **keinen direkten Zugriff** auf sensible Daten (E-Mail-Adressen, Rollen, Konfigurationswerte).
 - Das ausführende Apps Script läuft unter deinem Account und hat Zugriff auf:

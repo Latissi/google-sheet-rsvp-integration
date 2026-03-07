@@ -14,7 +14,7 @@ actor "Trainer" as Trainer
 together {
     package "Mitglieder-Schnittstellen" #E6F3FF {
         component "Formular" as Form
-        component "Mail / Kalender\n(RSVP)" as RSVP
+        component "Mail\n(RSVP)" as RSVP
     }
 
     package "Trainings-Sheet" #E2F0D9 {

@@ -29,7 +29,7 @@ Ein unkontrolliertes Überschreiben des produktiven Systems muss beim Ausrollen 
 
 ## 4. Laufzeit-Schutzmechanismen (Safeguards)
 
-Während der Cloud-Tests muss garantiert sein, dass keine echten Nutzer kontaktiert oder produktive Kalender verändert werden.
+Während der Cloud-Tests muss garantiert sein, dass keine echten Nutzer kontaktiert werden.
 
-*   **Architekturprinzip:** Kapselung von Seiteneffekten (E-Mail- und Kalender-Versand).
-*   **Durchführung:** Externe API-Aufrufe erfolgen nie direkt, sondern über zentrale Wrapper-Funktionen. Diese prüfen die aktuelle Umgebung. Im Entwicklungsmodus greifen automatische Interception-Mechanismen, die E-Mails abfangen, an eine Entwickler-Adresse umleiten oder Kalendereinträge nur simulieren. Für zeitgesteuerte Cron-Jobs werden zusätzlich manuelle Trigger bereitgestellt, um den End-to-End-Prozess sofort evaluieren zu können.
+*   **Architekturprinzip:** Kapselung von Seiteneffekten beim E-Mail-Versand.
+*   **Durchführung:** Externe API-Aufrufe erfolgen nie direkt, sondern über zentrale Wrapper-Funktionen. Diese prüfen die aktuelle Umgebung. Im Entwicklungsmodus greifen automatische Interception-Mechanismen, die E-Mails abfangen oder an eine Entwickler-Adresse umleiten. Für zeitgesteuerte Cron-Jobs werden zusätzlich manuelle Trigger bereitgestellt, um den End-to-End-Prozess sofort evaluieren zu können.

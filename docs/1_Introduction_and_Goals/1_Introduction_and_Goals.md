@@ -6,7 +6,7 @@ Ziel ist es, die Teilnahme Rückmeldungen zum Training zu erhöhen, indem Rückm
 
 | Rolle    | Beschreibung                                                                                                                 |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Mitglied | Erteilt Zu/Absagen für Trainings Einheiten über Mail/Kalender RSVP-Service wenn registriert.                                 |
+| Mitglied | Erteilt Zu/Absagen für Trainingseinheiten über einen E-Mail-basierten RSVP-Service, wenn registriert.                       |
 | Trainer  | Gleiche Berechtigungen wie das Mitglied. Erhält zusätzlich Berichte über Trainingsbeteiligung und kann das Training absagen. |
 
 # Funktionale Anforderungen
@@ -15,25 +15,20 @@ Ziel ist es, die Teilnahme Rückmeldungen zum Training zu erhöhen, indem Rückm
 - Bereitstellung eines einfachen Google-Formulars zur Mitgliederregistrierung.
 - Erfassung Namen und E-Mail-Adresse. Der Name MUSS mit dem Sheet Namen übereinstimmen.
 - Erfassung, für welche Trainings die Benachrichtigung gelten sollen (z.b. Montag, Mittwoch...)
-- Erfassung des bevorzugten RSVP-Kanals: `E-MAIL`, `KALENDER` oder `BEIDE`.
 - Unterscheidung zwischen Trainer und Mitglied (siehe User Management)
 
 ### FR-2 Wöchentliche Trainingserinnerung
 - Versenden automatisierter wöchentlicher Erinnerungen vor jeder Trainingseinheit, wenn Mitglied registriert ist und keine Rückmeldung gegeben hat.
 - Information: Indoor/Outdoor, Uhrzeit, Ort des Trainings
 - Typ des Trainings kann angegeben werden (single-gender oder mixed), evtl. weitere Informationen.
-- Zustellung nach Mitgliederpräferenz:
-  - E-Mail-Erinnerung mit RSVP-Aktionen,
-  - Kalendereinladung,
-  - oder beides.
+- Zustellung als E-Mail-Erinnerung mit RSVP-Aktionen.
 
 ### FR-3 One-Click RSVP
 - Unterstützung von One-Click-Zusage/Absage via E-Mail-Link zur Apps Script Web App.
-- Unterstützung von One-Click-Zusage/Absage via Google Kalender Teilnehmerantwort.
 - Mitglieder benötigen niemals direkten Zugriff auf das Trainingsblatt für die RSVP (trotzdem möglich).
 
 ### FR-4 Blatt-Synchronisierung (Sheet-Sync)
-- Synchronisierung der RSVP-Ergebnisse aus E-Mail und Kalender in die Anwesenheitszellen.
+- Synchronisierung der RSVP-Ergebnisse aus E-Mails in die Anwesenheitszellen.
 - Manuelle Bearbeitungen durch den Trainer sind jederzeit möglich.
 - Manuelle Werte dürfen nicht überschrieben werden, außer es geht eine neuere explizite RSVP nach der manuellen Änderung ein.
 - Gewährleistung einer deterministischen Konfliktlösung mittels Quelle + Zeitstempel-Metadaten.
@@ -41,7 +36,7 @@ Ziel ist es, die Teilnahme Rückmeldungen zum Training zu erhöhen, indem Rückm
 
 ### FR-5 Benachrichtigung bei Trainingsabsage
 - Ermöglichen einer Trainer-ausgelösten Absage über eine einzelne Aktion im Blatt (z. B. Kontrollzelle/Checkbox).
-- Versenden einer Absage-E-Mail an alle registrierten Mitglieder und sagt Terminevent im Kalender ab.
+- Versenden einer Absage-E-Mail an alle registrierten Mitglieder.
 
 ### FR-6 Benachrichtigung der Trainer über Trainingsbeteiligung
 - Nur für Trainer (siehe User Management)

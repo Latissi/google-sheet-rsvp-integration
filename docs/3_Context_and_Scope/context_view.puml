@@ -25,8 +25,8 @@ package "Training-RSVP-System\n\n\n\n" <<BlackBox>> as RSVP {
 }
 
 Member --> RSVP : <<Formular>> Registrierung
-Member -> RSVP : <<Mail/Calendar Response>> Absage / Zusage
-RSVP --> Member : <<Mail/Calendar>> Erinnerung
+Member -> RSVP : <<Mail Response>> Absage / Zusage
+RSVP --> Member : <<Mail>> Erinnerung
 
 RSVP --> Trainer: <<Mail>> Teilnehmerliste
 
