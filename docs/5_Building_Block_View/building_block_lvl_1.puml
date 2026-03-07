@@ -1,0 +1,57 @@
+@startuml
+title Building Block View [Level 1]
+
+top to bottom direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultTextAlignment center
+skinparam rectangle {
+  RoundCorner 12
+}
+skinparam package<<BlackBox>> {
+  BackgroundColor black
+  BorderColor black
+  FontColor white
+  FontSize 18
+  Padding 60
+}
+
+actor "Mitglied" as Member
+actor "Trainer" as Trainer
+note right of Trainer : Trainer ist \nauch Mitglied
+
+rectangle "Trainings Sheet" as Sheet
+
+package RSVP {
+  together {
+    rectangle Formular
+    package RSVP_Sender <<BlackBox>>
+    package ResponseHandler <<BlackBox>>
+    package TrainingManager <<BlackBox>>
+  }
+
+  together {
+    package TrainingSheetAccess <<BlackBox>>
+    package Controller <<BlackBox>>
+    package Configuration <<BlackBox>>
+  }
+
+  Formular -[hidden]down-> TrainingSheetAccess
+  ResponseHandler -[hidden]down-> TrainingSheetAccess
+  RSVP_Sender -[hidden]down-> Configuration
+  TrainingManager -[hidden]down-> Configuration
+}
+
+Member --> Formular : <<Formular>> Registrierung
+RSVP_Sender --> Member : <<Mail>> Erinnerung
+Member --> ResponseHandler : <<Mail Response>> Absage / Zusage
+
+TrainingManager --> Trainer: <<Mail>> Teilnehmerliste
+
+Sheet --> TrainingSheetAccess : Lesen
+TrainingSheetAccess --> Sheet : Schreiben
+
+Controller --> Configuration
+Controller --> TrainingSheetAccess
+
+@enduml
