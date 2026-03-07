@@ -1,8 +1,15 @@
-# Anforderungen und Einschränkungen — Trainings RSVP System
+## Anforderungen
 
-Dieses Dokument zentralisiert die Projektanforderungen und Einschränkungen für den Trainings [RSVP](https://en.wikipedia.org/wiki/RSVP)-Workflow.
+Ziel ist es, die Teilnahme Rückmeldungen zum Training zu erhöhen, indem Rückmeldungen vereinfacht werden und Erinnerungen versendet werden können. Zu diesem Zweck soll ein [RSVP](https://en.wikipedia.org/wiki/RSVP) System entwickelt werden.
 
-## Funktionale Anforderungen
+## Stakeholders
+
+| Role     | Description                                                                                                                                                                 |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Member   | Provides RSVP feedback for training sessions via email or calendar. Receives reminders and cancellation notices.                                                             |
+| Trainer  | Manages the training sheet, triggers cancellations, and receives training participation reports. Also acts as a member for their own RSVP.                                  |
+
+# Funktionale Anforderungen
 
 ### FR-1 RSVP-Regestrierung
 - Bereitstellung eines einfachen Google-Formulars zur Mitgliederregistrierung.
@@ -65,19 +72,3 @@ Dieses Dokument zentralisiert die Projektanforderungen und Einschränkungen für
 - Security: Confidentiality
 - Maintainability: Modifiability
 - Compatibility: Co-Existence (mit bisherigem Trainingssheet Workflow)
-
-## Einschränkungen
-
-### Kosten
-- Nur Einsatz von kostenlosen Tools
-
-### Technische Einschränkungen
-- Verwendung ausschließlich nativer Google Workspace Free-Tier-Tools: Sheets, Forms, Kalender, Gmail, Apps Script, Groups (optional).
-- Keine Drittanbieter-Automatisierungen/Dienste ohne ausdrückliche Genehmigung.
-
-### Datenbeschränkungen
-- Persistierung von Kontaktdaten ausschließlich im Backend-Tab (`Backend DB`).
-- Sicherstellen, dass Kontaktdaten für reguläre Betrachter des Blattes unzugänglich bleiben.
-
-### Datenbackend
-- Das Trainingsblatt bleibt die "Single Source of Truth".
