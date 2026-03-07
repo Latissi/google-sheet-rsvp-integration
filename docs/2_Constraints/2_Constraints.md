@@ -2,12 +2,9 @@
 - Es dürfen keine Kosten entstehen
 
 ## Technische Einschränkungen
-- Verwendung ausschließlich nativer Google Workspace Free-Tier-Tools: Sheets, Forms, Kalender, Gmail, Apps Script, Groups (optional).
-- Keine Drittanbieter-Automatisierungen/Dienste ohne ausdrückliche Genehmigung.
+- Keine Drittanbieter-Automatisierungen/Dienste ohne ausdrückliche Genehmigung und damit Verwendung ausschließlich nativer Google Workspace Free-Tier-Tools: Sheets, Forms, Kalender, Gmail, Apps Script, Groups (optional).
+- Beschränkungen durch die Google [Free-Tier Quotas](https://developers.google.com/apps-script/guides/services/quotas#note1). Ein relevantes Limit könnten die maximalen Mails pro Tag sein (100).
 
 ## Datenbeschränkungen
-- Persistierung von Kontaktdaten ausschließlich im Backend-Tab (`Backend DB`).
-- Sicherstellen, dass Kontaktdaten für reguläre Betrachter des Blattes unzugänglich bleiben.
-
-## Datenbackend
+- Sicherstellen, dass Kontaktdaten und Konfigurationsdaten für reguläre Betrachter des Blattes unzugänglich bleiben.
 - Das Trainingsblatt bleibt die "Single Source of Truth".

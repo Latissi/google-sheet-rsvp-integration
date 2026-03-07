@@ -4,10 +4,10 @@ Ziel ist es, die Teilnahme Rückmeldungen zum Training zu erhöhen, indem Rückm
 
 ## Stakeholders
 
-| Role     | Description                                                                                                                                                                 |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Member   | Provides RSVP feedback for training sessions via email or calendar. Receives reminders and cancellation notices.                                                             |
-| Trainer  | Manages the training sheet, triggers cancellations, and receives training participation reports. Also acts as a member for their own RSVP.                                  |
+| Rolle    | Beschreibung                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Mitglied | Erteilt Zu/Absagen für Trainings Einheiten über Mail/Kalender RSVP-Service wenn registriert.                                 |
+| Trainer  | Gleiche Berechtigungen wie das Mitglied. Erhält zusätzlich Berichte über Trainingsbeteiligung und kann das Training absagen. |
 
 # Funktionale Anforderungen
 
@@ -62,7 +62,7 @@ Ziel ist es, die Teilnahme Rückmeldungen zum Training zu erhöhen, indem Rückm
 
 ### FR-10 Turnierbenachrichtigung (optional)
 
-## Qualitäts Anforderungen (ISO-25010)
+## Qualitäts Ziele (ISO-25010)
 
 ### Priority 1
 - Functional Suitability: Functional Correctness
