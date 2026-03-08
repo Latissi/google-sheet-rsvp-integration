@@ -1,0 +1,52 @@
+```plantuml
+@startuml
+!theme plain
+skinparam componentStyle uml2
+skinparam BackgroundColor white
+
+title Verteilungssicht (Deployment View) - RSVP System nach arc42
+
+node "Entwickler-Workstation" as local {
+  component "TypeScript Quellcode\n(Logische Services & Adapter)" as src
+  component "clasp CLI\n(.clasp-dev.json / .clasp-prod.json)" as clasp
+  
+  src --> clasp : kompiliert & pusht
+}
+
+cloud "Google Cloud / Workspace" as cloud {
+  
+  node "Entwicklungsumgebung (DEV)" as env_dev {
+    database "Öffentliches DEV-Sheet\n(Trainings & Anwesenheit)" as dev_public
+    
+    database "Privates DEV-Sheet\n(User & Konfiguration)" as dev_private {
+      component "Container-bound RSVP Apps Script\n[DEV Script-ID]" as script_dev
+    }
+    
+    script_dev ..> dev_public : "liest/schreibt via ID\n(SpreadsheetApp.openById)"
+    script_dev --> dev_private : "liest/schreibt nativ\n(SpreadsheetApp.getActive)"
+  }
+
+  node "Produktionsumgebung (PROD)" as env_prod {
+    database "Öffentliches PROD-Sheet\n(Trainings & Anwesenheit)" as prod_public
+    
+    database "Privates PROD-Sheet\n(User & Konfiguration)" as prod_private {
+      component "Container-bound RSVP Apps Script\n[PROD Script-ID]" as script_prod
+    }
+    
+    script_prod ..> prod_public : "liest/schreibt via ID\n(SpreadsheetApp.openById)"
+    script_prod --> prod_private : "liest/schreibt nativ\n(SpreadsheetApp.getActive)"
+  }
+}
+
+actor "Mitglied" as user
+actor "Trainer" as trainer
+
+clasp -.-> script_dev : "npm run push:dev"
+clasp -.-> script_prod : "npm run push:prod"
+
+user --> script_prod : "HTTP GET (Web App URL)\n[RSVP Klicks]"
+script_prod --> user : "Sendet E-Mail\n(GmailApp)"
+
+trainer --> prod_public : "Liest/Bearbeitet direkt"
+@enduml
+```
