@@ -1,0 +1,70 @@
+@startuml
+title Building Block View [Level 2] - Infrastructure
+
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam rectangle {
+  RoundCorner 12
+}
+skinparam package {
+  RoundCorner 12
+}
+skinparam package<<BlackBox>> {
+  BackgroundColor black
+  BorderColor black
+  FontColor white
+  FontSize 18
+  Padding 60
+}
+skinparam rectangle<<BlackBox>> {
+  BackgroundColor black
+  BorderColor black
+  FontColor white
+  FontSize 18
+}
+skinparam component<<BlackBox>> {
+  BackgroundColor black
+  BorderColor black
+  FontColor white
+  FontSize 16
+}
+
+actor "Mitglied" as Member
+actor "Trainer" as Trainer
+
+rectangle "Public Training Sheet" as PublicSheet
+rectangle "Private Data Sheet" as PrivateSheet
+rectangle "Script Properties" as ScriptProperties
+
+package RSVP {
+  package "Application" as Application <<BlackBox>>
+  package "Domain" as Domain <<BlackBox>>
+
+  package "Infrastructure" as Infrastructure {
+    package "Adapters" as Adapters {
+      component ConfigurationAdapter
+      component "Training Sheet Adapter" as TrainingSheetAdapter <<BlackBox>>
+      component "Mail Adapter" as MailAdapter <<BlackBox>>
+    }
+
+    package "Gateway" as Gateway {
+      interface ISheetGateway
+      component GoogleSheetGateway
+    }
+
+    rectangle "Runtime Config" as RuntimeConfig
+  }
+}
+
+Application ..> Adapters
+Adapters ..> Domain
+ConfigurationAdapter --> ISheetGateway
+TrainingSheetAdapter --> ISheetGateway
+GoogleSheetGateway .up.|> ISheetGateway
+GoogleSheetGateway --> PublicSheet
+GoogleSheetGateway --> PrivateSheet
+RuntimeConfig --> ScriptProperties
+
+MailAdapter --> Member : <<Mail>> Erinnerung
+MailAdapter --> Trainer : <<Mail>> Teilnehmerliste
+@enduml

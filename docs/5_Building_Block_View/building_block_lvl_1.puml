@@ -6,6 +6,9 @@ skinparam defaultTextAlignment center
 skinparam rectangle {
   RoundCorner 12
 }
+skinparam package {
+  RoundCorner 12
+}
 skinparam package<<BlackBox>> {
   BackgroundColor black
   BorderColor black
@@ -13,42 +16,34 @@ skinparam package<<BlackBox>> {
   FontSize 18
   Padding 60
 }
+skinparam rectangle<<BlackBox>> {
+  BackgroundColor black
+  BorderColor black
+  FontColor white
+  FontSize 18
+}
 
 actor "Mitglied" as Member
 actor "Trainer" as Trainer
-note right of Trainer : Trainer ist \nauch Mitglied
 
-rectangle "Trainings Sheet" as Sheet
+rectangle "Public Training Sheet" as PublicSheet
+rectangle "Private Data Sheet" as PrivateSheet
 
 package RSVP {
-  package Services <<BlackBox>>
-  rectangle Formular
-  package MailAdapter <<BlackBox>>
-  package ResponseHandler <<BlackBox>>
-  package TrainingSheetAdapter <<BlackBox>>
-  package ConfigurationAdapter <<BlackBox>>
-  rectangle Private_Data_Sheet as "Privates Sheet"
-
-  Formular -[hidden]down-> TrainingSheetAdapter
-  ResponseHandler -[hidden]down-> TrainingSheetAdapter
-  MailAdapter -[hidden]down-> ConfigurationAdapter
+  package "Application" as Application <<BlackBox>>
+  package "Domain" as Domain <<BlackBox>>
+  package "Infrastructure" as Infrastructure <<BlackBox>>
 }
 
-ConfigurationAdapter ..> Services
-TrainingSheetAdapter ..> Services
-MailAdapter ..> Services
-ResponseHandler ..> Services
+Member --> Application : Registrierung / RSVP
+Trainer --> Application : Trainingsverwaltung
+Application --> Member : Erinnerungen
+Application --> Trainer : Teilnehmerliste
 
-Formular --> ResponseHandler : <<Call>> 
-Member --> Formular : <<Formular>> Registrierung
-MailAdapter --> Member : <<Mail>> Erinnerung
-Member --> ResponseHandler : <<Mail Response>> Absage / Zusage
+Application ..> Domain
+Application ..> Infrastructure
+Infrastructure ..> Domain
 
-MailAdapter --> Trainer: <<Mail>> Teilnehmerliste
-
-Sheet --> TrainingSheetAdapter : Lesen
-TrainingSheetAdapter --> Sheet : Schreiben
-
-
-ConfigurationAdapter --> Private_Data_Sheet
+Infrastructure --> PublicSheet
+Infrastructure --> PrivateSheet
 @enduml

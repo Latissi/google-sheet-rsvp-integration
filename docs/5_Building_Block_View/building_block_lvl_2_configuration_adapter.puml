@@ -1,8 +1,11 @@
 @startuml
-title Building Block View [Level 2] - Configuration Adapter
+title Building Block View [Level 2] - Configuration and User Integration
 
 skinparam shadowing false
 skinparam defaultTextAlignment center
+skinparam package {
+  RoundCorner 12
+}
 skinparam package<<BlackBox>> {
   BackgroundColor black
   BorderColor black
@@ -10,61 +13,32 @@ skinparam package<<BlackBox>> {
   FontSize 18
   Padding 60
 }
+skinparam rectangle<<BlackBox>> {
+  BackgroundColor black
+  BorderColor black
+  FontColor white
+  FontSize 18
+}
 
 package RSVP {
-  package Services {
-    interface IConfigurationProvider {
-      + getPublicSheetId(): string
-      + getTrainingSheetName(): string
-      + getAttendanceConfig(): AttendanceConfig
-      + getReminderDaysBeforeTraining(): number
-      + getWebAppUrl(): string
-    }
+  package "Domain / Ports" as DomainPorts <<BlackBox>>
 
-    interface IUserRepository {
-      + getAllUsers(): UserRecord[]
-      + getUserByMemberId(id: string): UserRecord | null
-      + getUserByEmail(email: string): UserRecord | null
-      + getUserByName(name: string): UserRecord | null
-      + upsertUser(user: UserRecord): void
-    }
-  }
-
-  package Infrastructure {
-    package Adapters {
+  package "Infrastructure" as Infrastructure {
+    package "Adapters" as Adapters {
       component ConfigurationAdapter
     }
 
-    package Gateway {
-      interface ISheetGateway {
-        + getSheetValues(sheetName: string): unknown[][]
-        + setRowValues(sheetName: string, rowIndex: number, values: unknown[]): void
-        + appendRow(sheetName: string, values: unknown[]): void
-      }
-
+    package "Gateway" as Gateway {
+      interface ISheetGateway
       component GoogleSheetGateway
     }
-    
-    component Config {
-        note "Returns process ENV,\nWEBAPPURL, etc.\nvia PropertiesService" as N1
-    }
-  }
-
-  rectangle "Private Data Sheet" as PrivateSheet {
-    database "Konfiguration\n(Tab)" as ConfigTab
-    database "Benutzer\n(Tab)" as UserTab
   }
 }
 
-' Relations
-ConfigurationAdapter .up.|> IConfigurationProvider
-ConfigurationAdapter .up.|> IUserRepository
+rectangle "Private Data Sheet" as PrivateSheet
 
-ConfigurationAdapter --> ISheetGateway : <<uses>>
+ConfigurationAdapter ..> DomainPorts
+ConfigurationAdapter --> ISheetGateway
 GoogleSheetGateway .up.|> ISheetGateway
-
-GoogleSheetGateway --> ConfigTab : <<reads/writes>>\n(SpreadsheetApp)
-GoogleSheetGateway --> UserTab : <<reads/writes>>\n(SpreadsheetApp)
-
-Config --> PropertiesService : <<calls>>
+GoogleSheetGateway --> PrivateSheet
 @enduml

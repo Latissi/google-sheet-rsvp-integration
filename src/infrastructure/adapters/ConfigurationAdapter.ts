@@ -1,7 +1,28 @@
 import { IConfigurationProvider } from '../../domain/ports/IConfigurationProvider';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
-import { UserRecord, AttendanceConfig, Role, TrainingDay } from '../../domain/types';
+import {
+  AttendanceConfig,
+  createPersonName,
+  createPersonNameFromFullName,
+  getRoleDefinition,
+  parseRole,
+  ReminderPolicy,
+  TRAINING_DAYS,
+  TrainingDay,
+  UserRecord,
+} from '../../domain/types';
 import { ISheetGateway } from '../gateway/ISheetGateway';
+
+interface UserSheetSchema {
+  memberId: number;
+  name?: number;
+  firstName?: number;
+  lastName?: number;
+  email: number;
+  role: number;
+  subscribedTrainings?: number;
+  subscribedTrainingIds?: number;
+}
 
 export class ConfigurationAdapter implements IConfigurationProvider, IUserRepository {
   private gateway: ISheetGateway;
@@ -58,39 +79,160 @@ export class ConfigurationAdapter implements IConfigurationProvider, IUserReposi
     return parsed;
   }
 
+  getReminderPolicy(): ReminderPolicy {
+    return {
+      daysBeforeTraining: this.getReminderDaysBeforeTraining(),
+      channels: ['email'],
+    };
+  }
+
   getWebAppUrl(): string {
     return this.getConfigValue('WEBAPP_URL');
+  }
+
+  private normalizeHeader(value: unknown): string {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  private getColumnIndex(headers: unknown[], candidates: string[]): number | undefined {
+    const normalizedCandidates = new Set(candidates.map(candidate => this.normalizeHeader(candidate)));
+    return headers.findIndex(header => normalizedCandidates.has(this.normalizeHeader(header)));
+  }
+
+  private getRequiredColumnIndex(headers: unknown[], candidates: string[]): number {
+    const index = this.getColumnIndex(headers, candidates);
+    if (index === -1 || index === undefined) {
+      throw new Error(`Missing required user sheet column: ${candidates[0]}`);
+    }
+    return index;
+  }
+
+  private getUserSheetSchema(rawData: unknown[][]): UserSheetSchema {
+    const headers = rawData[0] ?? [];
+    return {
+      memberId: this.getRequiredColumnIndex(headers, ['MemberID', 'MemberId']),
+      name: this.getColumnIndex(headers, ['Name', 'FullName']),
+      firstName: this.getColumnIndex(headers, ['FirstName', 'GivenName']),
+      lastName: this.getColumnIndex(headers, ['LastName', 'FamilyName', 'Surname']),
+      email: this.getRequiredColumnIndex(headers, ['Email', 'Mail']),
+      role: this.getRequiredColumnIndex(headers, ['Role']),
+      subscribedTrainings: this.getColumnIndex(headers, ['SubscribedTrainings', 'TrainingDays']),
+      subscribedTrainingIds: this.getColumnIndex(headers, ['SubscribedTrainingIds', 'TrainingIds']),
+    };
+  }
+
+  private getCellValue(row: unknown[], index?: number): string {
+    if (index === undefined || index < 0 || index >= row.length) {
+      return '';
+    }
+
+    return String(row[index] ?? '').trim();
+  }
+
+  private parseDelimitedList(value: string): string[] {
+    return value
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  private parseTrainingDays(value: string): TrainingDay[] {
+    const validTrainingDays = new Set<string>(TRAINING_DAYS);
+    return this.parseDelimitedList(value).filter((item): item is TrainingDay => validTrainingDays.has(item));
+  }
+
+  private getPersonName(user: UserRecord) {
+    return user.personName ?? createPersonNameFromFullName(user.name);
+  }
+
+  private buildUserRow(user: UserRecord, schema: UserSheetSchema, currentWidth: number): unknown[] {
+    const highestIndex = Math.max(
+      currentWidth - 1,
+      schema.memberId,
+      schema.email,
+      schema.role,
+      schema.name ?? -1,
+      schema.firstName ?? -1,
+      schema.lastName ?? -1,
+      schema.subscribedTrainings ?? -1,
+      schema.subscribedTrainingIds ?? -1,
+    );
+    const row = new Array(Math.max(highestIndex + 1, 0)).fill('');
+    const personName = this.getPersonName(user);
+
+    row[schema.memberId] = user.memberId;
+    if (schema.name !== undefined) {
+      row[schema.name] = user.name;
+    }
+    if (schema.firstName !== undefined) {
+      row[schema.firstName] = personName.firstName;
+    }
+    if (schema.lastName !== undefined) {
+      row[schema.lastName] = personName.lastName;
+    }
+    row[schema.email] = user.email;
+    row[schema.role] = user.role;
+
+    if (schema.subscribedTrainings !== undefined) {
+      row[schema.subscribedTrainings] = user.subscribedTrainings.join(', ');
+    }
+    if (schema.subscribedTrainingIds !== undefined) {
+      row[schema.subscribedTrainingIds] = user.subscribedTrainingIds.join(', ');
+    }
+
+    return row;
   }
 
   private parseUsers(): UserRecord[] {
     const rawData = this.gateway.getSheetValues(this.USER_SHEET);
     if (!rawData || rawData.length === 0) return [];
+
+    const schema = this.getUserSheetSchema(rawData);
     
     const users: UserRecord[] = [];
     
     // Skip header row
     for (let i = 1; i < rawData.length; i++) {
         const row = rawData[i];
-        if (!row || row.length < 5) continue;
+        if (!row || row.length === 0) continue;
         
-        const memberId = String(row[0]).trim();
-        const name = String(row[1]).trim();
-        const email = String(row[2]).trim();
-        const role = String(row[3]).trim() as Role;
-        const subRaw = String(row[4]).trim();
+        const memberId = this.getCellValue(row, schema.memberId);
+        const firstName = this.getCellValue(row, schema.firstName);
+        const lastName = this.getCellValue(row, schema.lastName);
+        const legacyName = this.getCellValue(row, schema.name);
+        const personName = firstName || lastName
+          ? createPersonName(firstName, lastName)
+          : createPersonNameFromFullName(legacyName);
+        const name = personName.fullName || legacyName;
+        const email = this.getCellValue(row, schema.email);
+        const role = parseRole(this.getCellValue(row, schema.role));
+        const subRaw = this.getCellValue(row, schema.subscribedTrainings);
+        const subscribedTrainingIdsRaw = this.getCellValue(row, schema.subscribedTrainingIds);
         
-        if (!email) {
+        if (!memberId || !email) {
             console.warn(`User with memberId "${memberId}" has no email.`);
             continue;
         }
 
-        const subscribedTrainings = subRaw ? subRaw.split(',').map(s => s.trim() as TrainingDay) : [];
+        const subscribedTrainings = this.parseTrainingDays(subRaw);
+        const subscribedTrainingIds = this.parseDelimitedList(subscribedTrainingIdsRaw);
+        const normalizedTrainingIds = subscribedTrainingIds.length > 0 ? subscribedTrainingIds : subscribedTrainings;
 
         users.push({
             memberId,
             name,
             email,
             role,
+            roleDefinition: getRoleDefinition(role),
+            personName,
+            subscriptions: normalizedTrainingIds.map(trainingId => ({
+              trainingId,
+              notificationChannel: 'email',
+            })),
+            subscribedTrainingIds: normalizedTrainingIds,
             subscribedTrainings
         });
     }
@@ -122,20 +264,14 @@ export class ConfigurationAdapter implements IConfigurationProvider, IUserReposi
 
   upsertUser(user: UserRecord): void {
       const rawData = this.gateway.getSheetValues(this.USER_SHEET);
-      // Data format: A: memberId, B: name, C: email, D: role, E: subscribedTrainings
-      const rowData = [
-          user.memberId,
-          user.name,
-          user.email,
-          user.role,
-          user.subscribedTrainings.join(',')
-      ];
+      const schema = this.getUserSheetSchema(rawData);
+      const rowData = this.buildUserRow(user, schema, rawData[0]?.length ?? 0);
 
       let foundIndex = -1;
       if (rawData && rawData.length > 0) {
           // Find row by memberId, skipping header (index 0)
           for(let i=1; i<rawData.length; i++) {
-              if (rawData[i] && rawData[i].length > 0 && String(rawData[i][0]).trim() === user.memberId) {
+          if (rawData[i] && rawData[i].length > 0 && this.getCellValue(rawData[i], schema.memberId) === user.memberId) {
                   foundIndex = i;
                   break;
               }

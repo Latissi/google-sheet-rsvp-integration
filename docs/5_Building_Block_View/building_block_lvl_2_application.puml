@@ -1,0 +1,57 @@
+@startuml
+title Building Block View [Level 2] - Domain and Application
+
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam package {
+  RoundCorner 12
+}
+skinparam package<<BlackBox>> {
+  BackgroundColor black
+  BorderColor black
+  FontColor white
+  FontSize 18
+  Padding 60
+}
+skinparam component<<BlackBox>> {
+  BackgroundColor black
+  BorderColor black
+  FontColor white
+  FontSize 16
+}
+
+actor "Mitglied" as Member
+actor "Trainer" as Trainer
+
+package RSVP {
+  package "Application" as Application {
+    component "Registration" as Registration <<BlackBox>>
+    component "RSVP Handling" as Rsvp <<BlackBox>>
+    component "Notifications" as Notifications <<BlackBox>>
+  }
+
+  package "Domain" as Domain {
+    package "Models" as Models
+    package "Ports" as Ports
+  }
+
+  package "Infrastructure" as Infrastructure <<BlackBox>>
+}
+
+Member --> Registration : Registrierung
+Member --> Rsvp : RSVP Sign-off
+Trainer --> Application : Trainingsverwaltung
+Notifications --> Member : Erinnerungen
+Notifications --> Trainer : Teilnehmerliste
+
+Registration ..> Models
+Registration ..> Ports
+
+Rsvp ..> Models
+Rsvp ..> Ports
+
+Notifications ..> Models
+Notifications ..> Ports
+
+Infrastructure ..> Ports
+@enduml
