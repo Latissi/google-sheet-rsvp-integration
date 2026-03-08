@@ -1,9 +1,7 @@
 @startuml
 title Building Block View [Level 1]
 
-top to bottom direction
 skinparam shadowing false
-skinparam linetype ortho
 skinparam defaultTextAlignment center
 skinparam rectangle {
   RoundCorner 12
@@ -23,35 +21,34 @@ note right of Trainer : Trainer ist \nauch Mitglied
 rectangle "Trainings Sheet" as Sheet
 
 package RSVP {
-  together {
-    rectangle Formular
-    package RSVP_Sender <<BlackBox>>
-    package ResponseHandler <<BlackBox>>
-    package TrainingManager <<BlackBox>>
-  }
+  package Services <<BlackBox>>
+  rectangle Formular
+  package MailAdapter <<BlackBox>>
+  package ResponseHandler <<BlackBox>>
+  package TrainingSheetAdapter <<BlackBox>>
+  package ConfigurationAdapter <<BlackBox>>
+  rectangle Private_Data_Sheet as "Privates Sheet"
 
-  together {
-    package TrainingSheetAccess <<BlackBox>>
-    package Controller <<BlackBox>>
-    package Configuration <<BlackBox>>
-  }
-
-  Formular -[hidden]down-> TrainingSheetAccess
-  ResponseHandler -[hidden]down-> TrainingSheetAccess
-  RSVP_Sender -[hidden]down-> Configuration
-  TrainingManager -[hidden]down-> Configuration
+  Formular -[hidden]down-> TrainingSheetAdapter
+  ResponseHandler -[hidden]down-> TrainingSheetAdapter
+  MailAdapter -[hidden]down-> ConfigurationAdapter
 }
 
+ConfigurationAdapter ..> Services
+TrainingSheetAdapter ..> Services
+MailAdapter ..> Services
+ResponseHandler ..> Services
+
+Formular --> ResponseHandler : <<Call>> 
 Member --> Formular : <<Formular>> Registrierung
-RSVP_Sender --> Member : <<Mail>> Erinnerung
+MailAdapter --> Member : <<Mail>> Erinnerung
 Member --> ResponseHandler : <<Mail Response>> Absage / Zusage
 
-TrainingManager --> Trainer: <<Mail>> Teilnehmerliste
+MailAdapter --> Trainer: <<Mail>> Teilnehmerliste
 
-Sheet --> TrainingSheetAccess : Lesen
-TrainingSheetAccess --> Sheet : Schreiben
+Sheet --> TrainingSheetAdapter : Lesen
+TrainingSheetAdapter --> Sheet : Schreiben
 
-Controller --> Configuration
-Controller --> TrainingSheetAccess
 
+ConfigurationAdapter --> Private_Data_Sheet
 @enduml
