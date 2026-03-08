@@ -1,8 +1,14 @@
 {
   "name": "Google Apps Script Dev",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": ".."
   },
+  "workspaceFolder": "/workspaces/google-sheet-rsvp-integration",
+  "mounts": [
+    "source=google-sheet-rsvp-node_modules,target=/workspaces/google-sheet-rsvp-integration/node_modules,type=volume"
+  ],
+  "postCreateCommand": "if [ -f package-lock.json ]; then npm ci; else npm install; fi",
   "customizations": {
     "vscode": {
       "settings": {},

@@ -1,2 +1,5 @@
 .obsidian/
 .clasp**
+node_modules/
+dist/
+package-lock.json

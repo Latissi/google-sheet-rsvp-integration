@@ -1,4 +1,17 @@
-"scripts": {
-  "push:dev": "cp .clasp-dev.json .clasp.json && clasp push",
-  "push:prod": "cp .clasp-prod.json .clasp.json && clasp push"
+{
+	"name": "google-sheet-rsvp-integration",
+	"version": "1.0.0",
+	"scripts": {
+		"test": "jest --runInBand",
+		"build": "rm -rf dist && tsc -p tsconfig.json",
+		"push:dev": "cp .clasp-dev.json .clasp.json && clasp push",
+		"push:prod": "cp .clasp-prod.json .clasp.json && clasp push"
+	},
+	"devDependencies": {
+		"@types/google-apps-script": "^2.0.8",
+		"@types/jest": "^30.0.0",
+		"jest": "^30.2.0",
+		"ts-jest": "^29.4.6",
+		"typescript": "^5.9.3"
+	}
 }
