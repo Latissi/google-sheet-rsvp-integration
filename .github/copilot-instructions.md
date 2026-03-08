@@ -2,115 +2,40 @@
 
 This repository implements a **hybrid RSVP workflow** for club training management using only Google-native tools.
 
-Canonical requirements and constraints are documented in [docs/requirements-and-constraints.md](../docs/requirements-and-constraints.md).
+## 1. Core Architecture & Mental Model
+The system follows a **Clean Architecture / Ports & Adapters** pattern to decouple core domain logic from Google-specific APIs.
+- **Single Source of Truth:** The "Public Training Sheet" for sessions/attendance.
+- **Sensitive Data Isolation:** All PII (emails, roles) and system configs reside in a **Private "User & Config" Sheet**.
+- **Domain Layer (`Services/`):** Contains pure logic (`RegistrationManager`, `RsvpManager`, `NotificationManager`).
+- **Adapter Layer (`Adapters/`):** Implements system interfaces for `MailApp`, `SpreadsheetApp`, and `PropertiesService`.
+- **Flow:** `Trigger/Webhook` -> `Adapter` -> `Inbound Port (Service Interface)` -> `Domain Logic` -> `Outbound Port` -> `Persistence/Notification Adapter`.
 
-## 1) Product Goal
+## 2. Essential Configuration & Secrets
+Environment-dependent values must NEVER be hardcoded. Use `config.ts` which wraps `PropertiesService`.
+- **Required keys:** `SHEET_ID`, `PRIVATE_SHEETS_ID`, `CALENDAR_ID`, `WEBAPPURL`.
+- **Validation:** Always use typed config accessors that throw early if keys are missing.
 
-Keep the existing Google Sheet as the trainer’s primary frontend while enabling:
+## 3. Development & Testing Workflow
+Since Google APIs only run in the cloud, follow the multi-tier test strategy:
+- **Local Logic:** Test domain managers using `Jest` by mocking the Port interfaces (e.g., `IMailProvider`).
+- **Cloud Staging:** Use `clasp` to push to a separate "Dev" Apps Script project linked to a duplicate "Sandbox" Sheet.
+- **Safety Safeguard:** All email dispatch must pass through a wrapper that checks `ENV === 'prod'`. In `dev`, redirect all outgoing mail to the `TRAINER_EMAIL`.
 
-- low-friction member onboarding,
-- automated weekly reminders,
-- one-click RSVP via e-mail and/or calendar,
-- synchronization of RSVP data back into the training sheet,
-- one-action training cancellation broadcasts,
-- strict contact privacy.
+## 4. Coding Standards & Constraints
+- **Zero Cost:** No 3rd party APIs (Twilio, SendGrid, etc.). Use only `GmailApp`/`MailApp`.
+- **Quota Awareness:** Respect the 100 emails/day limit. Implement batching or specific trainer-only alerts where possible.
+- **Privacy:** Never log PII (emails/names) to stackdriver/cloud logs. Use internal `memberId` for tracing.
+- **Types:** Use explicit interfaces for data models (see `types.ts`).
 
-## 2) Required Architecture
+## 5. File Referencing Rules
+- **Logic:** `src/domain/` (Business rules)
+- **Infrastructure:** `src/infrastructure/` (Google API wrappers)
+- **Config:** `src/config.ts`
+- **Architecture Docs:** [docs/5_Building_Block_View/building_block_lvl_2_services.puml](docs/5_Building_Block_View/building_block_lvl_2_services.puml)
 
-Keep code modular and domain-oriented. Avoid monolith scripts.
-
-- `config.ts`: property access, constants, environment-aware configuration
-- `sheet.ts`: sheet read/write logic, mapping members/sessions/attendance cells
-- `mail.ts`: reminder/cancellation e-mail generation and dispatch
-- `calendar.ts`: event creation/lookup and RSVP status ingestion
-
-Additional allowed modules:
-- `form.ts` for onboarding processing
-- `webapp.ts` for RSVP link handlers (`doGet` / `doPost`)
-- `scheduler.ts` for time-based orchestration
-- `types.ts` for shared types/enums/interfaces
-
-## 3) Data Model Guidance
-
-Use stable keys and explicit schema comments in code.
-
-- `memberId` (deterministic or generated)
-- `fullName`
-- `email`
-- `channelPreference` (`EMAIL` | `CALENDAR` | `BOTH`)
-- `active` flag
-- timestamps: created/updated
-
-RSVP records should include:
-
-- `trainingSessionId` (or date key)
-- `memberId`
-- `status` (`YES` | `NO` | `UNKNOWN`)
-- `source` (`MAIL_LINK` | `CALENDAR` | `MANUAL`)
-- `updatedAt`
-
-## 4) Configuration & Secrets
-
-All environment-dependent values come from script properties, for example:
-
-- `ENV` (`dev`/`prod`)
-- `SHEET_ID`
-- `BACKEND_SHEET_NAME`
-- `TRAINING_SHEET_NAME`
-- `FORM_ID`
-- `CALENDAR_ID`
-- `WEBAPP_BASE_URL`
-- `TRAINER_EMAIL`
-
-Rules:
-- Never commit real IDs/tokens to source.
-- Provide typed config accessors with validation and fail-fast errors for missing required keys.
-
-## 5) Development Workflow (Local)
-
-- Develop in TypeScript via VS Code + `clasp`.
-- Use branch strategy:
-	- `develop` → staging deployment,
-	- `main` → production deployment.
-- Use separate Apps Script projects/resources for dev vs prod.
-- Test flows with alias e-mails (`name+alias@...`) to simulate multiple members.
-
-## 6) Coding Standards for This Repo
-
-- Keep functions small, explicit, and single-purpose.
-- Prefer pure transformation helpers for mapping/parsing logic.
-- Centralize enum/string literals in shared types/constants.
-- Validate all externally sourced input (Form payload, webapp query params, sheet values).
-- Avoid hidden behavior; document assumptions in concise module-level comments.
-
-## 7) Expected Operational Flows
-
-Implement and preserve these flows:
-
-1. Form submit → member registered in sheet + backend DB.
-2. Weekly trigger → reminders sent via configured channels.
-3. Mail RSVP click → webapp receives action → sheet sync update.
-4. Calendar RSVP update/read → sheet sync update.
-5. Cancellation trigger detected → cancellation e-mail broadcast.
-
-## 8) AI Agent Implementation Rules
-
-When generating or editing code in this repository:
-
-- Always preserve the Google Sheet-centric trainer UX.
-- Do not introduce third-party dependencies without explicit instruction.
-- Keep environment-aware behavior in `config.ts` and properties, not inline constants.
-- Do not leak e-mail addresses in logs, comments, sample data, or tests.
-- Favor minimal, targeted changes over broad refactors.
-- If a requirement is ambiguous, implement the simplest behavior consistent with the brief and leave a clear TODO marker.
-
-## 9) Definition of Done (Feature-Level)
-
-A feature is considered done only when:
-
-- code is modularized by domain,
-- staging-safe configuration is used (no hardcoded IDs),
-- privacy constraints are respected,
-- manual fallback remains possible,
-- and the change is testable in staging with predictable outcomes.
+## 6. Definition of Done
+- Port interfaces defined for any new external dependency.
+- Staging-ready (works with sandbox Sheet IDs).
+- Unit tests added for new domain logic.
+- Public Sheet UX is preserved (no breaking changes to trainer's view).
 
