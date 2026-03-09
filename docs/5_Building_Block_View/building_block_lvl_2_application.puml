@@ -30,10 +30,7 @@ package RSVP {
     component "Notifications" as Notifications <<BlackBox>>
   }
 
-  package "Domain" as Domain {
-    package "Models" as Models
-    package "Ports" as Ports
-  }
+  package "Domain" as Domain <<BlackBox>>
 
   package "Infrastructure" as Infrastructure <<BlackBox>>
 }
@@ -44,14 +41,9 @@ Trainer --> Application : Trainingsverwaltung
 Notifications --> Member : Erinnerungen
 Notifications --> Trainer : Teilnehmerliste
 
-Registration ..> Models
-Registration ..> Ports
+Registration ..> Domain
+Rsvp ..> Domain
+Notifications ..> Domain
 
-Rsvp ..> Models
-Rsvp ..> Ports
-
-Notifications ..> Models
-Notifications ..> Ports
-
-Infrastructure ..> Ports
+Infrastructure ..> Domain
 @enduml

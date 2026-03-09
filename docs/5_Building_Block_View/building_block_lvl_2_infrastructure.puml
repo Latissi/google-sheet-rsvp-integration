@@ -34,37 +34,24 @@ actor "Trainer" as Trainer
 
 rectangle "Public Training Sheet" as PublicSheet
 rectangle "Private Data Sheet" as PrivateSheet
-rectangle "Script Properties" as ScriptProperties
 
 package RSVP {
   package "Application" as Application <<BlackBox>>
   package "Domain" as Domain <<BlackBox>>
 
   package "Infrastructure" as Infrastructure {
-    package "Adapters" as Adapters {
-      component ConfigurationAdapter
-      component "Training Sheet Adapter" as TrainingSheetAdapter <<BlackBox>>
-      component "Mail Adapter" as MailAdapter <<BlackBox>>
-    }
+    package "Adapters" as Adapters <<BlackBox>>
 
-    package "Gateway" as Gateway {
-      interface ISheetGateway
-      component GoogleSheetGateway
-    }
-
-    rectangle "Runtime Config" as RuntimeConfig
+    package "Gateway" as Gateway <<BlackBox>>
   }
 }
 
 Application ..> Adapters
 Adapters ..> Domain
-ConfigurationAdapter --> ISheetGateway
-TrainingSheetAdapter --> ISheetGateway
-GoogleSheetGateway .up.|> ISheetGateway
-GoogleSheetGateway --> PublicSheet
-GoogleSheetGateway --> PrivateSheet
-RuntimeConfig --> ScriptProperties
+Adapters --> Gateway
+Gateway --> PublicSheet
+Gateway --> PrivateSheet
 
-MailAdapter --> Member : <<Mail>> Erinnerung
-MailAdapter --> Trainer : <<Mail>> Teilnehmerliste
+Adapters --> Member : <<Mail>> Erinnerung
+Adapters --> Trainer : <<Mail>> Teilnehmerliste
 @enduml
