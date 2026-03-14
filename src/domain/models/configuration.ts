@@ -1,3 +1,8 @@
+import {
+  TrainingAudience,
+  TrainingDay,
+  TrainingEnvironment,
+} from './training';
 import { NotificationChannel } from './user';
 
 export interface AttendanceConfig {
@@ -5,7 +10,29 @@ export interface AttendanceConfig {
   metadataColumn?: string;
 }
 
+export interface ReminderOffset {
+  hours: number;
+  minutes: number;
+}
+
 export interface ReminderPolicy {
-  daysBeforeTraining: number;
+  offsets: ReminderOffset[];
   channels: NotificationChannel[];
+}
+
+export interface TrainingSourceMatch {
+  trainingId: string;
+  day?: TrainingDay;
+  environment?: TrainingEnvironment;
+  audience?: TrainingAudience;
+  title?: string;
+}
+
+export interface PublicTrainingSource {
+  sourceId: string;
+  spreadsheetId?: string;
+  sheetName: string;
+  tableRange?: string;
+  attendance: AttendanceConfig;
+  trainings: TrainingSourceMatch[];
 }

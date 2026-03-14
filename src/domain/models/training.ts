@@ -10,7 +10,7 @@ export const TRAINING_DAYS = [
 
 export type TrainingDay = typeof TRAINING_DAYS[number];
 
-export type TrainingEnvironment = 'Indoor' | 'Outdoor' | 'Hybrid';
+export type TrainingEnvironment = 'Indoor' | 'Outdoor';
 export type TrainingAudience = 'Mixed' | 'SingleGender';
 export type TrainingSessionStatus = 'Scheduled' | 'Cancelled' | 'Completed';
 

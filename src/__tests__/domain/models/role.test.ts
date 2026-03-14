@@ -22,4 +22,9 @@ describe('role domain model', () => {
   it('rejects unsupported roles', () => {
     expect(() => parseRole('Admin')).toThrow('Unsupported role: "Admin"');
   });
+
+  it('accepts documented english role aliases', () => {
+    expect(parseRole('member')).toBe('Mitglied');
+    expect(parseRole('trainer')).toBe('Trainer');
+  });
 });

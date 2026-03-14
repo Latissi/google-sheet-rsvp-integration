@@ -12,7 +12,7 @@ The system follows a **Clean Architecture / Ports & Adapters** pattern to decoup
 
 ## 2. Essential Configuration & Secrets
 Environment-dependent values must NEVER be hardcoded. Use `config.ts` which wraps `PropertiesService`.
-- **Required keys:** `SHEET_ID`, `PRIVATE_SHEETS_ID`, `CALENDAR_ID`, `WEBAPPURL`.
+- **Required keys:** `PRIVATE_SHEETS_ID`, `WEBAPPURL`.
 - **Validation:** Always use typed config accessors that throw early if keys are missing.
 
 ## 3. Development & Testing Workflow
