@@ -225,4 +225,131 @@ describe('GoogleSheetTrainingDataRepository', () => {
     expect(gateway.updatedRows[0].values[10]).toBe('charlie::coach');
     expect(gateway.updatedRows[0].values[11]).toBe('Unwetter');
   });
+
+  it('parses member-row layouts with name columns on the left and date columns on the right', () => {
+    const memberRowSources: PublicTrainingSource[] = [{
+      sourceId: 'club-rsvp',
+      spreadsheetId: 'public-sheet',
+      sheetName: 'RSVP Übersicht',
+      tableRange: 'A1:E10',
+      attendance: {
+        layout: 'member-rows',
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'C',
+      },
+      trainings: [{
+        trainingId: 'wed-mixed',
+        day: 'Mittwoch',
+        title: 'Mittwoch Training',
+        startTime: '18:00',
+        location: 'Sporthalle',
+      }],
+    }];
+    const gateway = new MockSheetGateway({
+      'RSVP Übersicht': [
+        ['FirstName', 'LastName', new Date('2026-03-11T00:00:00.000Z'), new Date('2026-03-18T00:00:00.000Z'), 'Notiz'],
+        ['Alice', 'Example', 'x', '-', ''],
+        ['Bob', 'Example', '', 'x', ''],
+        ['Charlie', 'Coach', '-', '', ''],
+      ],
+    });
+    gateway.setCellNote('RSVP Übersicht', 2, 3, '{"source":"email-rsvp","updatedAt":"2026-03-09T10:00:00.000Z"}');
+    const repository = new GoogleSheetTrainingDataRepository(
+      gateway,
+      new TestConfigurationProvider(memberRowSources),
+      new TestUserRepository(users),
+    );
+
+    expect(repository.getUpcomingTrainingSessions()).toEqual([
+      {
+        sessionId: 'club-rsvp__wed-mixed__2026-03-11__18:00',
+        trainingId: 'wed-mixed',
+        sessionDate: '2026-03-11',
+        startTime: '18:00',
+        location: 'Sporthalle',
+        status: 'Scheduled',
+      },
+      {
+        sessionId: 'club-rsvp__wed-mixed__2026-03-18__18:00',
+        trainingId: 'wed-mixed',
+        sessionDate: '2026-03-18',
+        startTime: '18:00',
+        location: 'Sporthalle',
+        status: 'Scheduled',
+      },
+    ]);
+
+    expect(repository.getAttendanceForSession('club-rsvp__wed-mixed__2026-03-11__18:00')).toEqual([
+      {
+        memberId: 'alice::example',
+        sessionId: 'club-rsvp__wed-mixed__2026-03-11__18:00',
+        rsvpStatus: 'Accepted',
+        metadata: {
+          source: 'email-rsvp',
+          updatedAt: '2026-03-09T10:00:00.000Z',
+        },
+      },
+      {
+        memberId: 'charlie::coach',
+        sessionId: 'club-rsvp__wed-mixed__2026-03-11__18:00',
+        rsvpStatus: 'Declined',
+        metadata: {
+          source: 'manual',
+          updatedAt: '1970-01-01T00:00:00.000Z',
+        },
+      },
+    ]);
+  });
+
+  it('saves RSVP state back into a member-row attendance cell using x and -', () => {
+    const memberRowSources: PublicTrainingSource[] = [{
+      sourceId: 'club-rsvp',
+      spreadsheetId: 'public-sheet',
+      sheetName: 'RSVP Übersicht',
+      tableRange: 'A1:E10',
+      attendance: {
+        layout: 'member-rows',
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'C',
+      },
+      trainings: [{
+        trainingId: 'wed-mixed',
+        day: 'Mittwoch',
+        title: 'Mittwoch Training',
+        startTime: '18:00',
+      }],
+    }];
+    const gateway = new MockSheetGateway({
+      'RSVP Übersicht': [
+        ['FirstName', 'LastName', new Date('2026-03-11T00:00:00.000Z'), new Date('2026-03-18T00:00:00.000Z')],
+        ['Alice', 'Example', '', ''],
+        ['Bob', 'Example', '', ''],
+      ],
+    });
+    const repository = new GoogleSheetTrainingDataRepository(
+      gateway,
+      new TestConfigurationProvider(memberRowSources),
+      new TestUserRepository(users),
+    );
+
+    repository.saveAttendance({
+      memberId: 'bob::example',
+      sessionId: 'club-rsvp__wed-mixed__2026-03-18__18:00',
+      rsvpStatus: 'Declined',
+      metadata: {
+        source: 'email-rsvp',
+        updatedAt: '2026-03-10T09:00:00.000Z',
+      },
+    });
+
+    expect(gateway.updatedCells).toContainEqual({
+      sheetName: 'RSVP Übersicht',
+      rowIndex: 3,
+      columnIndex: 4,
+      value: '-',
+    });
+    expect(gateway.getCellNote('RSVP Übersicht', 3, 4)).toBe('{"source":"email-rsvp","updatedAt":"2026-03-10T09:00:00.000Z"}');
+  });
 });

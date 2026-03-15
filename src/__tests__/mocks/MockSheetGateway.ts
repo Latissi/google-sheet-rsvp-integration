@@ -6,8 +6,10 @@ import {
 
 export class MockSheetGateway implements ISheetGateway {
   private inMemorySheets: Map<string, unknown[][]>;
+  private notes: Map<string, string> = new Map();
   public appendedRows: Array<{ sheetName: string, values: unknown[] }> = [];
   public updatedRows: Array<{ sheetName: string, rowIndex: number, values: unknown[] }> = [];
+  public updatedCells: Array<{ sheetName: string, rowIndex: number, columnIndex: number, value: unknown }> = [];
 
   constructor(initialData: { [sheetName: string]: unknown[][] } = {}) {
     this.inMemorySheets = new Map(Object.entries(initialData));
@@ -42,6 +44,27 @@ export class MockSheetGateway implements ISheetGateway {
     
     data.push(values);
     this.appendedRows.push({ sheetName, values });
+  }
+
+  setCellValue(sheetName: string, rowIndex: number, columnIndex: number, value: unknown, _options?: SheetWriteOptions): void {
+    const data = this.inMemorySheets.get(sheetName);
+    if (!data) throw new Error(`Sheet with name "${sheetName}" not found.`);
+
+    const row = data[rowIndex - 1];
+    if (!row) {
+      throw new Error(`Row index out of bounds: ${rowIndex}`);
+    }
+
+    row[columnIndex - 1] = value;
+    this.updatedCells.push({ sheetName, rowIndex, columnIndex, value });
+  }
+
+  getCellNote(sheetName: string, rowIndex: number, columnIndex: number, _options?: SheetAccessOptions): string {
+    return this.notes.get(this.getNoteKey(sheetName, rowIndex, columnIndex)) ?? '';
+  }
+
+  setCellNote(sheetName: string, rowIndex: number, columnIndex: number, note: string, _options?: SheetWriteOptions): void {
+    this.notes.set(this.getNoteKey(sheetName, rowIndex, columnIndex), note);
   }
 
   getUpdatesCount(): number {
@@ -85,5 +108,9 @@ export class MockSheetGateway implements ISheetGateway {
       .toUpperCase()
       .split('')
       .reduce((total, character) => (total * 26) + character.charCodeAt(0) - 64, 0) - 1;
+  }
+
+  private getNoteKey(sheetName: string, rowIndex: number, columnIndex: number): string {
+    return `${sheetName}:${rowIndex}:${columnIndex}`;
   }
 }

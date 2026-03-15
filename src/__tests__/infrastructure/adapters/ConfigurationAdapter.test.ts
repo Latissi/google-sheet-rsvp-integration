@@ -100,6 +100,64 @@ describe('ConfigurationAdapter', () => {
       ]);
     });
 
+    it('parses member-row public training sources', () => {
+      const memberRowsGateway = new MockSheetGateway({
+        'Konfiguration': [
+          ['Schlüssel', 'Wert'],
+          ['PUBLIC_SHEET_ID', 'test_sheet_id_123'],
+          ['PUBLIC_TRAINING_SOURCES', JSON.stringify([
+            {
+              sourceId: 'club-rsvp',
+              sheetName: 'RSVP Übersicht',
+              tableRange: 'A1:F50',
+              attendance: {
+                layout: 'member-rows',
+                firstNameColumn: 'A',
+                lastNameColumn: 'B',
+                startColumn: 'C',
+              },
+              trainings: [
+                {
+                  trainingId: 'wed-mixed',
+                  title: 'Mittwoch Training',
+                  day: 'Mittwoch',
+                  startTime: '18:00',
+                  location: 'Sporthalle',
+                },
+              ],
+            },
+          ])],
+          ['WEBAPP_URL', 'https://script.google.com/macros/s/test/exec'],
+        ],
+        'Benutzer': [],
+      });
+      const memberRowsAdapter = new ConfigurationAdapter(memberRowsGateway);
+
+      expect(memberRowsAdapter.getPublicTrainingSources()).toEqual([
+        {
+          sourceId: 'club-rsvp',
+          spreadsheetId: 'test_sheet_id_123',
+          sheetName: 'RSVP Übersicht',
+          tableRange: 'A1:F50',
+          attendance: {
+            layout: 'member-rows',
+            firstNameColumn: 'A',
+            lastNameColumn: 'B',
+            startColumn: 'C',
+          },
+          trainings: [
+            {
+              trainingId: 'wed-mixed',
+              title: 'Mittwoch Training',
+              day: 'Mittwoch',
+              startTime: '18:00',
+              location: 'Sporthalle',
+            },
+          ],
+        },
+      ]);
+    });
+
     it('returns a reminder policy', () => {
       expect(adapter.getReminderPolicy()).toEqual({
         offsets: [

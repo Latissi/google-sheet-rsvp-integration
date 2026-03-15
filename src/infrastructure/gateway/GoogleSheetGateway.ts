@@ -40,8 +40,23 @@ export class GoogleSheetGateway implements ISheetGateway {
     sheet.getRange(rowIndex, 1, 1, values.length).setValues([values]);
   }
 
+  setCellValue(sheetName: string, rowIndex: number, columnIndex: number, value: unknown, options?: SheetWriteOptions): void {
+    const sheet = this.getSheet(sheetName, options);
+    sheet.getRange(rowIndex, columnIndex, 1, 1).setValue(value);
+  }
+
   appendRow(sheetName: string, values: unknown[], options?: SheetWriteOptions): void {
     const sheet = this.getSheet(sheetName, options);
     sheet.appendRow(values);
+  }
+
+  getCellNote(sheetName: string, rowIndex: number, columnIndex: number, options?: SheetAccessOptions): string {
+    const sheet = this.getSheet(sheetName, options);
+    return sheet.getRange(rowIndex, columnIndex, 1, 1).getNote();
+  }
+
+  setCellNote(sheetName: string, rowIndex: number, columnIndex: number, note: string, options?: SheetWriteOptions): void {
+    const sheet = this.getSheet(sheetName, options);
+    sheet.getRange(rowIndex, columnIndex, 1, 1).setNote(note);
   }
 }

@@ -169,6 +169,10 @@ export class ConfigurationAdapter {
     return value === 'Indoor' || value === 'Outdoor';
   }
 
+  private isAttendanceLayout(value: unknown): value is AttendanceConfig['layout'] {
+    return value === 'session-rows' || value === 'member-rows';
+  }
+
   private parseAttendanceConfig(value: unknown, sourceId: string): AttendanceConfig {
     if (!value || typeof value !== 'object') {
       throw new Error(`Public training source "${sourceId}" must define an attendance object.`);
@@ -183,9 +187,28 @@ export class ConfigurationAdapter {
       throw new Error(`Public training source "${sourceId}" has an invalid attendance.metadataColumn value.`);
     }
 
+    if (candidate.layout !== undefined && !this.isAttendanceLayout(candidate.layout)) {
+      throw new Error(`Public training source "${sourceId}" has an invalid attendance.layout value.`);
+    }
+
+    if (candidate.firstNameColumn !== undefined && typeof candidate.firstNameColumn !== 'string') {
+      throw new Error(`Public training source "${sourceId}" has an invalid attendance.firstNameColumn value.`);
+    }
+
+    if (candidate.lastNameColumn !== undefined && typeof candidate.lastNameColumn !== 'string') {
+      throw new Error(`Public training source "${sourceId}" has an invalid attendance.lastNameColumn value.`);
+    }
+
+    if (candidate.layout === 'member-rows' && (!candidate.firstNameColumn || !candidate.lastNameColumn)) {
+      throw new Error(`Public training source "${sourceId}" must define attendance.firstNameColumn and attendance.lastNameColumn for member-rows layout.`);
+    }
+
     return {
       startColumn: candidate.startColumn,
       metadataColumn: candidate.metadataColumn,
+      layout: candidate.layout,
+      firstNameColumn: candidate.firstNameColumn,
+      lastNameColumn: candidate.lastNameColumn,
     };
   }
 
@@ -251,12 +274,32 @@ export class ConfigurationAdapter {
             throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid title value.`);
           }
 
+          if (selector.startTime !== undefined && typeof selector.startTime !== 'string') {
+            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid startTime value.`);
+          }
+
+          if (selector.endTime !== undefined && typeof selector.endTime !== 'string') {
+            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid endTime value.`);
+          }
+
+          if (selector.location !== undefined && typeof selector.location !== 'string') {
+            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid location value.`);
+          }
+
+          if (selector.description !== undefined && typeof selector.description !== 'string') {
+            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid description value.`);
+          }
+
           return {
             trainingId,
             day: selector.day,
             audience: selector.audience,
             environment: selector.environment,
             title: selector.title as string | undefined,
+            startTime: selector.startTime as string | undefined,
+            endTime: selector.endTime as string | undefined,
+            location: selector.location as string | undefined,
+            description: selector.description as string | undefined,
           };
         }),
       };

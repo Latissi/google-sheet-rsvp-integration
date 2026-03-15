@@ -8,6 +8,9 @@ import { NotificationChannel } from './user';
 export interface AttendanceConfig {
   startColumn: string;
   metadataColumn?: string;
+  layout?: 'session-rows' | 'member-rows';
+  firstNameColumn?: string;
+  lastNameColumn?: string;
 }
 
 export interface ReminderOffset {
@@ -26,6 +29,10 @@ export interface TrainingSourceMatch {
   environment?: TrainingEnvironment;
   audience?: TrainingAudience;
   title?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  description?: string;
 }
 
 export interface PublicTrainingSource {
