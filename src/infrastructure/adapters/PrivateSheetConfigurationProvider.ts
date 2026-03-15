@@ -2,8 +2,15 @@ import { IConfigurationProvider } from '../../domain/ports/IConfigurationProvide
 import { PublicTrainingSource, ReminderPolicy } from '../../domain/types';
 import { ConfigurationAdapter } from './ConfigurationAdapter';
 
+export interface PrivateSheetConfigurationSource {
+  getPublicSheetId(): string;
+  getPublicTrainingSources(): PublicTrainingSource[];
+  getReminderPolicy(): ReminderPolicy;
+  getWebAppUrl(): string;
+}
+
 export class PrivateSheetConfigurationProvider implements IConfigurationProvider {
-  constructor(private readonly adapter: ConfigurationAdapter) {}
+  constructor(private readonly adapter: PrivateSheetConfigurationSource) {}
 
   getPublicSheetId(): string {
     return this.adapter.getPublicSheetId();

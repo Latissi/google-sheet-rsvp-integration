@@ -11,6 +11,8 @@ export interface AttendanceConfig {
   layout: 'member-rows';
   firstNameColumn: string;
   lastNameColumn: string;
+  dateHeaderRow: number;
+  firstMemberRow: number;
 }
 
 export interface ReminderOffset {
@@ -25,11 +27,11 @@ export interface ReminderPolicy {
 
 export interface TrainingSourceMatch {
   trainingId: string;
-  day?: TrainingDay;
+  day: TrainingDay;
   environment?: TrainingEnvironment;
   audience?: TrainingAudience;
   title?: string;
-  startTime?: string;
+  startTime: string;
   endTime?: string;
   location?: string;
   description?: string;

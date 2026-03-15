@@ -15,14 +15,11 @@ describe('ConfigurationAdapter', () => {
       ['Schlüssel', 'Wert'],
       ['OEFFENTLICHES_SHEET_ID', 'test_sheet_id_123'],
       ['WEBAPP_ADRESSE', 'https://script.google.com/macros/s/test/exec'],
-      ['ERINNERUNGS_OFFSETS', JSON.stringify([
-        { hours: 48, minutes: 0 },
-        { hours: 2, minutes: 30 },
-      ])],
+      ['ERINNERUNGS_OFFSETS', JSON.stringify([48, 24])],
     ],
     Trainingsquellen: [
-      ['QuellenId', 'TabellenName', 'TabellenBereich', 'Layout', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
-      ['club-rsvp', 'RSVP Übersicht', 'A1:F50', 'member-rows', 'A', 'B', 'C'],
+      ['QuellenId', 'TabellenName', 'TabellenBereich', 'Layout', 'DatumsKopfZeile', 'MitgliederStartZeile', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
+      ['club-rsvp', 'RSVP Übersicht', 'A1:F50', 'member-rows', '1', '2', 'A', 'B', 'C'],
     ],
     Trainingsdefinitionen: [
       ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Ort', 'Umgebung', 'Typ'],
@@ -57,6 +54,8 @@ describe('ConfigurationAdapter', () => {
           tableRange: 'A1:F50',
           attendance: {
             layout: 'member-rows',
+            dateHeaderRow: 1,
+            firstMemberRow: 2,
             firstNameColumn: 'A',
             lastNameColumn: 'B',
             startColumn: 'C',
@@ -80,13 +79,13 @@ describe('ConfigurationAdapter', () => {
       expect(adapter.getReminderPolicy()).toEqual({
         offsets: [
           { hours: 48, minutes: 0 },
-          { hours: 2, minutes: 30 },
+          { hours: 24, minutes: 0 },
         ],
         channels: ['email'],
       });
     });
 
-    it('rejects member-row sources without training definitions', () => {
+    it('rejects sources without training definitions', () => {
       const invalidGateway = new MockSheetGateway({
         Konfiguration: initialData.Konfiguration,
         Trainingsquellen: initialData.Trainingsquellen,
@@ -100,32 +99,53 @@ describe('ConfigurationAdapter', () => {
       );
     });
 
-    it('throws error for missing configuration key', () => {
-      const emptyGateway = new MockSheetGateway({
-        Konfiguration: [['Schlüssel', 'Wert']],
-        Trainingsquellen: initialData.Trainingsquellen,
+    it('requires date header and first member rows in Trainingsquellen', () => {
+      const invalidGateway = new MockSheetGateway({
+        Konfiguration: initialData.Konfiguration,
+        Trainingsquellen: [
+          ['QuellenId', 'TabellenName', 'TabellenBereich', 'Layout', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
+          ['club-rsvp', 'RSVP Übersicht', 'A1:F50', 'member-rows', 'A', 'B', 'C'],
+        ],
         Trainingsdefinitionen: initialData.Trainingsdefinitionen,
         Mitglieder: initialData.Mitglieder,
       });
-      const emptyAdapter = new ConfigurationAdapter(emptyGateway);
+      const invalidAdapter = new ConfigurationAdapter(invalidGateway);
 
-      expect(() => emptyAdapter.getPublicSheetId()).toThrow('Missing required configuration key: "OEFFENTLICHES_SHEET_ID"');
+      expect(() => invalidAdapter.getPublicTrainingSources()).toThrow('Missing required user sheet column: DatumsKopfZeile');
     });
 
-    it('rejects invalid training selector metadata', () => {
+    it('requires Wochentag for every training definition', () => {
       const invalidGateway = new MockSheetGateway({
         Konfiguration: initialData.Konfiguration,
         Trainingsquellen: initialData.Trainingsquellen,
         Trainingsdefinitionen: [
           ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Typ'],
-          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', '18:00', 'Everyone'],
+          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', '', '18:00', 'Mixed'],
         ],
         Mitglieder: initialData.Mitglieder,
       });
       const invalidAdapter = new ConfigurationAdapter(invalidGateway);
 
       expect(() => invalidAdapter.getPublicTrainingSources()).toThrow(
-        'Training selector "wed-mixed" in source "club-rsvp" has an invalid audience value.',
+        'Training selector "wed-mixed" in source "club-rsvp" has an invalid day value.',
+      );
+    });
+
+    it('rejects duplicate weekdays inside one source', () => {
+      const invalidGateway = new MockSheetGateway({
+        Konfiguration: initialData.Konfiguration,
+        Trainingsquellen: initialData.Trainingsquellen,
+        Trainingsdefinitionen: [
+          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit'],
+          ['club-rsvp', 'wed-early', 'Mittwoch Training 1', 'Mittwoch', '18:00'],
+          ['club-rsvp', 'wed-late', 'Mittwoch Training 2', 'Mittwoch', '20:00'],
+        ],
+        Mitglieder: initialData.Mitglieder,
+      });
+      const invalidAdapter = new ConfigurationAdapter(invalidGateway);
+
+      expect(() => invalidAdapter.getPublicTrainingSources()).toThrow(
+        'Duplicate training definition for sourceId "club-rsvp" and day "Mittwoch".',
       );
     });
   });

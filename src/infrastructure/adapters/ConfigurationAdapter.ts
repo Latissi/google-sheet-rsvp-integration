@@ -32,6 +32,8 @@ interface PublicTrainingSourceSheetSchema {
   sheetName: number;
   tableRange?: number;
   layout?: number;
+  dateHeaderRow: number;
+  firstMemberRow: number;
   firstNameColumn?: number;
   lastNameColumn?: number;
   startColumn: number;
@@ -109,23 +111,13 @@ export class ConfigurationAdapter {
   }
 
   private parseReminderOffset(value: unknown, index: number): ReminderOffset {
-    if (!value || typeof value !== 'object') {
-      throw new Error(`Reminder offset at index ${index} must be an object.`);
-    }
-
-    const candidate = value as Partial<ReminderOffset>;
-    const hours = Number(candidate.hours);
-    const minutes = Number(candidate.minutes);
+    const hours = Number(value);
 
     if (!Number.isInteger(hours) || hours < 0) {
-      throw new Error(`Reminder offset at index ${index} has an invalid hours value.`);
+      throw new Error(`Reminder offset at index ${index} must be a non-negative integer hour value.`);
     }
 
-    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 59) {
-      throw new Error(`Reminder offset at index ${index} has an invalid minutes value.`);
-    }
-
-    return { hours, minutes };
+    return { hours, minutes: 0 };
   }
 
   private normalizeReminderOffsets(offsets: ReminderOffset[]): ReminderOffset[] {
@@ -192,6 +184,20 @@ export class ConfigurationAdapter {
       throw new Error(`Public training source "${sourceId}" has an invalid attendance.metadataColumn value.`);
     }
 
+    const dateHeaderRow = Number(candidate.dateHeaderRow);
+    if (!Number.isInteger(dateHeaderRow) || dateHeaderRow < 1) {
+      throw new Error(`Public training source "${sourceId}" must define attendance.dateHeaderRow as a positive row number.`);
+    }
+
+    const firstMemberRow = Number(candidate.firstMemberRow);
+    if (!Number.isInteger(firstMemberRow) || firstMemberRow < 1) {
+      throw new Error(`Public training source "${sourceId}" must define attendance.firstMemberRow as a positive row number.`);
+    }
+
+    if (firstMemberRow <= dateHeaderRow) {
+      throw new Error(`Public training source "${sourceId}" must define attendance.firstMemberRow after attendance.dateHeaderRow.`);
+    }
+
     if (!this.isAttendanceLayout(candidate.layout)) {
       throw new Error(`Public training source "${sourceId}" has an invalid attendance.layout value.`);
     }
@@ -214,6 +220,8 @@ export class ConfigurationAdapter {
       layout: candidate.layout,
       firstNameColumn: candidate.firstNameColumn,
       lastNameColumn: candidate.lastNameColumn,
+      dateHeaderRow,
+      firstMemberRow,
     };
   }
 
@@ -228,7 +236,7 @@ export class ConfigurationAdapter {
       throw new Error(`Training selector ${trainingLabel} in source "${sourceId}" is missing trainingId.`);
     }
 
-    if (selector.day !== undefined && !this.isTrainingDay(selector.day)) {
+    if (!this.isTrainingDay(selector.day)) {
       throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid day value.`);
     }
 
@@ -244,7 +252,7 @@ export class ConfigurationAdapter {
       throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid title value.`);
     }
 
-    if (selector.startTime !== undefined && typeof selector.startTime !== 'string') {
+    if (typeof selector.startTime !== 'string' || !selector.startTime.trim()) {
       throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid startTime value.`);
     }
 
@@ -262,11 +270,11 @@ export class ConfigurationAdapter {
 
     return {
       trainingId,
-      day: selector.day as TrainingDay | undefined,
+      day: selector.day,
       audience: selector.audience as TrainingAudience | undefined,
       environment: selector.environment as TrainingEnvironment | undefined,
       title: selector.title as string | undefined,
-      startTime: selector.startTime as string | undefined,
+      startTime: selector.startTime,
       endTime: selector.endTime as string | undefined,
       location: selector.location as string | undefined,
       description: selector.description as string | undefined,
@@ -283,6 +291,8 @@ export class ConfigurationAdapter {
       sheetName: this.getRequiredColumnIndex(headers, ['TabellenName']),
       tableRange: this.getColumnIndex(headers, ['TabellenBereich']),
       layout: this.getRequiredColumnIndex(headers, ['Layout']),
+      dateHeaderRow: this.getRequiredColumnIndex(headers, ['DatumsKopfZeile']),
+      firstMemberRow: this.getRequiredColumnIndex(headers, ['MitgliederStartZeile']),
       firstNameColumn: this.getRequiredColumnIndex(headers, ['VornameSpalte']),
       lastNameColumn: this.getRequiredColumnIndex(headers, ['NachnameSpalte']),
       startColumn: this.getRequiredColumnIndex(headers, ['StartSpalte']),
@@ -354,6 +364,9 @@ export class ConfigurationAdapter {
       if (definitions.some(existing => existing.trainingId === training.trainingId)) {
         throw new Error(`Duplicate training definition for sourceId "${sourceId}" and trainingId "${training.trainingId}".`);
       }
+      if (definitions.some(existing => existing.day === training.day)) {
+        throw new Error(`Duplicate training definition for sourceId "${sourceId}" and day "${training.day}".`);
+      }
       definitions.push(training);
       definitionsBySource.set(sourceId, definitions);
     }
@@ -382,6 +395,8 @@ export class ConfigurationAdapter {
 
       const attendance = this.parseAttendanceConfig({
         layout: this.getCellValue(row, sourceSchema.layout) || undefined,
+        dateHeaderRow: this.getCellValue(row, sourceSchema.dateHeaderRow),
+        firstMemberRow: this.getCellValue(row, sourceSchema.firstMemberRow),
         firstNameColumn: this.getCellValue(row, sourceSchema.firstNameColumn) || undefined,
         lastNameColumn: this.getCellValue(row, sourceSchema.lastNameColumn) || undefined,
         startColumn: this.getCellValue(row, sourceSchema.startColumn),

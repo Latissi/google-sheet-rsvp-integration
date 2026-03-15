@@ -2,8 +2,16 @@ import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { UserRecord } from '../../domain/types';
 import { ConfigurationAdapter } from './ConfigurationAdapter';
 
+export interface PrivateSheetUserStore {
+  getAllUsers(): UserRecord[];
+  getUserByMemberId(id: string): UserRecord | null;
+  getUserByEmail(email: string): UserRecord | null;
+  getUserByName(name: string): UserRecord | null;
+  upsertUser(user: UserRecord): void;
+}
+
 export class PrivateSheetUserRepository implements IUserRepository {
-  constructor(private readonly adapter: ConfigurationAdapter) {}
+  constructor(private readonly adapter: PrivateSheetUserStore) {}
 
   getAllUsers(): UserRecord[] {
     return this.adapter.getAllUsers();

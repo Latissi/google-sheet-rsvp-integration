@@ -50,9 +50,10 @@ export interface RuntimeContextOptions {
 export function createRuntimeContext(options: RuntimeContextOptions = {}): RuntimeContext {
   const systemConfig = options.systemConfig ?? getSystemConfig();
   const sheetGateway = options.sheetGateway ?? new GoogleSheetGateway();
-  const privateSheetAdapter = new ConfigurationAdapter(sheetGateway);
-  const configurationProvider = new PrivateSheetConfigurationProvider(privateSheetAdapter);
-  const userRepository = new PrivateSheetUserRepository(privateSheetAdapter);
+  const privateSheetConfigurationSource = new ConfigurationAdapter(sheetGateway);
+  const privateSheetUserStore = new ConfigurationAdapter(sheetGateway);
+  const configurationProvider = new PrivateSheetConfigurationProvider(privateSheetConfigurationSource);
+  const userRepository = new PrivateSheetUserRepository(privateSheetUserStore);
   const trainingDataRepository = new GoogleSheetTrainingDataRepository(
     sheetGateway,
     configurationProvider,

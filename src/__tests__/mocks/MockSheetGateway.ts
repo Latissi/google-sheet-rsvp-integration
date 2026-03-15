@@ -7,6 +7,7 @@ import {
 export class MockSheetGateway implements ISheetGateway {
   private inMemorySheets: Map<string, unknown[][]>;
   private notes: Map<string, string> = new Map();
+  private readCounts: Map<string, number> = new Map();
   public appendedRows: Array<{ sheetName: string, values: unknown[] }> = [];
   public updatedRows: Array<{ sheetName: string, rowIndex: number, values: unknown[] }> = [];
   public updatedCells: Array<{ sheetName: string, rowIndex: number, columnIndex: number, value: unknown }> = [];
@@ -18,6 +19,8 @@ export class MockSheetGateway implements ISheetGateway {
   getSheetValues(sheetName: string, options?: SheetAccessOptions): unknown[][] {
     const data = this.inMemorySheets.get(sheetName);
     if (!data) throw new Error(`Sheet with name "${sheetName}" not found.`);
+    const readKey = this.getReadKey(sheetName, options?.rangeA1);
+    this.readCounts.set(readKey, (this.readCounts.get(readKey) ?? 0) + 1);
     if (options?.rangeA1) {
       return this.getRangeValues(data, options.rangeA1);
     }
@@ -75,6 +78,10 @@ export class MockSheetGateway implements ISheetGateway {
     return this.appendedRows.length;
   }
 
+  getReadCount(sheetName: string, rangeA1?: string): number {
+    return this.readCounts.get(this.getReadKey(sheetName, rangeA1)) ?? 0;
+  }
+
   private getRangeValues(data: unknown[][], rangeA1: string): unknown[][] {
     const [startCell, endCell = startCell] = rangeA1.split(':');
     const start = this.parseCellReference(startCell);
@@ -112,5 +119,9 @@ export class MockSheetGateway implements ISheetGateway {
 
   private getNoteKey(sheetName: string, rowIndex: number, columnIndex: number): string {
     return `${sheetName}:${rowIndex}:${columnIndex}`;
+  }
+
+  private getReadKey(sheetName: string, rangeA1?: string): string {
+    return `${sheetName}::${rangeA1 ?? ''}`;
   }
 }

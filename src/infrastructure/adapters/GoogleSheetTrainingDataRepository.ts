@@ -42,6 +42,18 @@ interface CancellationNoteData {
   reason?: string;
 }
 
+interface ResolvedTrainingTemplate {
+  trainingId: string;
+  title: string;
+  day: TrainingDefinition['day'];
+  startTime: string;
+  endTime?: string;
+  location?: string;
+  environment?: TrainingEnvironment;
+  audience?: TrainingAudience;
+  description?: string;
+}
+
 const DEFAULT_MANUAL_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 const WEEKDAYS_FROM_SUNDAY: Array<'Sonntag' | 'Montag' | 'Dienstag' | 'Mittwoch' | 'Donnerstag' | 'Freitag' | 'Samstag'> = [
   'Sonntag',
@@ -52,12 +64,25 @@ const WEEKDAYS_FROM_SUNDAY: Array<'Sonntag' | 'Montag' | 'Dienstag' | 'Mittwoch'
   'Freitag',
   'Samstag',
 ];
+const GERMAN_WEEKDAY_MAP: Record<string, TrainingDefinition['day']> = {
+  mo: 'Montag',
+  di: 'Dienstag',
+  mi: 'Mittwoch',
+  do: 'Donnerstag',
+  fr: 'Freitag',
+  sa: 'Samstag',
+  so: 'Sonntag',
+};
 
 export class GoogleSheetTrainingDataRepository implements ITrainingDataRepository {
+  private sessionReferencesCache: SessionReference[] | null = null;
+  private readonly sourceTableCache = new Map<string, unknown[][]>();
+
   constructor(
     private readonly gateway: ISheetGateway,
     private readonly configurationProvider: IConfigurationProvider,
     private readonly userRepository: IUserRepository,
+    private readonly nowProvider: () => Date = () => new Date(),
   ) {}
 
   private getPublicSpreadsheetId(): string {
@@ -99,7 +124,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
     this.gateway.setCellNote(
       reference.source.sheetName,
-      reference.bounds.startRow,
+      reference.source.attendance.dateHeaderRow,
       reference.bounds.startColumn + reference.columnIndex + 1,
       JSON.stringify({
         cancelledAt: cancellation.cancelledAt,
@@ -110,49 +135,43 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
         spreadsheetId: this.getPublicSpreadsheetId(),
       },
     );
+
+    this.invalidateSourceCache(reference.source);
   }
 
   private getAllSessionReferences(): SessionReference[] {
-    return this.configurationProvider.getPublicTrainingSources().flatMap(source => this.readMemberRowsSource(source));
+    if (!this.sessionReferencesCache) {
+      this.sessionReferencesCache = this.configurationProvider
+        .getPublicTrainingSources()
+        .flatMap(source => this.readMemberRowsSource(source));
+    }
+
+    return this.sessionReferencesCache;
   }
 
   private readMemberRowsSource(source: PublicTrainingSource): SessionColumnReference[] {
     const bounds = this.getTableBounds(source.tableRange);
-    const rawTable = this.gateway.getSheetValues(source.sheetName, {
-      spreadsheetId: this.getPublicSpreadsheetId(),
-      rangeA1: source.tableRange,
-    });
+    const rawTable = this.getSourceTable(source);
     if (rawTable.length === 0) {
       return [];
     }
 
-    const headers = rawTable[0] ?? [];
+    const headerRowIndex = this.getDateHeaderRowIndex(source, bounds, rawTable.length);
+    const headers = rawTable[headerRowIndex] ?? [];
     const attendanceStartIndex = this.getAttendanceStartIndex(source, bounds);
-    const trainingTemplate = this.getMemberRowsTrainingTemplate(source);
     const sessions: SessionColumnReference[] = [];
+    let previousSessionDate: string | null = null;
 
     for (let columnIndex = attendanceStartIndex; columnIndex < headers.length; columnIndex += 1) {
-      const sessionDate = this.parseSessionDateHeader(headers[columnIndex]);
+      const sessionDate = this.parseSessionDateHeader(headers[columnIndex], previousSessionDate);
       if (!sessionDate) {
         continue;
       }
+      previousSessionDate = sessionDate;
+
+      const trainingTemplate = this.resolveTrainingTemplate(source, sessionDate);
 
       const cancellation = this.getCancellationForMemberRowsSession(source, bounds, columnIndex);
-
-      const day = trainingTemplate.day ?? this.deriveTrainingDay(sessionDate);
-      const trainingDefinition = day
-        ? {
-            trainingId: trainingTemplate.trainingId,
-            title: trainingTemplate.title,
-            day,
-            startTime: trainingTemplate.startTime,
-            endTime: trainingTemplate.endTime,
-            location: trainingTemplate.location,
-            environment: trainingTemplate.environment,
-            audience: trainingTemplate.audience,
-            description: trainingTemplate.description,
-          }
-        : undefined;
 
       sessions.push({
         kind: 'member-rows',
@@ -168,7 +187,17 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
           location: trainingTemplate.location,
           status: cancellation ? 'Cancelled' : 'Scheduled',
         },
-        trainingDefinition,
+        trainingDefinition: {
+          trainingId: trainingTemplate.trainingId,
+          title: trainingTemplate.title,
+          day: trainingTemplate.day,
+          startTime: trainingTemplate.startTime,
+          endTime: trainingTemplate.endTime,
+          location: trainingTemplate.location,
+          environment: trainingTemplate.environment,
+          audience: trainingTemplate.audience,
+          description: trainingTemplate.description,
+        },
       });
     }
 
@@ -176,17 +205,15 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   }
 
   private getAttendanceForMemberRowsSession(reference: SessionColumnReference): AttendanceRecord[] {
-    const rawTable = this.gateway.getSheetValues(reference.source.sheetName, {
-      spreadsheetId: this.getPublicSpreadsheetId(),
-      rangeA1: reference.source.tableRange,
-    });
+    const rawTable = this.getSourceTable(reference.source);
     const users = this.userRepository.getAllUsers();
+    const memberStartRowIndex = this.getMemberStartRowIndex(reference.source, reference.bounds, rawTable.length);
     const firstNameIndex = this.getMemberRowsFirstNameIndex(reference.source, reference.bounds);
     const lastNameIndex = this.getMemberRowsLastNameIndex(reference.source, reference.bounds);
     const columnIndex = reference.columnIndex;
 
     return rawTable
-      .slice(1)
+      .slice(memberStartRowIndex)
       .map((rowValues, rowOffset) => {
         if (!rowValues || rowValues.every(cell => String(cell ?? '').trim() === '')) {
           return null;
@@ -208,7 +235,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
         const metadata = this.getCellMetadata(
           reference.source,
-          reference.bounds.startRow + rowOffset + 1,
+          reference.source.attendance.firstMemberRow + rowOffset,
           reference.bounds.startColumn + columnIndex + 1,
         );
 
@@ -228,15 +255,13 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       throw new Error(`User with memberId "${record.memberId}" not found.`);
     }
 
-    const rawTable = this.gateway.getSheetValues(reference.source.sheetName, {
-      spreadsheetId: this.getPublicSpreadsheetId(),
-      rangeA1: reference.source.tableRange,
-    });
+    const rawTable = this.getSourceTable(reference.source);
+    const memberStartRowIndex = this.getMemberStartRowIndex(reference.source, reference.bounds, rawTable.length);
     const firstNameIndex = this.getMemberRowsFirstNameIndex(reference.source, reference.bounds);
     const lastNameIndex = this.getMemberRowsLastNameIndex(reference.source, reference.bounds);
 
     let absoluteRowIndex: number | null = null;
-    for (let rowOffset = 1; rowOffset < rawTable.length; rowOffset += 1) {
+    for (let rowOffset = memberStartRowIndex; rowOffset < rawTable.length; rowOffset += 1) {
       const rowValues = rawTable[rowOffset];
       if (!rowValues) {
         continue;
@@ -268,30 +293,36 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       JSON.stringify(record.metadata),
       { spreadsheetId: this.getPublicSpreadsheetId() },
     );
+
+    this.invalidateSourceCache(reference.source);
   }
 
-  private getMemberRowsTrainingTemplate(source: PublicTrainingSource) {
-    if (source.trainings.length > 1) {
-      throw new Error(`Public training source "${source.sourceId}" uses member-rows layout and must define at most one training selector.`);
+  private resolveTrainingTemplate(source: PublicTrainingSource, sessionDate: string): ResolvedTrainingTemplate {
+    const sessionDay = this.deriveTrainingDay(sessionDate);
+    if (!sessionDay) {
+      throw new Error(`Public training source "${source.sourceId}" has an unparseable session date "${sessionDate}".`);
     }
 
-    const selector = source.trainings[0];
-    const trainingId = selector?.trainingId || source.sourceId;
-    const startTime = selector?.startTime || '';
-    if (!startTime) {
-      throw new Error(`Public training source "${source.sourceId}" uses member-rows layout and must define trainings[0].startTime.`);
+    const matches = source.trainings.filter(training => training.day === sessionDay);
+    if (matches.length === 0) {
+      throw new Error(`Public training source "${source.sourceId}" has no training definition for weekday "${sessionDay}".`);
     }
 
+    if (matches.length > 1) {
+      throw new Error(`Public training source "${source.sourceId}" has multiple training definitions for weekday "${sessionDay}".`);
+    }
+
+    const training = matches[0];
     return {
-      trainingId,
-      title: selector?.title || trainingId,
-      day: selector?.day,
-      startTime,
-      endTime: selector?.endTime,
-      location: selector?.location,
-      environment: selector?.environment,
-      audience: selector?.audience,
-      description: selector?.description,
+      trainingId: training.trainingId,
+      title: training.title?.trim() || training.trainingId,
+      day: training.day,
+      startTime: training.startTime,
+      endTime: training.endTime,
+      location: training.location,
+      environment: training.environment,
+      audience: training.audience,
+      description: training.description,
     };
   }
 
@@ -310,6 +341,46 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
   private getAttendanceStartIndex(source: PublicTrainingSource, bounds: TableBounds): number {
     return this.getRelativeColumnIndex(source.attendance.startColumn, bounds);
+  }
+
+  private getSourceTable(source: PublicTrainingSource): unknown[][] {
+    const cacheKey = this.getSourceTableCacheKey(source);
+    const cached = this.sourceTableCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const rawTable = this.gateway.getSheetValues(source.sheetName, {
+      spreadsheetId: this.getPublicSpreadsheetId(),
+      rangeA1: source.tableRange,
+    });
+    this.sourceTableCache.set(cacheKey, rawTable);
+    return rawTable;
+  }
+
+  private getSourceTableCacheKey(source: PublicTrainingSource): string {
+    return `${source.sheetName}::${source.tableRange ?? ''}`;
+  }
+
+  private invalidateSourceCache(source: PublicTrainingSource): void {
+    this.sessionReferencesCache = null;
+    this.sourceTableCache.delete(this.getSourceTableCacheKey(source));
+  }
+
+  private getDateHeaderRowIndex(source: PublicTrainingSource, bounds: TableBounds, tableHeight: number): number {
+    const relativeIndex = source.attendance.dateHeaderRow - bounds.startRow;
+    if (!Number.isInteger(relativeIndex) || relativeIndex < 0 || relativeIndex >= tableHeight) {
+      throw new Error(`Public training source "${source.sourceId}" defines dateHeaderRow outside of tableRange.`);
+    }
+    return relativeIndex;
+  }
+
+  private getMemberStartRowIndex(source: PublicTrainingSource, bounds: TableBounds, tableHeight: number): number {
+    const relativeIndex = source.attendance.firstMemberRow - bounds.startRow;
+    if (!Number.isInteger(relativeIndex) || relativeIndex < 0) {
+      throw new Error(`Public training source "${source.sourceId}" defines firstMemberRow outside of tableRange.`);
+    }
+    return Math.min(relativeIndex, tableHeight);
   }
 
   private getMemberRowsFirstNameIndex(source: PublicTrainingSource, bounds: TableBounds): number {
@@ -384,7 +455,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   ): CancellationNoteData | null {
     const note = this.gateway.getCellNote(
       source.sheetName,
-      bounds.startRow,
+      source.attendance.dateHeaderRow,
       bounds.startColumn + columnIndex + 1,
       { spreadsheetId: this.getPublicSpreadsheetId() },
     );
@@ -490,12 +561,15 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       .reduce((total, character) => (total * 26) + character.charCodeAt(0) - 64, 0) - 1;
   }
 
-  private parseSessionDateHeader(value: unknown): string | null {
+  private parseSessionDateHeader(value: unknown, previousSessionDate: string | null): string | null {
     if (value instanceof Date) {
       return value.toISOString().slice(0, 10);
     }
 
-    const raw = String(value ?? '').trim();
+    const raw = String(value ?? '')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (!raw) {
       return null;
     }
@@ -504,12 +578,88 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       return raw;
     }
 
+    const germanShortDate = this.parseGermanShortDateHeader(raw, previousSessionDate);
+    if (germanShortDate) {
+      return germanShortDate;
+    }
+
     const parsed = new Date(raw);
     if (Number.isNaN(parsed.getTime())) {
       return null;
     }
 
     return parsed.toISOString().slice(0, 10);
+  }
+
+  private parseGermanShortDateHeader(raw: string, previousSessionDate: string | null): string | null {
+    const match = raw.match(/^(Mo|Di|Mi|Do|Fr|Sa|So)\.?\s+(\d{1,2})\.\s*(\d{1,2})\.?$/i);
+    if (!match) {
+      return null;
+    }
+
+    const weekday = GERMAN_WEEKDAY_MAP[match[1].toLowerCase()];
+    const day = parseInt(match[2], 10);
+    const month = parseInt(match[3], 10);
+    if (!weekday || !Number.isInteger(day) || !Number.isInteger(month)) {
+      return null;
+    }
+
+    const candidates = this.getGermanShortDateCandidates(day, month, weekday, previousSessionDate);
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    return candidates[0].toISOString().slice(0, 10);
+  }
+
+  private getGermanShortDateCandidates(
+    day: number,
+    month: number,
+    expectedWeekday: TrainingDefinition['day'],
+    previousSessionDate: string | null,
+  ): Date[] {
+    const referenceDate = previousSessionDate
+      ? new Date(`${previousSessionDate}T00:00:00.000Z`)
+      : this.getCurrentUtcDate();
+    const years = previousSessionDate
+      ? [referenceDate.getUTCFullYear(), referenceDate.getUTCFullYear() + 1, referenceDate.getUTCFullYear() + 2]
+      : [referenceDate.getUTCFullYear() - 1, referenceDate.getUTCFullYear(), referenceDate.getUTCFullYear() + 1];
+
+    const candidates = years
+      .map(year => this.createUtcDate(year, month, day))
+      .filter((candidate): candidate is Date => candidate !== null)
+      .filter(candidate => this.deriveTrainingDay(candidate.toISOString().slice(0, 10)) === expectedWeekday);
+
+    if (previousSessionDate) {
+      return candidates
+        .filter(candidate => candidate.getTime() > referenceDate.getTime())
+        .sort((left, right) => left.getTime() - right.getTime());
+    }
+
+    return candidates.sort((left, right) => {
+      const leftDistance = Math.abs(left.getTime() - referenceDate.getTime());
+      const rightDistance = Math.abs(right.getTime() - referenceDate.getTime());
+      return leftDistance - rightDistance;
+    });
+  }
+
+  private createUtcDate(year: number, month: number, day: number): Date | null {
+    const candidate = new Date(Date.UTC(year, month - 1, day));
+    if (
+      Number.isNaN(candidate.getTime())
+      || candidate.getUTCFullYear() !== year
+      || candidate.getUTCMonth() !== month - 1
+      || candidate.getUTCDate() !== day
+    ) {
+      return null;
+    }
+
+    return candidate;
+  }
+
+  private getCurrentUtcDate(): Date {
+    const now = this.nowProvider();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   }
 
   private getCellValue(row: unknown[], index?: number): string {

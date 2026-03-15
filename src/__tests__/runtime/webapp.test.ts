@@ -35,8 +35,8 @@ class RecordingRegisterMemberService {
         roleDefinition: getRoleDefinition('Mitglied'),
         personName: createPersonName(request.firstName, request.lastName),
         subscriptions: [],
-        subscribedTrainingIds: request.subscribedTrainingIds ?? [],
-        subscribedTrainings: request.subscribedTrainings ?? [],
+        subscribedTrainingIds: [],
+        subscribedTrainings: [],
       },
       created: true,
     };
@@ -119,7 +119,6 @@ describe('webapp RSVP handler', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       gender: 'w',
-      subscribedTrainingIds: 'wed-mixed; fri-outdoor',
     }, service, new EmptyUserLookup(), '2026-03-09T12:00:00.000Z');
 
     expect(result).toEqual({
@@ -135,9 +134,6 @@ describe('webapp RSVP handler', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       gender: 'w',
-      subscribedTrainingIds: ['wed-mixed', 'fri-outdoor'],
-      subscribedTrainings: undefined,
-      notificationChannel: undefined,
     }]);
   });
 

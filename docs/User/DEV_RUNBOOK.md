@@ -46,20 +46,24 @@ ERINNERUNGS_OFFSETS | [48,24]
 ### Tab `Trainingsquellen`
 
 ```text
-SourceId | TabellenName | TabellenBereich | Layout | VornameSpalte | NachnameSpalte | StartSpalte
-club-rsvp | RSVP Übersicht | A1:AZ200 | member-rows | A | B | C
+SourceId | TabellenName | TabellenBereich | Layout | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte
+club-rsvp | RSVP Übersicht | A1:AZ200 | member-rows | 2 | 6 | A | B | E
 ```
 
 `SourceId` ist eine interne Kennung fuer die Quelle, nicht der Tabname. Sie verbindet `Trainingsquellen` mit `Trainingsdefinitionen` und taucht in erzeugten Session-IDs auf. `TabellenName` meint den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten oeffentlichen Spreadsheets. Das oeffentliche Spreadsheet selbst kommt immer aus `OEFFENTLICHES_SHEET_ID` im Tab `Konfiguration`.
+
+`DatumsKopfZeile` und `MitgliederStartZeile` sind absolute Zeilennummern im oeffentlichen Blatt. Damit kann die App auch Tabs mit Zusatzzeilen, Summenzeilen oder mehrzeiligen Headern verarbeiten, ohne das Public Sheet selbst zu aendern.
 
 ### Tab `Trainingsdefinitionen`
 
 ```text
 SourceId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung
 club-rsvp | wed-mixed | Mittwoch Training | Mittwoch | 18:00 | 20:00 | Sporthalle | Indoor | Mixed |
+club-rsvp | mon-late | Montag Training | Montag | 20:15 | 21:45 | Sporthalle | Indoor | Mixed |
 ```
 
 `Trainingsdefinitionen` wird nicht automatisch angepasst. Wenn Sie neue Trainingsarten, Startzeiten oder andere Metadaten einfuehren, muessen Sie diesen Tab manuell pflegen.
+Innerhalb einer Quelle muss jeder `Wochentag` eindeutig sein.
 
 ### Tab `Mitglieder`
 
@@ -124,7 +128,7 @@ Alle Felder sind Pflicht.
 ## 7. Fehlerbehebung
 - Prüfen Sie bei Bootstrap-Fehlern `ENV`, `PRIVATE_SHEETS_ID`, `WEBAPPURL` und `TRAINER_EMAIL` in den Script Properties.
 - Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_OFFSETS` gesetzt sind.
-- Prüfen Sie in `Trainingsquellen`, dass `Layout` auf `member-rows` steht und Vorname-, Nachname- und Startspalte gepflegt sind.
+- Prüfen Sie in `Trainingsquellen`, dass `Layout` auf `member-rows` steht und `DatumsKopfZeile`, `MitgliederStartZeile`, Vorname-, Nachname- und Startspalte gepflegt sind.
 - Prüfen Sie in `Mitglieder`, dass Vorname, Nachname, EMail und Rolle vorhanden sind.
 - Prüfen Sie die `Executions`-Ansicht und den privaten Tab `Systemprotokoll` auf Laufzeitfehler.
 

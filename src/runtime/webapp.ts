@@ -2,7 +2,7 @@ import { RegisterMemberRequest, SubmitRsvpRequest } from '../application';
 import { getSessionStartDate } from '../application/notifications/notificationUtils';
 import { createRuntimeContext } from './createRuntimeContext';
 import { getRuntimeLogger } from './logging';
-import { TRAINING_DAYS, TrainingDay, TrainingSession, UserRecord } from '../domain/types';
+import { TrainingSession, UserRecord } from '../domain/types';
 
 type RsvpResponse = Exclude<SubmitRsvpRequest['rsvpStatus'], 'Pending'>;
 
@@ -27,9 +27,6 @@ export interface RegistrationRequestParameters {
   firstName?: string;
   lastName?: string;
   gender?: string;
-  subscribedTrainingIds?: string;
-  subscribedTrainings?: string;
-  notificationChannel?: string;
 }
 
 export interface RsvpResponsePayload {
@@ -158,9 +155,6 @@ export function handleRegistrationRequest(
       firstName,
       lastName,
       gender,
-      subscribedTrainingIds: parseListParameter(parameters.subscribedTrainingIds),
-      subscribedTrainings: parseTrainingDaysParameter(parameters.subscribedTrainings),
-      notificationChannel: parameters.notificationChannel === 'email' ? 'email' : undefined,
     });
 
     return {
@@ -397,30 +391,6 @@ function parseRsvpStatus(value: string | undefined): RsvpResponse | null {
   }
 
   return null;
-}
-
-function parseListParameter(value: string | undefined): string[] | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const parsedValues = value
-    .split(/[\n,;]+/)
-    .map(entry => entry.trim())
-    .filter(Boolean);
-
-  return parsedValues.length > 0 ? parsedValues : undefined;
-}
-
-function parseTrainingDaysParameter(value: string | undefined): TrainingDay[] | undefined {
-  const parsedValues = parseListParameter(value);
-  if (!parsedValues) {
-    return undefined;
-  }
-
-  const validTrainingDays = new Set<string>(TRAINING_DAYS);
-  const trainingDays = parsedValues.filter((entry): entry is TrainingDay => validTrainingDays.has(entry));
-  return trainingDays.length > 0 ? trainingDays : undefined;
 }
 
 function logPublicRequestError(action: string, error: unknown, context: Record<string, unknown>): void {
