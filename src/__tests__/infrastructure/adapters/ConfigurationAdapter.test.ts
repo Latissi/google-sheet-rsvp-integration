@@ -53,7 +53,6 @@ describe('ConfigurationAdapter', () => {
       expect(adapter.getPublicTrainingSources()).toEqual([
         {
           sourceId: 'club-rsvp',
-          spreadsheetId: 'test_sheet_id_123',
           sheetName: 'RSVP Übersicht',
           tableRange: 'A1:F50',
           attendance: {

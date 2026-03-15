@@ -60,6 +60,10 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     private readonly userRepository: IUserRepository,
   ) {}
 
+  private getPublicSpreadsheetId(): string {
+    return this.configurationProvider.getPublicSheetId();
+  }
+
   getTrainingDefinitions(): TrainingDefinition[] {
     const definitions = new Map<string, TrainingDefinition>();
 
@@ -103,7 +107,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
         reason: cancellation.reason,
       }),
       {
-      spreadsheetId: reference.source.spreadsheetId,
+        spreadsheetId: this.getPublicSpreadsheetId(),
       },
     );
   }
@@ -115,7 +119,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   private readMemberRowsSource(source: PublicTrainingSource): SessionColumnReference[] {
     const bounds = this.getTableBounds(source.tableRange);
     const rawTable = this.gateway.getSheetValues(source.sheetName, {
-      spreadsheetId: source.spreadsheetId,
+      spreadsheetId: this.getPublicSpreadsheetId(),
       rangeA1: source.tableRange,
     });
     if (rawTable.length === 0) {
@@ -173,7 +177,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
   private getAttendanceForMemberRowsSession(reference: SessionColumnReference): AttendanceRecord[] {
     const rawTable = this.gateway.getSheetValues(reference.source.sheetName, {
-      spreadsheetId: reference.source.spreadsheetId,
+      spreadsheetId: this.getPublicSpreadsheetId(),
       rangeA1: reference.source.tableRange,
     });
     const users = this.userRepository.getAllUsers();
@@ -225,7 +229,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     }
 
     const rawTable = this.gateway.getSheetValues(reference.source.sheetName, {
-      spreadsheetId: reference.source.spreadsheetId,
+      spreadsheetId: this.getPublicSpreadsheetId(),
       rangeA1: reference.source.tableRange,
     });
     const firstNameIndex = this.getMemberRowsFirstNameIndex(reference.source, reference.bounds);
@@ -255,14 +259,14 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       absoluteRowIndex,
       absoluteColumnIndex,
       this.formatAttendanceCell(record.rsvpStatus),
-      { spreadsheetId: reference.source.spreadsheetId },
+      { spreadsheetId: this.getPublicSpreadsheetId() },
     );
     this.gateway.setCellNote(
       reference.source.sheetName,
       absoluteRowIndex,
       absoluteColumnIndex,
       JSON.stringify(record.metadata),
-      { spreadsheetId: reference.source.spreadsheetId },
+      { spreadsheetId: this.getPublicSpreadsheetId() },
     );
   }
 
@@ -382,7 +386,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       source.sheetName,
       bounds.startRow,
       bounds.startColumn + columnIndex + 1,
-      { spreadsheetId: source.spreadsheetId },
+      { spreadsheetId: this.getPublicSpreadsheetId() },
     );
 
     if (!note.trim()) {
@@ -421,7 +425,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
   private getCellMetadata(source: PublicTrainingSource, rowIndex: number, columnIndex: number): AttendanceSyncMetadata {
     const note = this.gateway.getCellNote(source.sheetName, rowIndex, columnIndex, {
-      spreadsheetId: source.spreadsheetId,
+      spreadsheetId: this.getPublicSpreadsheetId(),
     });
     if (!note.trim()) {
       return this.getDefaultManualMetadata();

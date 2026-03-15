@@ -37,7 +37,6 @@ export interface TrainingSourceMatch {
 
 export interface PublicTrainingSource {
   sourceId: string;
-  spreadsheetId?: string;
   sheetName: string;
   tableRange?: string;
   attendance: AttendanceConfig;

@@ -27,17 +27,28 @@ Erforderliche Schlüssel:
 
 ### Tab `Trainingsquellen`
 
-| SourceId | DateiId | TabellenName | TabellenBereich | Layout | VornameSpalte | NachnameSpalte | StartSpalte |
-|----------|---------|--------------|-----------------|--------|---------------|----------------|-------------|
-| `club-rsvp` |  | `RSVP Übersicht` | `A1:AZ200` | `member-rows` | `A` | `B` | `C` |
+| SourceId | TabellenName | TabellenBereich | Layout | VornameSpalte | NachnameSpalte | StartSpalte |
+|----------|--------------|-----------------|--------|---------------|----------------|-------------|
+| `club-rsvp` | `RSVP Übersicht` | `A1:AZ200` | `member-rows` | `A` | `B` | `C` |
 
-`Layout` muss `member-rows` sein.
+Regeln:
+- `SourceId` ist eine stabile interne Kennung fuer diese Trainingsquelle.
+- `SourceId` verknuepft die Zeile in `Trainingsquellen` mit den Zeilen in `Trainingsdefinitionen` und ist Teil der erzeugten `sessionId`.
+- `SourceId` ist nicht der Tabname. Der eigentliche Name des Arbeitsblatts im oeffentlichen Trainings-Sheet steht in `TabellenName`.
+- `TabellenName` meint also den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten Spreadsheets, zum Beispiel `RSVP Übersicht`.
+- `Layout` muss `member-rows` sein.
+- Das oeffentliche Spreadsheet wird immer ueber `OEFFENTLICHES_SHEET_ID` aus `Konfiguration` bestimmt. Eine separate `DateiId` pro Quelle gibt es nicht.
 
 ### Tab `Trainingsdefinitionen`
 
 | SourceId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung |
 |----------|-------------|-------|-----------|-----------|---------|-----|-----------|-----|--------------|
 | `club-rsvp` | `wed-mixed` | `Mittwoch Training` | `Mittwoch` | `18:00` | `20:00` | `Sporthalle` | `Indoor` | `Mixed` |  |
+
+Regeln:
+- Dieser Tab wird nicht automatisch aus dem oeffentlichen Sheet erzeugt oder synchronisiert.
+- Er muss manuell gepflegt werden, wenn neue Trainingsarten, Zeiten oder Metadaten hinzukommen oder sich aendern.
+- Die Anwendung liest diese Definitionen nur ein, um Sessions, Erinnerungen und Trainerberichte fachlich anzureichern.
 
 ### Tab `Mitglieder`
 

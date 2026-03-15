@@ -65,7 +65,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
 
   const sources: PublicTrainingSource[] = [{
     sourceId: 'club-rsvp',
-    spreadsheetId: 'public-sheet',
     sheetName: 'RSVP Übersicht',
     tableRange: 'A1:E10',
     attendance: {

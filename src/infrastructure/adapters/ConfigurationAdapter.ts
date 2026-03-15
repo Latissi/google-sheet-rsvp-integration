@@ -29,7 +29,6 @@ interface UserSheetSchema {
 
 interface PublicTrainingSourceSheetSchema {
   sourceId: number;
-  spreadsheetId?: number;
   sheetName: number;
   tableRange?: number;
   layout?: number;
@@ -281,7 +280,6 @@ export class ConfigurationAdapter {
   private getPublicTrainingSourceSheetSchema(headers: unknown[]): PublicTrainingSourceSheetSchema {
     return {
       sourceId: this.getRequiredColumnIndex(headers, ['QuellenId']),
-      spreadsheetId: this.getColumnIndex(headers, ['DateiId']),
       sheetName: this.getRequiredColumnIndex(headers, ['TabellenName']),
       tableRange: this.getColumnIndex(headers, ['TabellenBereich']),
       layout: this.getRequiredColumnIndex(headers, ['Layout']),
@@ -371,7 +369,6 @@ export class ConfigurationAdapter {
 
       const sourceId = this.getCellValue(row, sourceSchema.sourceId);
       const sheetName = this.getCellValue(row, sourceSchema.sheetName);
-      const spreadsheetId = this.getCellValue(row, sourceSchema.spreadsheetId) || this.getPublicSheetId();
       if (!sourceId) {
         throw new Error(`Public training source row ${rowIndex + 1} must define sourceId.`);
       }
@@ -398,7 +395,6 @@ export class ConfigurationAdapter {
 
       sources.push({
         sourceId,
-        spreadsheetId,
         sheetName,
         tableRange: this.getCellValue(row, sourceSchema.tableRange) || undefined,
         attendance,

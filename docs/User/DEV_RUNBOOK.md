@@ -46,9 +46,11 @@ ERINNERUNGS_OFFSETS | [48,24]
 ### Tab `Trainingsquellen`
 
 ```text
-SourceId | DateiId | TabellenName | TabellenBereich | Layout | VornameSpalte | NachnameSpalte | StartSpalte
-club-rsvp | | RSVP Übersicht | A1:AZ200 | member-rows | A | B | C
+SourceId | TabellenName | TabellenBereich | Layout | VornameSpalte | NachnameSpalte | StartSpalte
+club-rsvp | RSVP Übersicht | A1:AZ200 | member-rows | A | B | C
 ```
+
+`SourceId` ist eine interne Kennung fuer die Quelle, nicht der Tabname. Sie verbindet `Trainingsquellen` mit `Trainingsdefinitionen` und taucht in erzeugten Session-IDs auf. `TabellenName` meint den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten oeffentlichen Spreadsheets. Das oeffentliche Spreadsheet selbst kommt immer aus `OEFFENTLICHES_SHEET_ID` im Tab `Konfiguration`.
 
 ### Tab `Trainingsdefinitionen`
 
@@ -56,6 +58,8 @@ club-rsvp | | RSVP Übersicht | A1:AZ200 | member-rows | A | B | C
 SourceId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung
 club-rsvp | wed-mixed | Mittwoch Training | Mittwoch | 18:00 | 20:00 | Sporthalle | Indoor | Mixed |
 ```
+
+`Trainingsdefinitionen` wird nicht automatisch angepasst. Wenn Sie neue Trainingsarten, Startzeiten oder andere Metadaten einfuehren, muessen Sie diesen Tab manuell pflegen.
 
 ### Tab `Mitglieder`
 
