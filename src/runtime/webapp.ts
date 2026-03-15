@@ -1,4 +1,8 @@
-import { RegisterMemberRequest, SubmitRsvpRequest } from '../application';
+import {
+  RegisterMemberRequest,
+  SubmitRsvpRequest,
+  UpdateSubscriptionPreferencesRequest,
+} from '../application';
 import { getSessionStartDate } from '../application/notifications/notificationUtils';
 import { createRuntimeContext } from './createRuntimeContext';
 import { getRuntimeLogger } from './logging';
@@ -29,6 +33,12 @@ export interface RegistrationRequestParameters {
   gender?: string;
 }
 
+export interface SubscriptionPreferencesRequestParameters {
+  action?: string;
+  memberId?: string;
+  subscribedTrainingIds?: string;
+}
+
 export interface RsvpResponsePayload {
   ok: boolean;
   message: string;
@@ -52,6 +62,10 @@ export interface RegisterMemberExecutor {
   execute(request: RegisterMemberRequest): { user: UserRecord; created: boolean };
 }
 
+export interface UpdateSubscriptionPreferencesExecutor {
+  execute(request: UpdateSubscriptionPreferencesRequest): { user: UserRecord };
+}
+
 interface TrainerParticipationReportExecutor {
   execute(request: { sessionId: string }): { sentCount: number };
 }
@@ -65,6 +79,7 @@ interface TrainerParticipationDispatchRuntime {
 
 const PUBLIC_RSVP_ERROR_MESSAGE = 'Die RSVP konnte momentan nicht verarbeitet werden.';
 const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Die Registrierung konnte momentan nicht verarbeitet werden.';
+const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Die Benachrichtigungseinstellungen konnten momentan nicht verarbeitet werden.';
 const DEFAULT_TRAINER_REPORT_WINDOW_HOURS = 24;
 
 export function handleRsvpRequest(
@@ -174,6 +189,45 @@ export function handleRegistrationRequest(
   }
 }
 
+export function handleSubscriptionPreferencesRequest(
+  parameters: SubscriptionPreferencesRequestParameters,
+  updateSubscriptionPreferencesService: UpdateSubscriptionPreferencesExecutor,
+): RsvpResponsePayload {
+  const action = (parameters.action ?? '').trim().toLowerCase();
+  if (action !== 'preferences') {
+    return {
+      ok: false,
+      message: 'Ungültige Aktion.',
+    };
+  }
+
+  const memberId = parameters.memberId?.trim() ?? '';
+  if (!memberId || parameters.subscribedTrainingIds === undefined) {
+    return {
+      ok: false,
+      message: 'Die Einstellungsanfrage ist unvollständig.',
+    };
+  }
+
+  try {
+    updateSubscriptionPreferencesService.execute({
+      memberId,
+      subscribedTrainingIds: parseListParameter(parameters.subscribedTrainingIds),
+    });
+
+    return {
+      ok: true,
+      message: 'Danke, deine Benachrichtigungseinstellungen wurden gespeichert.',
+    };
+  } catch (error) {
+    logPublicRequestError('preferences', error, { memberId });
+    return {
+      ok: false,
+      message: PUBLIC_PREFERENCES_ERROR_MESSAGE,
+    };
+  }
+}
+
 export function doGet(event?: GoogleAppsScript.Events.DoGet): GoogleAppsScript.Content.TextOutput {
   const parameters = event?.parameter ?? {};
   const logger = getRuntimeLogger();
@@ -231,6 +285,8 @@ export function doPost(event?: GoogleAppsScript.Events.DoPost): GoogleAppsScript
     const runtime = createRuntimeContext();
     const result = action === 'rsvp'
       ? handleRsvpRequest(parameters, runtime.submitRsvpService)
+      : action === 'preferences'
+        ? handleSubscriptionPreferencesRequest(parameters, runtime.updateSubscriptionPreferencesService)
       : handleRegistrationRequest(parameters, runtime.registerMemberService, runtime.userRepository);
 
     if (result.ok) {
@@ -260,6 +316,8 @@ export function doPost(event?: GoogleAppsScript.Events.DoPost): GoogleAppsScript
 
     const fallbackMessage = action === 'rsvp'
       ? PUBLIC_RSVP_ERROR_MESSAGE
+      : action === 'preferences'
+        ? PUBLIC_PREFERENCES_ERROR_MESSAGE
       : PUBLIC_REGISTRATION_ERROR_MESSAGE;
 
     return ContentService
@@ -391,6 +449,17 @@ function parseRsvpStatus(value: string | undefined): RsvpResponse | null {
   }
 
   return null;
+}
+
+function parseListParameter(value: string | undefined): string[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  return value
+    .split(/[\n,;]+/)
+    .map(entry => entry.trim())
+    .filter(Boolean);
 }
 
 function logPublicRequestError(action: string, error: unknown, context: Record<string, unknown>): void {

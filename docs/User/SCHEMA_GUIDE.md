@@ -96,7 +96,18 @@ Pflichtparameter:
 - `firstName`
 - `lastName`
 
-## 4. Validierung
+Registrierung legt Identität und Rolle an, verwaltet aber keine Trainings-Abonnements.
+
+## 4. Benachrichtigungseinstellungen über die Web-App
+Pflichtparameter:
+
+- `action=preferences`
+- `memberId`
+- `subscribedTrainingIds`
+
+`subscribedTrainingIds` ist eine komma- oder semikolon-getrennte Liste von `TrainingsId`-Werten aus `Trainingsdefinitionen`. Ein leerer Wert leert die Abonnements der Person.
+
+## 5. Validierung
 Typische Fehler sind fehlende Konfigurationsschlüssel, fehlende Spalten im Tab `Mitglieder` oder unvollständige Trainingsdefinitionen.
 
 Kurz: Das System unterstützt genau ein privates Schema und genau ein öffentliches Layout.

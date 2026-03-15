@@ -5,11 +5,8 @@ import {
   createCompositeMemberIdFromPersonName,
   createPersonName,
   getRoleDefinition,
-  NotificationChannel,
   parseGender,
   parseRole,
-  TRAINING_DAYS,
-  TrainingDay,
   UserRecord,
 } from '../../domain/types';
 
@@ -20,9 +17,6 @@ export interface RegisterMemberRequest {
   firstName: string;
   lastName: string;
   gender?: Gender | string;
-  subscribedTrainingIds?: string[];
-  subscribedTrainings?: TrainingDay[];
-  notificationChannel?: NotificationChannel;
 }
 
 export interface RegisterMemberResult {
@@ -49,13 +43,6 @@ export class RegisterMemberService implements IRegisterMemberService {
     const memberId = createCompositeMemberIdFromPersonName(personName);
     const role = parseRole(request.role);
     const gender = request.gender === undefined ? undefined : parseGender(String(request.gender));
-    const subscribedTrainings = this.normalizeTrainingDays(request.subscribedTrainings ?? []);
-    const subscribedTrainingIds = this.normalizeStringList(
-      request.subscribedTrainingIds && request.subscribedTrainingIds.length > 0
-        ? request.subscribedTrainingIds
-        : subscribedTrainings,
-    );
-    const notificationChannel = request.notificationChannel ?? 'email';
 
     const user: UserRecord = {
       memberId,
@@ -65,12 +52,9 @@ export class RegisterMemberService implements IRegisterMemberService {
       role,
       roleDefinition: getRoleDefinition(role),
       personName,
-      subscriptions: subscribedTrainingIds.map(trainingId => ({
-        trainingId,
-        notificationChannel,
-      })),
-      subscribedTrainingIds,
-      subscribedTrainings,
+      subscriptions: [],
+      subscribedTrainingIds: [],
+      subscribedTrainings: [],
     };
 
     const existingUser = this.userRepository.getUserByMemberId(memberId);
@@ -80,14 +64,5 @@ export class RegisterMemberService implements IRegisterMemberService {
       user,
       created: existingUser === null,
     };
-  }
-
-  private normalizeStringList(values: string[]): string[] {
-    return Array.from(new Set(values.map(value => String(value).trim()).filter(Boolean)));
-  }
-
-  private normalizeTrainingDays(values: TrainingDay[]): TrainingDay[] {
-    const validDays = new Set<string>(TRAINING_DAYS);
-    return this.normalizeStringList(values).filter((value): value is TrainingDay => validDays.has(value));
   }
 }

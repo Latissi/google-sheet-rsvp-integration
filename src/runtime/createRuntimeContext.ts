@@ -6,6 +6,7 @@ import {
   ISendTrainingReminderService,
   ISubmitRsvpService,
   ISyncAttendanceService,
+  IUpdateSubscriptionPreferencesService,
   CancelTrainingService,
   RegisterMemberService,
   SendCancellationNotificationService,
@@ -13,6 +14,7 @@ import {
   SendTrainingReminderService,
   SubmitRsvpService,
   SyncAttendanceService,
+  UpdateSubscriptionPreferencesService,
 } from '../application';
 import { getSystemConfig, SystemConfig } from '../config';
 import { IConfigurationProvider } from '../domain/ports/IConfigurationProvider';
@@ -34,6 +36,7 @@ export interface RuntimeContext {
   trainingDataRepository: ITrainingDataRepository;
   notificationSender: INotificationSender;
   registerMemberService: IRegisterMemberService;
+  updateSubscriptionPreferencesService: IUpdateSubscriptionPreferencesService;
   submitRsvpService: ISubmitRsvpService;
   syncAttendanceService: ISyncAttendanceService;
   cancelTrainingService: ICancelTrainingService;
@@ -66,6 +69,7 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
   const notificationSender = new EnvironmentAwareNotificationSender(systemConfig, mailNotificationSender);
   const syncAttendanceService = new SyncAttendanceService(trainingDataRepository);
   const registerMemberService = new RegisterMemberService(userRepository);
+  const updateSubscriptionPreferencesService = new UpdateSubscriptionPreferencesService(userRepository);
   const submitRsvpService = new SubmitRsvpService(
     userRepository,
     syncAttendanceService,
@@ -94,6 +98,7 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     trainingDataRepository,
     notificationSender,
     registerMemberService,
+    updateSubscriptionPreferencesService,
     submitRsvpService,
     syncAttendanceService,
     cancelTrainingService,

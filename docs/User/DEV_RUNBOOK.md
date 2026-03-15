@@ -125,6 +125,17 @@ lastName=<nachname>
 
 Alle Felder sind Pflicht.
 
+### Test 4 – Benachrichtigungseinstellungen über POST
+Die Pflege der Trainings-Abonnements läuft getrennt von der Registrierung:
+
+```text
+action=preferences
+memberId=<member-id>
+subscribedTrainingIds=wed-mixed,mon-late
+```
+
+`subscribedTrainingIds` erwartet eine komma- oder semikolon-getrennte Liste von `TrainingsId`-Werten. Ein leerer Wert entfernt alle Abonnements.
+
 ## 7. Fehlerbehebung
 - Prüfen Sie bei Bootstrap-Fehlern `ENV`, `PRIVATE_SHEETS_ID`, `WEBAPPURL` und `TRAINER_EMAIL` in den Script Properties.
 - Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_OFFSETS` gesetzt sind.

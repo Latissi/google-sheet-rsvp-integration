@@ -6,15 +6,14 @@ import {
   AttendanceSyncMetadata,
   PublicTrainingSource,
   RsvpStatus,
-  TRAINING_DAYS,
   TrainingCancellation,
   TrainingAudience,
   TrainingDefinition,
   TrainingEnvironment,
   TrainingSession,
-  TrainingSessionStatus,
-  UserRecord,
 } from '../../domain/types';
+import { MemberRowUserMatcher } from './MemberRowUserMatcher';
+import { TrainingSessionDateParser } from './TrainingSessionDateParser';
 import { ISheetGateway } from '../gateway/ISheetGateway';
 
 interface TableBounds {
@@ -55,35 +54,22 @@ interface ResolvedTrainingTemplate {
 }
 
 const DEFAULT_MANUAL_TIMESTAMP = '1970-01-01T00:00:00.000Z';
-const WEEKDAYS_FROM_SUNDAY: Array<'Sonntag' | 'Montag' | 'Dienstag' | 'Mittwoch' | 'Donnerstag' | 'Freitag' | 'Samstag'> = [
-  'Sonntag',
-  'Montag',
-  'Dienstag',
-  'Mittwoch',
-  'Donnerstag',
-  'Freitag',
-  'Samstag',
-];
-const GERMAN_WEEKDAY_MAP: Record<string, TrainingDefinition['day']> = {
-  mo: 'Montag',
-  di: 'Dienstag',
-  mi: 'Mittwoch',
-  do: 'Donnerstag',
-  fr: 'Freitag',
-  sa: 'Samstag',
-  so: 'Sonntag',
-};
 
 export class GoogleSheetTrainingDataRepository implements ITrainingDataRepository {
   private sessionReferencesCache: SessionReference[] | null = null;
   private readonly sourceTableCache = new Map<string, unknown[][]>();
+  private readonly sessionDateParser: TrainingSessionDateParser;
+  private readonly memberRowUserMatcher: MemberRowUserMatcher;
 
   constructor(
     private readonly gateway: ISheetGateway,
     private readonly configurationProvider: IConfigurationProvider,
     private readonly userRepository: IUserRepository,
     private readonly nowProvider: () => Date = () => new Date(),
-  ) {}
+  ) {
+    this.sessionDateParser = new TrainingSessionDateParser(nowProvider);
+    this.memberRowUserMatcher = new MemberRowUserMatcher();
+  }
 
   private getPublicSpreadsheetId(): string {
     return this.configurationProvider.getPublicSheetId();
@@ -163,7 +149,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     let previousSessionDate: string | null = null;
 
     for (let columnIndex = attendanceStartIndex; columnIndex < headers.length; columnIndex += 1) {
-      const sessionDate = this.parseSessionDateHeader(headers[columnIndex], previousSessionDate);
+      const sessionDate = this.sessionDateParser.parseHeader(headers[columnIndex], previousSessionDate);
       if (!sessionDate) {
         continue;
       }
@@ -219,7 +205,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
           return null;
         }
 
-        const user = this.findUserForMemberRow(
+        const user = this.memberRowUserMatcher.findUser(
           rowValues[firstNameIndex],
           rowValues[lastNameIndex],
           users,
@@ -267,7 +253,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
         continue;
       }
 
-      const rowUser = this.findUserForMemberRow(rowValues[firstNameIndex], rowValues[lastNameIndex], [user]);
+      const rowUser = this.memberRowUserMatcher.findUser(rowValues[firstNameIndex], rowValues[lastNameIndex], [user]);
       if (rowUser?.memberId === user.memberId) {
         absoluteRowIndex = reference.bounds.startRow + rowOffset;
         break;
@@ -298,7 +284,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   }
 
   private resolveTrainingTemplate(source: PublicTrainingSource, sessionDate: string): ResolvedTrainingTemplate {
-    const sessionDay = this.deriveTrainingDay(sessionDate);
+    const sessionDay = this.sessionDateParser.deriveTrainingDay(sessionDate);
     if (!sessionDay) {
       throw new Error(`Public training source "${source.sourceId}" has an unparseable session date "${sessionDate}".`);
     }
@@ -396,26 +382,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return absoluteColumnIndex - bounds.startColumn;
   }
 
-  private findUserForMemberRow(firstName: unknown, lastName: unknown, users: UserRecord[]): UserRecord | null {
-    const normalizedFirstName = this.normalizeText(firstName);
-    const normalizedLastName = this.normalizeText(lastName);
-    const normalizedName = this.normalizeText(`${String(firstName ?? '').trim()} ${String(lastName ?? '').trim()}`);
-    const normalizedMemberId = this.normalizeText(`${String(firstName ?? '').trim()}::${String(lastName ?? '').trim()}`);
-
-    if (!normalizedFirstName && !normalizedLastName) {
-      return null;
-    }
-
-    return users.find(user => (
-      normalizedName === this.normalizeText(user.name)
-      || normalizedMemberId === this.normalizeText(user.memberId)
-      || (
-        normalizedFirstName === this.normalizeText(user.personName?.firstName ?? '')
-        && normalizedLastName === this.normalizeText(user.personName?.lastName ?? '')
-      )
-    )) ?? null;
-  }
-
   private parseAttendanceCell(value: unknown): RsvpStatus | null {
     const normalized = this.normalizeText(value);
     const raw = String(value ?? '').trim();
@@ -480,20 +446,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return null;
   }
 
-  private parseMetadataMap(value: unknown): Record<string, AttendanceSyncMetadata> {
-    const raw = String(value ?? '').trim();
-    if (!raw) {
-      return {};
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as Record<string, AttendanceSyncMetadata>;
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch {
-      return {};
-    }
-  }
-
   private getCellMetadata(source: PublicTrainingSource, rowIndex: number, columnIndex: number): AttendanceSyncMetadata {
     const note = this.gateway.getCellNote(source.sheetName, rowIndex, columnIndex, {
       spreadsheetId: this.getPublicSpreadsheetId(),
@@ -519,16 +471,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       source: 'manual',
       updatedAt: DEFAULT_MANUAL_TIMESTAMP,
     };
-  }
-
-  private deriveTrainingDay(sessionDate: string): TrainingDefinition['day'] | undefined {
-    const date = new Date(`${sessionDate}T00:00:00.000Z`);
-    if (Number.isNaN(date.getTime())) {
-      return undefined;
-    }
-
-    const weekday = WEEKDAYS_FROM_SUNDAY[date.getUTCDay()];
-    return (TRAINING_DAYS as readonly string[]).includes(weekday) ? weekday as TrainingDefinition['day'] : undefined;
   }
 
   private createSessionId(sourceId: string, trainingId: string, sessionDate: string, startTime: string): string {
@@ -559,107 +501,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       .toUpperCase()
       .split('')
       .reduce((total, character) => (total * 26) + character.charCodeAt(0) - 64, 0) - 1;
-  }
-
-  private parseSessionDateHeader(value: unknown, previousSessionDate: string | null): string | null {
-    if (value instanceof Date) {
-      return value.toISOString().slice(0, 10);
-    }
-
-    const raw = String(value ?? '')
-      .replace(/\u00a0/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!raw) {
-      return null;
-    }
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-      return raw;
-    }
-
-    const germanShortDate = this.parseGermanShortDateHeader(raw, previousSessionDate);
-    if (germanShortDate) {
-      return germanShortDate;
-    }
-
-    const parsed = new Date(raw);
-    if (Number.isNaN(parsed.getTime())) {
-      return null;
-    }
-
-    return parsed.toISOString().slice(0, 10);
-  }
-
-  private parseGermanShortDateHeader(raw: string, previousSessionDate: string | null): string | null {
-    const match = raw.match(/^(Mo|Di|Mi|Do|Fr|Sa|So)\.?\s+(\d{1,2})\.\s*(\d{1,2})\.?$/i);
-    if (!match) {
-      return null;
-    }
-
-    const weekday = GERMAN_WEEKDAY_MAP[match[1].toLowerCase()];
-    const day = parseInt(match[2], 10);
-    const month = parseInt(match[3], 10);
-    if (!weekday || !Number.isInteger(day) || !Number.isInteger(month)) {
-      return null;
-    }
-
-    const candidates = this.getGermanShortDateCandidates(day, month, weekday, previousSessionDate);
-    if (candidates.length === 0) {
-      return null;
-    }
-
-    return candidates[0].toISOString().slice(0, 10);
-  }
-
-  private getGermanShortDateCandidates(
-    day: number,
-    month: number,
-    expectedWeekday: TrainingDefinition['day'],
-    previousSessionDate: string | null,
-  ): Date[] {
-    const referenceDate = previousSessionDate
-      ? new Date(`${previousSessionDate}T00:00:00.000Z`)
-      : this.getCurrentUtcDate();
-    const years = previousSessionDate
-      ? [referenceDate.getUTCFullYear(), referenceDate.getUTCFullYear() + 1, referenceDate.getUTCFullYear() + 2]
-      : [referenceDate.getUTCFullYear() - 1, referenceDate.getUTCFullYear(), referenceDate.getUTCFullYear() + 1];
-
-    const candidates = years
-      .map(year => this.createUtcDate(year, month, day))
-      .filter((candidate): candidate is Date => candidate !== null)
-      .filter(candidate => this.deriveTrainingDay(candidate.toISOString().slice(0, 10)) === expectedWeekday);
-
-    if (previousSessionDate) {
-      return candidates
-        .filter(candidate => candidate.getTime() > referenceDate.getTime())
-        .sort((left, right) => left.getTime() - right.getTime());
-    }
-
-    return candidates.sort((left, right) => {
-      const leftDistance = Math.abs(left.getTime() - referenceDate.getTime());
-      const rightDistance = Math.abs(right.getTime() - referenceDate.getTime());
-      return leftDistance - rightDistance;
-    });
-  }
-
-  private createUtcDate(year: number, month: number, day: number): Date | null {
-    const candidate = new Date(Date.UTC(year, month - 1, day));
-    if (
-      Number.isNaN(candidate.getTime())
-      || candidate.getUTCFullYear() !== year
-      || candidate.getUTCMonth() !== month - 1
-      || candidate.getUTCDate() !== day
-    ) {
-      return null;
-    }
-
-    return candidate;
-  }
-
-  private getCurrentUtcDate(): Date {
-    const now = this.nowProvider();
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   }
 
   private getCellValue(row: unknown[], index?: number): string {

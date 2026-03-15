@@ -33,7 +33,7 @@ class InMemoryUserRepository implements IUserRepository {
 }
 
 describe('RegisterMemberService', () => {
-  it('creates a user record with normalized subscriptions', () => {
+  it('creates a user record without subscriptions', () => {
     const repository = new InMemoryUserRepository();
     const service = new RegisterMemberService(repository);
 
@@ -43,8 +43,6 @@ describe('RegisterMemberService', () => {
       firstName: 'Alice',
       lastName: 'Example',
       gender: 'w',
-      subscribedTrainingIds: ['wed-mixed', 'wed-mixed', 'fri-outdoor'],
-      subscribedTrainings: ['Mittwoch', 'Freitag'],
     });
 
     expect(result.created).toBe(true);
@@ -56,12 +54,9 @@ describe('RegisterMemberService', () => {
       role: 'Mitglied',
       roleDefinition: getRoleDefinition('Mitglied'),
       personName: createPersonName('Alice', 'Example'),
-      subscriptions: [
-        { trainingId: 'wed-mixed', notificationChannel: 'email' },
-        { trainingId: 'fri-outdoor', notificationChannel: 'email' },
-      ],
-      subscribedTrainingIds: ['wed-mixed', 'fri-outdoor'],
-      subscribedTrainings: ['Mittwoch', 'Freitag'],
+      subscriptions: [],
+      subscribedTrainingIds: [],
+      subscribedTrainings: [],
     });
   });
 
@@ -86,12 +81,11 @@ describe('RegisterMemberService', () => {
       firstName: 'New',
       lastName: 'Coach',
       gender: 'm',
-      subscribedTrainings: ['Montag'],
     });
 
     expect(result.created).toBe(false);
     expect(repository.getUserByMemberId('new::coach')?.role).toBe('Trainer');
     expect(repository.getUserByMemberId('new::coach')?.gender).toBe('m');
-    expect(repository.getUserByMemberId('new::coach')?.subscribedTrainingIds).toEqual(['Montag']);
+    expect(repository.getUserByMemberId('new::coach')?.subscribedTrainingIds).toEqual([]);
   });
 });

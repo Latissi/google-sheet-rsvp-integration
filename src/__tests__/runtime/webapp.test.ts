@@ -1,4 +1,8 @@
-import { RegisterMemberRequest, SubmitRsvpRequest } from '../../application';
+import {
+  RegisterMemberRequest,
+  SubmitRsvpRequest,
+  UpdateSubscriptionPreferencesRequest,
+} from '../../application';
 import {
   createCompositeMemberId,
   createPersonName,
@@ -9,6 +13,7 @@ import {
 import {
   handleRegistrationRequest,
   handleRsvpRequest,
+  handleSubscriptionPreferencesRequest,
   runTrainerParticipationReportDispatchWithRuntime,
 } from '../../runtime/webapp';
 
@@ -39,6 +44,28 @@ class RecordingRegisterMemberService {
         subscribedTrainings: [],
       },
       created: true,
+    };
+  }
+}
+
+class RecordingUpdateSubscriptionPreferencesService {
+  public readonly requests: UpdateSubscriptionPreferencesRequest[] = [];
+
+  execute(request: UpdateSubscriptionPreferencesRequest): { user: UserRecord } {
+    this.requests.push(request);
+    return {
+      user: {
+        memberId: request.memberId,
+        name: 'Ada Lovelace',
+        email: 'ada@example.com',
+        gender: 'w',
+        role: getRoleDefinition('Mitglied').roleId,
+        roleDefinition: getRoleDefinition('Mitglied'),
+        personName: createPersonName('Ada', 'Lovelace'),
+        subscriptions: request.subscribedTrainingIds.map(trainingId => ({ trainingId, notificationChannel: 'email' })),
+        subscribedTrainingIds: request.subscribedTrainingIds,
+        subscribedTrainings: [],
+      },
     };
   }
 }
@@ -152,6 +179,41 @@ describe('webapp RSVP handler', () => {
       message: 'Ungültige Aktion.',
     });
     expect(service.requests).toEqual([]);
+  });
+
+  it('maps preferences parameters to a dedicated update request', () => {
+    const service = new RecordingUpdateSubscriptionPreferencesService();
+
+    const result = handleSubscriptionPreferencesRequest({
+      action: 'preferences',
+      memberId: 'ada::lovelace',
+      subscribedTrainingIds: 'wed-mixed; fri-outdoor',
+    }, service);
+
+    expect(result).toEqual({
+      ok: true,
+      message: 'Danke, deine Benachrichtigungseinstellungen wurden gespeichert.',
+    });
+    expect(service.requests).toEqual([{
+      memberId: 'ada::lovelace',
+      subscribedTrainingIds: ['wed-mixed', 'fri-outdoor'],
+    }]);
+  });
+
+  it('allows clearing preferences with an empty subscribedTrainingIds value', () => {
+    const service = new RecordingUpdateSubscriptionPreferencesService();
+
+    const result = handleSubscriptionPreferencesRequest({
+      action: 'preferences',
+      memberId: 'ada::lovelace',
+      subscribedTrainingIds: '',
+    }, service);
+
+    expect(result.ok).toBe(true);
+    expect(service.requests).toEqual([{
+      memberId: 'ada::lovelace',
+      subscribedTrainingIds: [],
+    }]);
   });
 
   it('dispatches trainer participation reports for sessions in the configured window', () => {
