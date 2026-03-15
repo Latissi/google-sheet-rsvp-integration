@@ -45,12 +45,7 @@ export function isRole(value: string): value is Role {
 }
 
 export function parseRole(value: string): Role {
-  const normalizedValue = value.trim().toLowerCase();
-  const mappedValue = normalizedValue === 'mitglied' || normalizedValue === 'member'
-    ? 'Mitglied'
-    : normalizedValue === 'trainer'
-      ? 'Trainer'
-      : value.trim();
+  const mappedValue = value.trim();
   if (!isRole(mappedValue)) {
     throw new Error(`Unsupported role: "${value}"`);
   }

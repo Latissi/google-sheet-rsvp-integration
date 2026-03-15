@@ -4,7 +4,6 @@ import {
   Gender,
   createCompositeMemberIdFromPersonName,
   createPersonName,
-  createPersonNameFromFullName,
   getRoleDefinition,
   NotificationChannel,
   parseGender,
@@ -18,9 +17,8 @@ export interface RegisterMemberRequest {
   memberId?: string;
   email: string;
   role: string;
-  firstName?: string;
-  lastName?: string;
-  fullName?: string;
+  firstName: string;
+  lastName: string;
   gender?: Gender | string;
   subscribedTrainingIds?: string[];
   subscribedTrainings?: TrainingDay[];
@@ -43,13 +41,7 @@ export class RegisterMemberService implements IRegisterMemberService {
       throw new Error('email is required.');
     }
 
-    const personName = request.firstName || request.lastName
-      ? createPersonName(request.firstName ?? '', request.lastName ?? '')
-      : createPersonNameFromFullName(request.fullName ?? '');
-
-    if (!personName.fullName) {
-      throw new Error('A member name is required.');
-    }
+    const personName = createPersonName(request.firstName, request.lastName);
     if (!personName.firstName || !personName.lastName) {
       throw new Error('Both firstName and lastName are required for the composite member key.');
     }

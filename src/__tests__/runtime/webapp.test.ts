@@ -27,13 +27,13 @@ class RecordingRegisterMemberService {
     this.requests.push(request);
     return {
       user: {
-        memberId: request.memberId ?? createCompositeMemberId(request.firstName ?? 'Ada', request.lastName ?? 'Lovelace'),
-        name: request.fullName ?? `${request.firstName ?? ''} ${request.lastName ?? ''}`.trim(),
+        memberId: request.memberId ?? createCompositeMemberId(request.firstName, request.lastName),
+        name: `${request.firstName} ${request.lastName}`.trim(),
         email: request.email,
         gender: request.gender === 'm' || request.gender === 'w' ? request.gender : undefined,
         role: getRoleDefinition('Mitglied').roleId,
         roleDefinition: getRoleDefinition('Mitglied'),
-        personName: createPersonName(request.firstName ?? 'Ada', request.lastName ?? 'Lovelace'),
+        personName: createPersonName(request.firstName, request.lastName),
         subscriptions: [],
         subscribedTrainingIds: request.subscribedTrainingIds ?? [],
         subscribedTrainings: request.subscribedTrainings ?? [],
@@ -109,12 +109,13 @@ describe('webapp RSVP handler', () => {
     });
   });
 
-  it('maps registration parameters to a register request', () => {
+  it('maps canonical registration parameters to a register request', () => {
     const service = new RecordingRegisterMemberService();
 
     const result = handleRegistrationRequest({
+      action: 'register',
       email: 'ada@example.com',
-      role: 'member',
+      role: 'Mitglied',
       firstName: 'Ada',
       lastName: 'Lovelace',
       gender: 'w',
@@ -130,15 +131,31 @@ describe('webapp RSVP handler', () => {
     expect(service.requests).toEqual([{
       memberId: undefined,
       email: 'ada@example.com',
-      role: 'member',
+      role: 'Mitglied',
       firstName: 'Ada',
       lastName: 'Lovelace',
-      fullName: undefined,
       gender: 'w',
       subscribedTrainingIds: ['wed-mixed', 'fri-outdoor'],
       subscribedTrainings: undefined,
       notificationChannel: undefined,
     }]);
+  });
+
+  it('rejects registration requests without action register', () => {
+    const service = new RecordingRegisterMemberService();
+
+    const result = handleRegistrationRequest({
+      email: 'ada@example.com',
+      role: 'Mitglied',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    }, service, new EmptyUserLookup());
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'Ungültige Aktion.',
+    });
+    expect(service.requests).toEqual([]);
   });
 
   it('dispatches trainer participation reports for sessions in the configured window', () => {

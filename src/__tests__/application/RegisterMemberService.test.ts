@@ -83,7 +83,8 @@ describe('RegisterMemberService', () => {
     const result = service.execute({
       email: 'new@example.com',
       role: 'Trainer',
-      fullName: 'New Coach',
+      firstName: 'New',
+      lastName: 'Coach',
       gender: 'm',
       subscribedTrainings: ['Montag'],
     });

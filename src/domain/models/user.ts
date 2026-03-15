@@ -66,21 +66,6 @@ export function createPersonName(firstName: string, lastName: string = ''): Pers
   };
 }
 
-export function createPersonNameFromFullName(fullName: string): PersonName {
-  const normalizedFullName = sanitizeFullName(fullName);
-  if (!normalizedFullName) {
-    return createPersonName('', '');
-  }
-
-  const parts = normalizedFullName.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) {
-    return createPersonName(parts[0], '');
-  }
-
-  const lastName = parts.pop() ?? '';
-  return createPersonName(parts.join(' '), lastName);
-}
-
 function normalizeMemberIdPart(value: string): string {
   return value
     .trim()
@@ -93,14 +78,6 @@ function normalizeMemberIdPart(value: string): string {
 }
 
 function sanitizePersonNamePart(value: string): string {
-  return value
-    .normalize('NFKC')
-    .replace(/[\p{S}\p{C}]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function sanitizeFullName(value: string): string {
   return value
     .normalize('NFKC')
     .replace(/[\p{S}\p{C}]/gu, ' ')

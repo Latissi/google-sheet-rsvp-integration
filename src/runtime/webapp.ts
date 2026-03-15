@@ -26,8 +26,6 @@ export interface RegistrationRequestParameters {
   role?: string;
   firstName?: string;
   lastName?: string;
-  fullName?: string;
-  name?: string;
   gender?: string;
   subscribedTrainingIds?: string;
   subscribedTrainings?: string;
@@ -128,7 +126,7 @@ export function handleRegistrationRequest(
   now: string = new Date().toISOString(),
 ): RegistrationResponsePayload {
   const action = (parameters.action ?? '').trim().toLowerCase();
-  if (action && action !== 'register') {
+  if (action !== 'register') {
     return {
       ok: false,
       message: 'Ungültige Aktion.',
@@ -137,12 +135,11 @@ export function handleRegistrationRequest(
 
   const email = parameters.email?.trim() ?? '';
   const role = parameters.role?.trim() ?? '';
-  const firstName = parameters.firstName?.trim();
-  const lastName = parameters.lastName?.trim();
-  const fullName = parameters.fullName?.trim() || parameters.name?.trim();
+  const firstName = parameters.firstName?.trim() ?? '';
+  const lastName = parameters.lastName?.trim() ?? '';
   const gender = parameters.gender?.trim();
 
-  if (!email || !role || (!fullName && !firstName && !lastName)) {
+  if (!email || !role || !firstName || !lastName) {
     return {
       ok: false,
       message: 'Die Registrierungsanfrage ist unvollständig.',
@@ -150,7 +147,7 @@ export function handleRegistrationRequest(
   }
 
   const existingUser = userLookup.getUserByEmail(email)
-    ?? (fullName ? userLookup.getUserByName(fullName) : null);
+    ?? userLookup.getUserByName(`${firstName} ${lastName}`);
   const memberId = existingUser?.memberId;
 
   try {
@@ -160,7 +157,6 @@ export function handleRegistrationRequest(
       role,
       firstName,
       lastName,
-      fullName,
       gender,
       subscribedTrainingIds: parseListParameter(parameters.subscribedTrainingIds),
       subscribedTrainings: parseTrainingDaysParameter(parameters.subscribedTrainings),

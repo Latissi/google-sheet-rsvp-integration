@@ -3,7 +3,6 @@ import {
   Gender,
   createCompositeMemberIdFromPersonName,
   createPersonName,
-  createPersonNameFromFullName,
   getRoleDefinition,
   parseGender,
   PublicTrainingSource,
@@ -19,15 +18,38 @@ import {
 import { ISheetGateway } from '../gateway/ISheetGateway';
 
 interface UserSheetSchema {
-  memberId?: number;
-  name?: number;
-  firstName?: number;
-  lastName?: number;
+  firstName: number;
+  lastName: number;
   email: number;
   gender?: number;
   role: number;
   subscribedTrainings?: number;
   subscribedTrainingIds?: number;
+}
+
+interface PublicTrainingSourceSheetSchema {
+  sourceId: number;
+  spreadsheetId?: number;
+  sheetName: number;
+  tableRange?: number;
+  layout?: number;
+  firstNameColumn?: number;
+  lastNameColumn?: number;
+  startColumn: number;
+  metadataColumn?: number;
+}
+
+interface TrainingDefinitionSheetSchema {
+  sourceId: number;
+  trainingId: number;
+  title?: number;
+  day?: number;
+  startTime?: number;
+  endTime?: number;
+  location?: number;
+  environment?: number;
+  audience?: number;
+  description?: number;
 }
 
 export class ConfigurationAdapter {
@@ -38,7 +60,9 @@ export class ConfigurationAdapter {
   private userSheetNameCache: string | null = null;
   
   private readonly CONFIG_SHEET = 'Konfiguration';
-  private readonly USER_SHEETS = ['Benutzer', 'Mitglieder'];
+  private readonly USER_SHEET = 'Mitglieder';
+  private readonly PUBLIC_TRAINING_SOURCE_SHEET = 'Trainingsquellen';
+  private readonly TRAINING_DEFINITION_SHEET = 'Trainingsdefinitionen';
 
   constructor(gateway: ISheetGateway) {
     this.gateway = gateway;
@@ -73,13 +97,7 @@ export class ConfigurationAdapter {
   }
 
   getPublicSheetId(): string {
-    return this.getConfigValue('PUBLIC_SHEET_ID');
-  }
-
-  private getLegacyAttendanceConfig(): AttendanceConfig {
-    return {
-      startColumn: this.getConfigValue('ATTENDANCE_START_COL'),
-    };
+    return this.getConfigValue('OEFFENTLICHES_SHEET_ID');
   }
 
   private parseInteger(value: string, key: string): number {
@@ -109,18 +127,6 @@ export class ConfigurationAdapter {
     }
 
     return { hours, minutes };
-  }
-
-  private getLegacyReminderOffsets(): ReminderOffset[] {
-    const legacyValue = this.getOptionalConfigValue('REMINDER_DAYS_BEFORE');
-    if (!legacyValue) {
-      return [];
-    }
-
-    return [{
-      hours: this.parseInteger(legacyValue, 'REMINDER_DAYS_BEFORE') * 24,
-      minutes: 0,
-    }];
   }
 
   private normalizeReminderOffsets(offsets: ReminderOffset[]): ReminderOffset[] {
@@ -170,7 +176,7 @@ export class ConfigurationAdapter {
   }
 
   private isAttendanceLayout(value: unknown): value is AttendanceConfig['layout'] {
-    return value === 'session-rows' || value === 'member-rows';
+    return value === 'member-rows';
   }
 
   private parseAttendanceConfig(value: unknown, sourceId: string): AttendanceConfig {
@@ -187,19 +193,19 @@ export class ConfigurationAdapter {
       throw new Error(`Public training source "${sourceId}" has an invalid attendance.metadataColumn value.`);
     }
 
-    if (candidate.layout !== undefined && !this.isAttendanceLayout(candidate.layout)) {
+    if (!this.isAttendanceLayout(candidate.layout)) {
       throw new Error(`Public training source "${sourceId}" has an invalid attendance.layout value.`);
     }
 
-    if (candidate.firstNameColumn !== undefined && typeof candidate.firstNameColumn !== 'string') {
+    if (typeof candidate.firstNameColumn !== 'string') {
       throw new Error(`Public training source "${sourceId}" has an invalid attendance.firstNameColumn value.`);
     }
 
-    if (candidate.lastNameColumn !== undefined && typeof candidate.lastNameColumn !== 'string') {
+    if (typeof candidate.lastNameColumn !== 'string') {
       throw new Error(`Public training source "${sourceId}" has an invalid attendance.lastNameColumn value.`);
     }
 
-    if (candidate.layout === 'member-rows' && (!candidate.firstNameColumn || !candidate.lastNameColumn)) {
+    if (!candidate.firstNameColumn || !candidate.lastNameColumn) {
       throw new Error(`Public training source "${sourceId}" must define attendance.firstNameColumn and attendance.lastNameColumn for member-rows layout.`);
     }
 
@@ -212,122 +218,209 @@ export class ConfigurationAdapter {
     };
   }
 
-  private parsePublicTrainingSources(value: unknown): PublicTrainingSource[] {
-    if (!Array.isArray(value)) {
-      throw new Error('PUBLIC_TRAINING_SOURCES must be a JSON array.');
+  private parseTrainingSelector(value: unknown, sourceId: string, trainingLabel: string) {
+    if (!value || typeof value !== 'object') {
+      throw new Error(`Training selector ${trainingLabel} in source "${sourceId}" must be an object.`);
     }
 
-    return value.map((entry, index) => {
-      if (!entry || typeof entry !== 'object') {
-        throw new Error(`Public training source at index ${index} must be an object.`);
+    const selector = value as Record<string, unknown>;
+    const trainingId = String(selector.trainingId ?? '').trim();
+    if (!trainingId) {
+      throw new Error(`Training selector ${trainingLabel} in source "${sourceId}" is missing trainingId.`);
+    }
+
+    if (selector.day !== undefined && !this.isTrainingDay(selector.day)) {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid day value.`);
+    }
+
+    if (selector.audience !== undefined && !this.isTrainingAudience(selector.audience)) {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid audience value.`);
+    }
+
+    if (selector.environment !== undefined && !this.isTrainingEnvironment(selector.environment)) {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid environment value.`);
+    }
+
+    if (selector.title !== undefined && typeof selector.title !== 'string') {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid title value.`);
+    }
+
+    if (selector.startTime !== undefined && typeof selector.startTime !== 'string') {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid startTime value.`);
+    }
+
+    if (selector.endTime !== undefined && typeof selector.endTime !== 'string') {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid endTime value.`);
+    }
+
+    if (selector.location !== undefined && typeof selector.location !== 'string') {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid location value.`);
+    }
+
+    if (selector.description !== undefined && typeof selector.description !== 'string') {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid description value.`);
+    }
+
+    return {
+      trainingId,
+      day: selector.day as TrainingDay | undefined,
+      audience: selector.audience as TrainingAudience | undefined,
+      environment: selector.environment as TrainingEnvironment | undefined,
+      title: selector.title as string | undefined,
+      startTime: selector.startTime as string | undefined,
+      endTime: selector.endTime as string | undefined,
+      location: selector.location as string | undefined,
+      description: selector.description as string | undefined,
+    };
+  }
+
+  private getRequiredSheetValues(sheetName: string): unknown[][] {
+    return this.gateway.getSheetValues(sheetName);
+  }
+
+  private getPublicTrainingSourceSheetSchema(headers: unknown[]): PublicTrainingSourceSheetSchema {
+    return {
+      sourceId: this.getRequiredColumnIndex(headers, ['QuellenId']),
+      spreadsheetId: this.getColumnIndex(headers, ['DateiId']),
+      sheetName: this.getRequiredColumnIndex(headers, ['TabellenName']),
+      tableRange: this.getColumnIndex(headers, ['TabellenBereich']),
+      layout: this.getRequiredColumnIndex(headers, ['Layout']),
+      firstNameColumn: this.getRequiredColumnIndex(headers, ['VornameSpalte']),
+      lastNameColumn: this.getRequiredColumnIndex(headers, ['NachnameSpalte']),
+      startColumn: this.getRequiredColumnIndex(headers, ['StartSpalte']),
+      metadataColumn: this.getColumnIndex(headers, ['MetadatenSpalte']),
+    };
+  }
+
+  private getTrainingDefinitionSheetSchema(headers: unknown[]): TrainingDefinitionSheetSchema {
+    return {
+      sourceId: this.getRequiredColumnIndex(headers, ['QuellenId']),
+      trainingId: this.getRequiredColumnIndex(headers, ['TrainingsId']),
+      title: this.getColumnIndex(headers, ['Titel']),
+      day: this.getColumnIndex(headers, ['Wochentag']),
+      startTime: this.getRequiredColumnIndex(headers, ['Startzeit']),
+      endTime: this.getColumnIndex(headers, ['Endzeit']),
+      location: this.getColumnIndex(headers, ['Ort']),
+      environment: this.getColumnIndex(headers, ['Umgebung']),
+      audience: this.getColumnIndex(headers, ['Typ']),
+      description: this.getColumnIndex(headers, ['Beschreibung']),
+    };
+  }
+
+  private parseStructuredPublicTrainingSources(): PublicTrainingSource[] {
+    const sourceSheet = {
+      sheetName: this.PUBLIC_TRAINING_SOURCE_SHEET,
+      rows: this.getRequiredSheetValues(this.PUBLIC_TRAINING_SOURCE_SHEET),
+    };
+
+    if (sourceSheet.rows.length === 0) {
+      throw new Error(`Public training source sheet "${sourceSheet.sheetName}" must contain a header row.`);
+    }
+
+    const sourceSchema = this.getPublicTrainingSourceSheetSchema(sourceSheet.rows[0] ?? []);
+    const definitionSheet = {
+      sheetName: this.TRAINING_DEFINITION_SHEET,
+      rows: this.getRequiredSheetValues(this.TRAINING_DEFINITION_SHEET),
+    };
+    const definitionsBySource = new Map<string, ReturnType<ConfigurationAdapter['parseTrainingSelector']>[]>();
+
+    if (definitionSheet.rows.length === 0) {
+      throw new Error(`Training definition sheet "${definitionSheet.sheetName}" must contain a header row.`);
+    }
+
+    const definitionSchema = this.getTrainingDefinitionSheetSchema(definitionSheet.rows[0] ?? []);
+    for (let rowIndex = 1; rowIndex < definitionSheet.rows.length; rowIndex += 1) {
+      const row = definitionSheet.rows[rowIndex];
+      if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
+        continue;
       }
 
-      const candidate = entry as Partial<PublicTrainingSource>;
-      const sourceId = String(candidate.sourceId ?? '').trim();
-      const sheetName = String(candidate.sheetName ?? '').trim();
-      const spreadsheetId = String(candidate.spreadsheetId ?? this.getPublicSheetId()).trim();
+      const sourceId = this.getCellValue(row, definitionSchema.sourceId);
       if (!sourceId) {
-        throw new Error(`Public training source at index ${index} is missing sourceId.`);
+        throw new Error(`Training definition row ${rowIndex + 1} must define sourceId.`);
+      }
+
+      const training = this.parseTrainingSelector({
+        trainingId: this.getCellValue(row, definitionSchema.trainingId),
+        title: this.getCellValue(row, definitionSchema.title) || undefined,
+        day: this.getCellValue(row, definitionSchema.day) || undefined,
+        startTime: this.getCellValue(row, definitionSchema.startTime) || undefined,
+        endTime: this.getCellValue(row, definitionSchema.endTime) || undefined,
+        location: this.getCellValue(row, definitionSchema.location) || undefined,
+        environment: this.getCellValue(row, definitionSchema.environment) || undefined,
+        audience: this.getCellValue(row, definitionSchema.audience) || undefined,
+        description: this.getCellValue(row, definitionSchema.description) || undefined,
+      }, sourceId, `row ${rowIndex + 1}`);
+
+      const definitions = definitionsBySource.get(sourceId) ?? [];
+      if (definitions.some(existing => existing.trainingId === training.trainingId)) {
+        throw new Error(`Duplicate training definition for sourceId "${sourceId}" and trainingId "${training.trainingId}".`);
+      }
+      definitions.push(training);
+      definitionsBySource.set(sourceId, definitions);
+    }
+
+    const sources: PublicTrainingSource[] = [];
+    const seenSourceIds = new Set<string>();
+
+    for (let rowIndex = 1; rowIndex < sourceSheet.rows.length; rowIndex += 1) {
+      const row = sourceSheet.rows[rowIndex];
+      if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
+        continue;
+      }
+
+      const sourceId = this.getCellValue(row, sourceSchema.sourceId);
+      const sheetName = this.getCellValue(row, sourceSchema.sheetName);
+      const spreadsheetId = this.getCellValue(row, sourceSchema.spreadsheetId) || this.getPublicSheetId();
+      if (!sourceId) {
+        throw new Error(`Public training source row ${rowIndex + 1} must define sourceId.`);
       }
       if (!sheetName) {
-        throw new Error(`Public training source "${sourceId}" is missing sheetName.`);
+        throw new Error(`Public training source row ${rowIndex + 1} must define sheetName.`);
       }
-      if (!spreadsheetId) {
-        throw new Error(`Public training source "${sourceId}" is missing spreadsheetId.`);
+      if (seenSourceIds.has(sourceId)) {
+        throw new Error(`Duplicate public training source configured for sourceId "${sourceId}".`);
+      }
+      seenSourceIds.add(sourceId);
+
+      const attendance = this.parseAttendanceConfig({
+        layout: this.getCellValue(row, sourceSchema.layout) || undefined,
+        firstNameColumn: this.getCellValue(row, sourceSchema.firstNameColumn) || undefined,
+        lastNameColumn: this.getCellValue(row, sourceSchema.lastNameColumn) || undefined,
+        startColumn: this.getCellValue(row, sourceSchema.startColumn),
+        metadataColumn: this.getCellValue(row, sourceSchema.metadataColumn) || undefined,
+      }, sourceId);
+      const trainings = definitionsBySource.get(sourceId) ?? [];
+
+      if (trainings.length === 0) {
+        throw new Error(`Public training source "${sourceId}" uses member-rows layout and requires at least one training definition row.`);
       }
 
-      const rawTrainings = candidate.trainings ?? [];
-      if (!Array.isArray(rawTrainings)) {
-        throw new Error(`Public training source "${sourceId}" must define trainings as an array.`);
-      }
-
-      return {
+      sources.push({
         sourceId,
         spreadsheetId,
         sheetName,
-        tableRange: candidate.tableRange ? String(candidate.tableRange).trim() : undefined,
-        attendance: this.parseAttendanceConfig(candidate.attendance, sourceId),
-        trainings: rawTrainings.map((training, trainingIndex) => {
-          if (!training || typeof training !== 'object') {
-            throw new Error(`Training selector ${trainingIndex} in source "${sourceId}" must be an object.`);
-          }
+        tableRange: this.getCellValue(row, sourceSchema.tableRange) || undefined,
+        attendance,
+        trainings,
+      });
+    }
 
-          const selector = training as unknown as Record<string, unknown>;
-          const trainingId = String(selector.trainingId ?? '').trim();
-          if (!trainingId) {
-            throw new Error(`Training selector ${trainingIndex} in source "${sourceId}" is missing trainingId.`);
-          }
+    if (sources.length === 0) {
+      throw new Error(`Public training source sheet "${sourceSheet.sheetName}" must contain at least one data row.`);
+    }
 
-          if (selector.day !== undefined && !this.isTrainingDay(selector.day)) {
-            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid day value.`);
-          }
-
-          if (selector.audience !== undefined && !this.isTrainingAudience(selector.audience)) {
-            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid audience value.`);
-          }
-
-          if (selector.environment !== undefined && !this.isTrainingEnvironment(selector.environment)) {
-            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid environment value.`);
-          }
-
-          if (selector.title !== undefined && typeof selector.title !== 'string') {
-            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid title value.`);
-          }
-
-          if (selector.startTime !== undefined && typeof selector.startTime !== 'string') {
-            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid startTime value.`);
-          }
-
-          if (selector.endTime !== undefined && typeof selector.endTime !== 'string') {
-            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid endTime value.`);
-          }
-
-          if (selector.location !== undefined && typeof selector.location !== 'string') {
-            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid location value.`);
-          }
-
-          if (selector.description !== undefined && typeof selector.description !== 'string') {
-            throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid description value.`);
-          }
-
-          return {
-            trainingId,
-            day: selector.day,
-            audience: selector.audience,
-            environment: selector.environment,
-            title: selector.title as string | undefined,
-            startTime: selector.startTime as string | undefined,
-            endTime: selector.endTime as string | undefined,
-            location: selector.location as string | undefined,
-            description: selector.description as string | undefined,
-          };
-        }),
-      };
-    });
+    return sources;
   }
 
   getPublicTrainingSources(): PublicTrainingSource[] {
-    const configuredSources = this.getOptionalConfigValue('PUBLIC_TRAINING_SOURCES');
-    if (configuredSources) {
-      return this.parsePublicTrainingSources(this.parseJsonConfig<unknown>('PUBLIC_TRAINING_SOURCES'));
-    }
-
-    return [{
-      sourceId: 'default',
-      spreadsheetId: this.getPublicSheetId(),
-      sheetName: this.getConfigValue('TRAINING_SHEET_NAME'),
-      attendance: this.getLegacyAttendanceConfig(),
-      trainings: [],
-    }];
+    return this.parseStructuredPublicTrainingSources();
   }
 
   getReminderPolicy(): ReminderPolicy {
-    const configuredOffsets = this.getOptionalConfigValue('REMINDER_OFFSETS');
-    const offsets = configuredOffsets
-      ? this.normalizeReminderOffsets(
-        (this.parseJsonConfig<unknown>('REMINDER_OFFSETS') as unknown[]).map((offset, index) => this.parseReminderOffset(offset, index)),
-      )
-      : this.normalizeReminderOffsets(this.getLegacyReminderOffsets());
+    const offsets = this.normalizeReminderOffsets(
+      (this.parseJsonConfig<unknown>('ERINNERUNGS_OFFSETS') as unknown[]).map((offset, index) => this.parseReminderOffset(offset, index)),
+    );
 
     return {
       offsets,
@@ -336,7 +429,7 @@ export class ConfigurationAdapter {
   }
 
   getWebAppUrl(): string {
-    return this.getConfigValue('WEBAPP_URL');
+    return this.getConfigValue('WEBAPP_ADRESSE');
   }
 
   private normalizeHeader(value: unknown): string {
@@ -361,24 +454,17 @@ export class ConfigurationAdapter {
 
   private getUserSheetSchema(rawData: unknown[][]): UserSheetSchema {
     const headers = rawData[0] ?? [];
-    const firstName = this.getColumnIndex(headers, ['FirstName', 'GivenName']);
-    const lastName = this.getColumnIndex(headers, ['LastName', 'FamilyName', 'Surname']);
-    const name = this.getColumnIndex(headers, ['Name', 'FullName']);
-
-    if ((firstName === undefined || lastName === undefined) && name === undefined) {
-      throw new Error('User sheet must define either FirstName + LastName columns or a Name column.');
-    }
+    const firstName = this.getRequiredColumnIndex(headers, ['Vorname']);
+    const lastName = this.getRequiredColumnIndex(headers, ['Nachname']);
 
     return {
-      memberId: this.getColumnIndex(headers, ['MemberID', 'MemberId', 'MemberKey', 'CompositeMemberId']),
-      name,
       firstName,
       lastName,
-      email: this.getRequiredColumnIndex(headers, ['Email', 'Mail']),
-      gender: this.getColumnIndex(headers, ['Gender', 'Geschlecht']),
-      role: this.getRequiredColumnIndex(headers, ['Role']),
-      subscribedTrainings: this.getColumnIndex(headers, ['SubscribedTrainings', 'TrainingDays']),
-      subscribedTrainingIds: this.getColumnIndex(headers, ['SubscribedTrainingIds', 'TrainingIds']),
+      email: this.getRequiredColumnIndex(headers, ['EMail']),
+      gender: this.getColumnIndex(headers, ['Geschlecht']),
+      role: this.getRequiredColumnIndex(headers, ['Rolle']),
+      subscribedTrainings: this.getColumnIndex(headers, ['AbonnierteTrainings']),
+      subscribedTrainingIds: this.getColumnIndex(headers, ['AbonnierteTrainingsIds']),
     };
   }
 
@@ -402,20 +488,9 @@ export class ConfigurationAdapter {
       return this.userSheetNameCache;
     }
 
-    for (const sheetName of this.USER_SHEETS) {
-      try {
-        this.gateway.getSheetValues(sheetName);
-        this.userSheetNameCache = sheetName;
-        return sheetName;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (!message.includes('Sheet with name')) {
-          throw error;
-        }
-      }
-    }
-
-    throw new Error(`Missing required user sheet. Expected one of: ${this.USER_SHEETS.join(', ')}`);
+    this.gateway.getSheetValues(this.USER_SHEET);
+    this.userSheetNameCache = this.USER_SHEET;
+    return this.USER_SHEET;
   }
 
   private parseTrainingDays(value: string): TrainingDay[] {
@@ -424,7 +499,7 @@ export class ConfigurationAdapter {
   }
 
   private getPersonName(user: UserRecord) {
-    return user.personName ?? createPersonNameFromFullName(user.name);
+    return user.personName;
   }
 
   private getGender(row: unknown[], schema: UserSheetSchema): Gender | undefined {
@@ -439,10 +514,7 @@ export class ConfigurationAdapter {
   private getRowMemberId(row: unknown[], schema: UserSheetSchema): string {
     const firstName = this.getCellValue(row, schema.firstName);
     const lastName = this.getCellValue(row, schema.lastName);
-    const legacyName = this.getCellValue(row, schema.name);
-    const personName = firstName || lastName
-      ? createPersonName(firstName, lastName)
-      : createPersonNameFromFullName(legacyName);
+    const personName = createPersonName(firstName, lastName);
 
     return createCompositeMemberIdFromPersonName(personName);
   }
@@ -450,32 +522,18 @@ export class ConfigurationAdapter {
   private buildUserRow(user: UserRecord, schema: UserSheetSchema, currentWidth: number): unknown[] {
     const highestIndex = Math.max(
       currentWidth - 1,
-      schema.memberId ?? -1,
       schema.email,
       schema.gender ?? -1,
       schema.role,
-      schema.name ?? -1,
-      schema.firstName ?? -1,
-      schema.lastName ?? -1,
+      schema.firstName,
+      schema.lastName,
       schema.subscribedTrainings ?? -1,
       schema.subscribedTrainingIds ?? -1,
     );
     const row = new Array(Math.max(highestIndex + 1, 0)).fill('');
     const personName = this.getPersonName(user);
-    const compositeMemberId = createCompositeMemberIdFromPersonName(personName);
-
-    if (schema.memberId !== undefined) {
-      row[schema.memberId] = compositeMemberId;
-    }
-    if (schema.name !== undefined) {
-      row[schema.name] = user.name;
-    }
-    if (schema.firstName !== undefined) {
-      row[schema.firstName] = personName.firstName;
-    }
-    if (schema.lastName !== undefined) {
-      row[schema.lastName] = personName.lastName;
-    }
+    row[schema.firstName] = personName.firstName;
+    row[schema.lastName] = personName.lastName;
     row[schema.email] = user.email;
     if (schema.gender !== undefined) {
       row[schema.gender] = user.gender ?? '';
@@ -507,15 +565,12 @@ export class ConfigurationAdapter {
         
         const firstName = this.getCellValue(row, schema.firstName);
         const lastName = this.getCellValue(row, schema.lastName);
-        const legacyName = this.getCellValue(row, schema.name);
-        const personName = firstName || lastName
-          ? createPersonName(firstName, lastName)
-          : createPersonNameFromFullName(legacyName);
+        const personName = createPersonName(firstName, lastName);
         if (!personName.firstName || !personName.lastName) {
             throw new Error(`User row ${i + 1} must define both firstName and lastName for the composite member key.`);
         }
         const memberId = createCompositeMemberIdFromPersonName(personName);
-        const name = personName.fullName || legacyName;
+        const name = personName.fullName;
         const email = this.getCellValue(row, schema.email);
         const gender = this.getGender(row, schema);
         const role = parseRole(this.getCellValue(row, schema.role));

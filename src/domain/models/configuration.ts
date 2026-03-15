@@ -8,9 +8,9 @@ import { NotificationChannel } from './user';
 export interface AttendanceConfig {
   startColumn: string;
   metadataColumn?: string;
-  layout?: 'session-rows' | 'member-rows';
-  firstNameColumn?: string;
-  lastNameColumn?: string;
+  layout: 'member-rows';
+  firstNameColumn: string;
+  lastNameColumn: string;
 }
 
 export interface ReminderOffset {
