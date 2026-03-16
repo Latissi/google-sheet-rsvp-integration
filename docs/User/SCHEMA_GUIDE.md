@@ -1,6 +1,6 @@
 # Schema-Anleitung – Google Sheets Definitionen
 
-Dieses Dokument beschreibt die einzige unterstützte Tabellenstruktur für das RSVP-System. Die Anwendung erwartet einen festen privaten Konfigurationsaufbau und ein öffentliches Trainingsblatt im Layout member-rows.
+Dieses Dokument beschreibt die einzige unterstützte Tabellenstruktur für das RSVP-System. Die Anwendung erwartet einen festen privaten Konfigurationsaufbau und ein öffentliches Trainingsblatt mit Mitgliederzeilen und Datumsspalten.
 
 ## 1. Private Systemtabelle
 Dieses Spreadsheet ist über die Script-Property `PRIVATE_SHEETS_ID` verlinkt. Es enthält Konfiguration, Trainingsdefinitionen und private Mitgliederdaten und muss privat bleiben.
@@ -27,16 +27,15 @@ Erforderliche Schlüssel:
 
 ### Tab `Trainingsquellen`
 
-| SourceId | TabellenName | TabellenBereich | Layout | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte |
-|----------|--------------|-----------------|--------|-----------------|----------------------|---------------|----------------|-------------|
-| `club-rsvp` | `RSVP Übersicht` | `A1:AZ200` | `member-rows` | `2` | `6` | `A` | `B` | `E` |
+| SourceId | TabellenName | TabellenBereich | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte |
+|----------|--------------|-----------------|-----------------|----------------------|---------------|----------------|-------------|
+| `club-rsvp` | `RSVP Übersicht` | `A1:AZ200` | `2` | `6` | `A` | `B` | `E` |
 
 Regeln:
 - `SourceId` ist eine stabile interne Kennung fuer diese Trainingsquelle.
 - `SourceId` verknuepft die Zeile in `Trainingsquellen` mit den Zeilen in `Trainingsdefinitionen` und ist Teil der erzeugten `sessionId`.
 - `SourceId` ist nicht der Tabname. Der eigentliche Name des Arbeitsblatts im oeffentlichen Trainings-Sheet steht in `TabellenName`.
 - `TabellenName` meint also den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten Spreadsheets, zum Beispiel `RSVP Übersicht`.
-- `Layout` muss `member-rows` sein.
 - `DatumsKopfZeile` ist die absolute Zeilennummer im oeffentlichen Blatt, in der die eigentlichen Datums-Header stehen.
 - `MitgliederStartZeile` ist die absolute Zeilennummer im oeffentlichen Blatt, in der die erste echte Mitgliederzeile beginnt.
 - Das oeffentliche Spreadsheet wird immer ueber `OEFFENTLICHES_SHEET_ID` aus `Konfiguration` bestimmt. Eine separate `DateiId` pro Quelle gibt es nicht.
@@ -68,7 +67,7 @@ Regeln:
 - Alle Personen, die RSVP oder Benachrichtigungen nutzen, müssen in diesem Tab vorhanden sein.
 
 ## 2. Öffentliches Trainings-Sheet
-Unterstützt wird ausschließlich das Layout member-rows.
+Unterstützt wird ausschließlich die Struktur mit einer Zeile pro Mitglied und einer Datumsspalte pro Session.
 
 | Kategorie | Kategorie | Kategorie | 2026-03-11 | 2026-03-18 | 2026-03-25 |
 |-----------|-----------|-----------|------------|------------|------------|
@@ -110,4 +109,4 @@ Pflichtparameter:
 ## 5. Validierung
 Typische Fehler sind fehlende Konfigurationsschlüssel, fehlende Spalten im Tab `Mitglieder` oder unvollständige Trainingsdefinitionen.
 
-Kurz: Das System unterstützt genau ein privates Schema und genau ein öffentliches Layout.
+Kurz: Das System unterstützt genau ein privates Schema und genau eine öffentliche Tabellenstruktur.

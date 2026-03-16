@@ -18,8 +18,8 @@ describe('ConfigurationAdapter', () => {
       ['ERINNERUNGS_OFFSETS', JSON.stringify([48, 24])],
     ],
     Trainingsquellen: [
-      ['QuellenId', 'TabellenName', 'TabellenBereich', 'Layout', 'DatumsKopfZeile', 'MitgliederStartZeile', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
-      ['club-rsvp', 'RSVP Übersicht', 'A1:F50', 'member-rows', '1', '2', 'A', 'B', 'C'],
+      ['QuellenId', 'TabellenName', 'TabellenBereich', 'DatumsKopfZeile', 'MitgliederStartZeile', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
+      ['club-rsvp', 'RSVP Übersicht', 'A1:F50', '1', '2', 'A', 'B', 'C'],
     ],
     Trainingsdefinitionen: [
       ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Ort', 'Umgebung', 'Typ'],
@@ -53,7 +53,6 @@ describe('ConfigurationAdapter', () => {
           sheetName: 'RSVP Übersicht',
           tableRange: 'A1:F50',
           attendance: {
-            layout: 'member-rows',
             dateHeaderRow: 1,
             firstMemberRow: 2,
             firstNameColumn: 'A',
@@ -95,7 +94,7 @@ describe('ConfigurationAdapter', () => {
       const invalidAdapter = new ConfigurationAdapter(invalidGateway);
 
       expect(() => invalidAdapter.getPublicTrainingSources()).toThrow(
-        'Public training source "club-rsvp" uses member-rows layout and requires at least one training definition row.',
+        'Public training source "club-rsvp" requires at least one training definition row.',
       );
     });
 
@@ -103,8 +102,8 @@ describe('ConfigurationAdapter', () => {
       const invalidGateway = new MockSheetGateway({
         Konfiguration: initialData.Konfiguration,
         Trainingsquellen: [
-          ['QuellenId', 'TabellenName', 'TabellenBereich', 'Layout', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
-          ['club-rsvp', 'RSVP Übersicht', 'A1:F50', 'member-rows', 'A', 'B', 'C'],
+          ['QuellenId', 'TabellenName', 'TabellenBereich', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
+          ['club-rsvp', 'RSVP Übersicht', 'A1:F50', 'A', 'B', 'C'],
         ],
         Trainingsdefinitionen: initialData.Trainingsdefinitionen,
         Mitglieder: initialData.Mitglieder,

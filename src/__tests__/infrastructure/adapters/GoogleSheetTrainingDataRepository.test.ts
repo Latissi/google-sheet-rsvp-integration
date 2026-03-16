@@ -83,7 +83,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
       sheetName: 'RSVP Übersicht',
       tableRange: 'A1:E10',
       attendance: {
-        layout: 'member-rows',
         dateHeaderRow: 1,
         firstMemberRow: 2,
         firstNameColumn: 'A',
@@ -143,7 +142,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
       sheetName: 'RSVP Übersicht',
       tableRange: 'A1:D10',
       attendance: {
-        layout: 'member-rows',
         dateHeaderRow: 1,
         firstMemberRow: 2,
         firstNameColumn: 'A',
@@ -194,7 +192,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
       sheetName: 'RSVP Übersicht',
       tableRange: 'A1:D10',
       attendance: {
-        layout: 'member-rows',
         dateHeaderRow: 1,
         firstMemberRow: 2,
         firstNameColumn: 'A',
@@ -229,7 +226,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
       sheetName: 'Single Gender',
       tableRange: 'A1:G20',
       attendance: {
-        layout: 'member-rows',
         dateHeaderRow: 2,
         firstMemberRow: 6,
         firstNameColumn: 'A',
@@ -298,7 +294,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
       sheetName: 'Mixed Weekdays',
       tableRange: 'A1:G20',
       attendance: {
-        layout: 'member-rows',
         dateHeaderRow: 2,
         firstMemberRow: 7,
         firstNameColumn: 'A',
@@ -381,7 +376,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
       sheetName: 'RSVP Übersicht',
       tableRange: 'A1:D10',
       attendance: {
-        layout: 'member-rows',
         dateHeaderRow: 1,
         firstMemberRow: 2,
         firstNameColumn: 'A',
@@ -428,7 +422,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
       sheetName: 'Single Gender',
       tableRange: 'A1:G20',
       attendance: {
-        layout: 'member-rows',
         dateHeaderRow: 2,
         firstMemberRow: 6,
         firstNameColumn: 'A',

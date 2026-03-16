@@ -31,7 +31,6 @@ interface PublicTrainingSourceSheetSchema {
   sourceId: number;
   sheetName: number;
   tableRange?: number;
-  layout?: number;
   dateHeaderRow: number;
   firstMemberRow: number;
   firstNameColumn?: number;
@@ -166,10 +165,6 @@ export class ConfigurationAdapter {
     return value === 'Indoor' || value === 'Outdoor';
   }
 
-  private isAttendanceLayout(value: unknown): value is AttendanceConfig['layout'] {
-    return value === 'member-rows';
-  }
-
   private parseAttendanceConfig(value: unknown, sourceId: string): AttendanceConfig {
     if (!value || typeof value !== 'object') {
       throw new Error(`Public training source "${sourceId}" must define an attendance object.`);
@@ -198,10 +193,6 @@ export class ConfigurationAdapter {
       throw new Error(`Public training source "${sourceId}" must define attendance.firstMemberRow after attendance.dateHeaderRow.`);
     }
 
-    if (!this.isAttendanceLayout(candidate.layout)) {
-      throw new Error(`Public training source "${sourceId}" has an invalid attendance.layout value.`);
-    }
-
     if (typeof candidate.firstNameColumn !== 'string') {
       throw new Error(`Public training source "${sourceId}" has an invalid attendance.firstNameColumn value.`);
     }
@@ -211,13 +202,12 @@ export class ConfigurationAdapter {
     }
 
     if (!candidate.firstNameColumn || !candidate.lastNameColumn) {
-      throw new Error(`Public training source "${sourceId}" must define attendance.firstNameColumn and attendance.lastNameColumn for member-rows layout.`);
+      throw new Error(`Public training source "${sourceId}" must define attendance.firstNameColumn and attendance.lastNameColumn.`);
     }
 
     return {
       startColumn: candidate.startColumn,
       metadataColumn: candidate.metadataColumn,
-      layout: candidate.layout,
       firstNameColumn: candidate.firstNameColumn,
       lastNameColumn: candidate.lastNameColumn,
       dateHeaderRow,
@@ -290,7 +280,6 @@ export class ConfigurationAdapter {
       sourceId: this.getRequiredColumnIndex(headers, ['QuellenId']),
       sheetName: this.getRequiredColumnIndex(headers, ['TabellenName']),
       tableRange: this.getColumnIndex(headers, ['TabellenBereich']),
-      layout: this.getRequiredColumnIndex(headers, ['Layout']),
       dateHeaderRow: this.getRequiredColumnIndex(headers, ['DatumsKopfZeile']),
       firstMemberRow: this.getRequiredColumnIndex(headers, ['MitgliederStartZeile']),
       firstNameColumn: this.getRequiredColumnIndex(headers, ['VornameSpalte']),
@@ -394,7 +383,6 @@ export class ConfigurationAdapter {
       seenSourceIds.add(sourceId);
 
       const attendance = this.parseAttendanceConfig({
-        layout: this.getCellValue(row, sourceSchema.layout) || undefined,
         dateHeaderRow: this.getCellValue(row, sourceSchema.dateHeaderRow),
         firstMemberRow: this.getCellValue(row, sourceSchema.firstMemberRow),
         firstNameColumn: this.getCellValue(row, sourceSchema.firstNameColumn) || undefined,
@@ -405,7 +393,7 @@ export class ConfigurationAdapter {
       const trainings = definitionsBySource.get(sourceId) ?? [];
 
       if (trainings.length === 0) {
-        throw new Error(`Public training source "${sourceId}" uses member-rows layout and requires at least one training definition row.`);
+        throw new Error(`Public training source "${sourceId}" requires at least one training definition row.`);
       }
 
       sources.push({

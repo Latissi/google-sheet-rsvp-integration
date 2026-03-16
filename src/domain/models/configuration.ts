@@ -8,7 +8,6 @@ import { NotificationChannel } from './user';
 export interface AttendanceConfig {
   startColumn: string;
   metadataColumn?: string;
-  layout: 'member-rows';
   firstNameColumn: string;
   lastNameColumn: string;
   dateHeaderRow: number;
