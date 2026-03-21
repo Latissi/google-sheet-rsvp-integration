@@ -86,6 +86,11 @@ describe('GoogleSheetTrainingDataRepository', () => {
     return { gateway, repository };
   }
 
+  afterEach(() => {
+    delete (globalThis as unknown as { Utilities?: unknown }).Utilities;
+    delete (globalThis as unknown as { Session?: unknown }).Session;
+  });
+
   it('parses simple member-row sheets with explicit dateHeaderRow and firstMemberRow', () => {
     const sources: PublicTrainingSource[] = [{
       sourceId: 'club-rsvp',
@@ -140,6 +145,89 @@ describe('GoogleSheetTrainingDataRepository', () => {
         sessionDate: '2026-03-18',
         startTime: '18:00',
         location: 'Sporthalle',
+        status: 'Scheduled',
+      },
+    ]);
+  });
+
+  it('uses the Apps Script timezone for sheet date header cells', () => {
+    (globalThis as unknown as {
+      Session: { getScriptTimeZone(): string };
+      Utilities: { formatDate(date: Date, timeZone: string, pattern: string): string };
+    }).Session = {
+      getScriptTimeZone() {
+        return 'Europe/Berlin';
+      },
+    };
+
+    (globalThis as unknown as {
+      Utilities: { formatDate(date: Date, timeZone: string, pattern: string): string };
+    }).Utilities = {
+      formatDate(date: Date, timeZone: string, pattern: string) {
+        expect(pattern).toBe('yyyy-MM-dd');
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).formatToParts(date);
+
+        const year = parts.find(part => part.type === 'year')?.value;
+        const month = parts.find(part => part.type === 'month')?.value;
+        const day = parts.find(part => part.type === 'day')?.value;
+
+        return `${year}-${month}-${day}`;
+      },
+    };
+
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'std-outdoor',
+      sheetName: 'Training Mi',
+      tableRange: 'A1:G20',
+      attendance: {
+        dateHeaderRow: 2,
+        firstMemberRow: 4,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'E',
+      },
+      trainings: [{
+        trainingId: 'outdoor-wed',
+        day: 'Mittwoch',
+        title: 'Outdoor Mittwoch',
+        startTime: '19:00',
+      }],
+    }];
+
+    const { repository } = createRepository(sources, {
+      'Training Mi': [
+        ['', '', '', '', '', '', ''],
+        ['', '', '', '', new Date('2026-03-03T23:00:00.000Z'), new Date('2026-03-10T23:00:00.000Z'), new Date('2026-03-17T23:00:00.000Z')],
+        ['Zusagen', '', '', '', 22, 5, 5],
+        ['Anna', 'Ananas', 'w', '', 'x', '-', ''],
+      ],
+    });
+
+    expect(repository.getUpcomingTrainingSessions()).toEqual([
+      {
+        sessionId: 'std-outdoor__outdoor-wed__2026-03-04__19:00',
+        trainingId: 'outdoor-wed',
+        sessionDate: '2026-03-04',
+        startTime: '19:00',
+        status: 'Scheduled',
+      },
+      {
+        sessionId: 'std-outdoor__outdoor-wed__2026-03-11__19:00',
+        trainingId: 'outdoor-wed',
+        sessionDate: '2026-03-11',
+        startTime: '19:00',
+        status: 'Scheduled',
+      },
+      {
+        sessionId: 'std-outdoor__outdoor-wed__2026-03-18__19:00',
+        trainingId: 'outdoor-wed',
+        sessionDate: '2026-03-18',
+        startTime: '19:00',
         status: 'Scheduled',
       },
     ]);

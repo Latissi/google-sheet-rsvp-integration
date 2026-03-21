@@ -25,7 +25,7 @@ export class TrainingSessionDateParser {
 
   parseHeader(value: unknown, previousSessionDate: string | null): string | null {
     if (value instanceof Date) {
-      return value.toISOString().slice(0, 10);
+      return this.formatDateValue(value);
     }
 
     const raw = String(value ?? '')
@@ -132,5 +132,13 @@ export class TrainingSessionDateParser {
   private getCurrentUtcDate(): Date {
     const now = this.nowProvider();
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  }
+
+  private formatDateValue(value: Date): string {
+    if (typeof Utilities !== 'undefined' && typeof Session !== 'undefined') {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+
+    return value.toISOString().slice(0, 10);
   }
 }
