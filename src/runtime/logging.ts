@@ -8,7 +8,7 @@ export const RUNTIME_LOG_SHEET_NAME = 'Systemprotokoll';
 
 const LOG_WEEK_PROPERTY_KEY = 'RUNTIME_LOG_ACTIVE_WEEK';
 const MAX_LOG_MESSAGE_LENGTH = 220;
-const SENSITIVE_KEY_PATTERN = /(memberid|email|mail|name|firstname|lastname|fullname|gender|url|sheetid|spreadsheetid|webapp|trainer_email|private_sheets_id)/i;
+const SENSITIVE_KEY_PATTERN = /(memberid|email|mail|name|firstname|lastname|fullname|gender|url|sheetid|spreadsheetid|webapp)/i;
 const LOG_HEADERS = ['Zeitstempel', 'Woche', 'Level', 'Operation', 'Ereignis', 'Nachricht', 'Kontext'];
 
 export function getIsoWeekKey(date: Date): string {

@@ -16,13 +16,11 @@ import {
   SyncAttendanceService,
   UpdateSubscriptionPreferencesService,
 } from '../application';
-import { getSystemConfig, SystemConfig } from '../config';
 import { IConfigurationProvider } from '../domain/ports/IConfigurationProvider';
 import { INotificationSender } from '../domain/ports/INotificationSender';
 import { ITrainingDataRepository } from '../domain/ports/ITrainingDataRepository';
 import { IUserRepository } from '../domain/ports/IUserRepository';
 import { ConfigurationAdapter } from '../infrastructure/adapters/ConfigurationAdapter';
-import { EnvironmentAwareNotificationSender } from '../infrastructure/adapters/EnvironmentAwareNotificationSender';
 import { GoogleSheetTrainingDataRepository } from '../infrastructure/adapters/GoogleSheetTrainingDataRepository';
 import { MailAppTransport, MailNotificationSender } from '../infrastructure/adapters/MailNotificationSender';
 import { PrivateSheetConfigurationProvider } from '../infrastructure/adapters/PrivateSheetConfigurationProvider';
@@ -46,12 +44,10 @@ export interface RuntimeContext {
 }
 
 export interface RuntimeContextOptions {
-  systemConfig?: SystemConfig;
   sheetGateway?: ISheetGateway;
 }
 
 export function createRuntimeContext(options: RuntimeContextOptions = {}): RuntimeContext {
-  const systemConfig = options.systemConfig ?? getSystemConfig();
   const sheetGateway = options.sheetGateway ?? new GoogleSheetGateway();
   const privateSheetConfigurationSource = new ConfigurationAdapter(sheetGateway);
   const privateSheetUserStore = new ConfigurationAdapter(sheetGateway);
@@ -66,7 +62,7 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     {},
     new MailAppTransport('RSVP System'),
   );
-  const notificationSender = new EnvironmentAwareNotificationSender(systemConfig, mailNotificationSender);
+  const notificationSender = mailNotificationSender;
   const syncAttendanceService = new SyncAttendanceService(trainingDataRepository);
   const registerMemberService = new RegisterMemberService(userRepository);
   const updateSubscriptionPreferencesService = new UpdateSubscriptionPreferencesService(userRepository);

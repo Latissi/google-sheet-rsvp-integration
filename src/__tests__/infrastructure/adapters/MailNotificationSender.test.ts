@@ -1,5 +1,4 @@
 import { MailMessage, MailNotificationSender, IMailTransport } from '../../../infrastructure/adapters/MailNotificationSender';
-import { EnvironmentAwareNotificationSender } from '../../../infrastructure/adapters/EnvironmentAwareNotificationSender';
 import {
   AttendanceRecord,
   TrainerParticipationReportNotification,
@@ -83,12 +82,9 @@ describe('MailNotificationSender', () => {
     expect(transport.sentMessages[0].body).toContain('Umgebung: Outdoor');
   });
 
-  it('redirects all emails to the trainer address outside prod', () => {
+  it('sends cancellation emails to the actual recipient', () => {
     const transport = new RecordingMailTransport();
-    const sender = new EnvironmentAwareNotificationSender(
-      { ENV: 'dev', TRAINER_EMAIL: 'trainer@example.com' },
-      new MailNotificationSender({}, transport),
-    );
+    const sender = new MailNotificationSender({}, transport);
     const notification: TrainingCancellationNotification = {
       recipient: createUser(),
       session: createSession(),
@@ -104,7 +100,7 @@ describe('MailNotificationSender', () => {
     sender.sendTrainingCancellation(notification);
 
     expect(transport.sentMessages).toHaveLength(1);
-    expect(transport.sentMessages[0].to).toBe('trainer@example.com');
+    expect(transport.sentMessages[0].to).toBe('max@example.com');
     expect(transport.sentMessages[0].subject).toContain('Absage');
     expect(transport.sentMessages[0].body).toContain('Grund: Unwetter');
   });

@@ -19,7 +19,6 @@ The system follows a **Clean Architecture / Ports & Adapters** pattern.
 
 ## 3. Configuration Model
 There is **one supported configuration path**. Do not add fallback or compatibility branches.
-- Script Properties required by `src/config.ts`: `ENV`, `PRIVATE_SHEETS_ID`, `WEBAPPURL`, `TRAINER_EMAIL`.
 - Private sheet tabs are canonical and fixed: `Konfiguration`, `Trainingsquellen`, `Trainingsdefinitionen`, `Mitglieder`.
 - `Konfiguration` accepts the German keys `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE`, and `ERINNERUNGS_OFFSETS`.
 - Public training sources are configured only through the structured tabs `Trainingsquellen` and `Trainingsdefinitionen`.
@@ -30,7 +29,7 @@ There is **one supported configuration path**. Do not add fallback or compatibil
 ## 4. Conventions
 - Add new external integrations behind explicit port interfaces in `src/domain/ports/`.
 - Keep tests at the service or adapter boundary by mocking ports or `ISheetGateway`; do not call `SpreadsheetApp` or `MailApp` in tests.
-- All mail sending must continue to flow through `EnvironmentAwareNotificationSender` so `dev` redirects to `TRAINER_EMAIL`.
+- All mail recipients are determined directly from private-sheet user data and notification workflows.
 - Never log PII. Use `src/runtime/logging.ts` and prefer `memberId` over names or emails in log context.
 - User identity is derived from `firstName + lastName` and normalized into a composite `memberId`.
 - Use German-facing sheet keys, headers, and role values. Canonical role values are `Mitglied` and `Trainer`.

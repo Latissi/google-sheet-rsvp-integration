@@ -3,7 +3,7 @@
 Dieses Dokument beschreibt die einzige unterstützte Tabellenstruktur für das RSVP-System. Die Anwendung erwartet einen festen privaten Konfigurationsaufbau und ein öffentliches Trainingsblatt mit Mitgliederzeilen und Datumsspalten.
 
 ## 1. Private Systemtabelle
-Dieses Spreadsheet ist über die Script-Property `PRIVATE_SHEETS_ID` verlinkt. Es enthält Konfiguration, Trainingsdefinitionen und private Mitgliederdaten und muss privat bleiben.
+Dieses Spreadsheet ist das container-gebundene private Apps-Script-Sheet. Es enthält Konfiguration, Trainingsdefinitionen und private Mitgliederdaten und muss privat bleiben.
 
 Erforderliche Tabs:
 - `Konfiguration`
@@ -27,14 +27,14 @@ Erforderliche Schlüssel:
 
 ### Tab `Trainingsquellen`
 
-| SourceId | TabellenName | TabellenBereich | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte |
-|----------|--------------|-----------------|-----------------|----------------------|---------------|----------------|-------------|
+| QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte |
+|-----------|--------------|-----------------|-----------------|----------------------|---------------|----------------|-------------|
 | `club-rsvp` | `RSVP Übersicht` | `A1:AZ200` | `2` | `6` | `A` | `B` | `E` |
 
 Regeln:
-- `SourceId` ist eine stabile interne Kennung fuer diese Trainingsquelle.
-- `SourceId` verknuepft die Zeile in `Trainingsquellen` mit den Zeilen in `Trainingsdefinitionen` und ist Teil der erzeugten `sessionId`.
-- `SourceId` ist nicht der Tabname. Der eigentliche Name des Arbeitsblatts im oeffentlichen Trainings-Sheet steht in `TabellenName`.
+- `QuellenId` ist eine stabile interne Kennung fuer diese Trainingsquelle.
+- `QuellenId` verknuepft die Zeile in `Trainingsquellen` mit den Zeilen in `Trainingsdefinitionen` und ist Teil der erzeugten `sessionId`.
+- `QuellenId` ist nicht der Tabname. Der eigentliche Name des Arbeitsblatts im oeffentlichen Trainings-Sheet steht in `TabellenName`.
 - `TabellenName` meint also den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten Spreadsheets, zum Beispiel `RSVP Übersicht`.
 - `DatumsKopfZeile` ist die absolute Zeilennummer im oeffentlichen Blatt, in der die eigentlichen Datums-Header stehen.
 - `MitgliederStartZeile` ist die absolute Zeilennummer im oeffentlichen Blatt, in der die erste echte Mitgliederzeile beginnt.
@@ -42,8 +42,8 @@ Regeln:
 
 ### Tab `Trainingsdefinitionen`
 
-| SourceId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung |
-|----------|-------------|-------|-----------|-----------|---------|-----|-----------|-----|--------------|
+| QuellenId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung |
+|-----------|-------------|-------|-----------|-----------|---------|-----|-----------|-----|--------------|
 | `club-rsvp` | `wed-mixed` | `Mittwoch Training` | `Mittwoch` | `18:00` | `20:00` | `Sporthalle` | `Indoor` | `Mixed` |  |
 
 Regeln:
@@ -65,6 +65,7 @@ Regeln:
 - `Vorname` und `Nachname` bilden gemeinsam die interne `memberId`.
 - `Rolle` darf nur `Mitglied` oder `Trainer` sein.
 - Alle Personen, die RSVP oder Benachrichtigungen nutzen, müssen in diesem Tab vorhanden sein.
+- E-Mail-Empfänger fuer Erinnerungen, Absagen und Trainerberichte werden direkt aus diesem Tab gelesen.
 
 ## 2. Öffentliches Trainings-Sheet
 Unterstützt wird ausschließlich die Struktur mit einer Zeile pro Mitglied und einer Datumsspalte pro Session.

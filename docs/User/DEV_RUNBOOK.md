@@ -1,6 +1,6 @@
 # Google Apps Script RSVP Integration – Dev-Runbook
 
-Dieses Runbook beschreibt die kanonische Dev-Einrichtung. Das System unterstützt genau einen Konfigurationspfad über Script Properties plus privates Konfigurations-Sheet.
+Dieses Runbook beschreibt die kanonische Dev-Einrichtung. Das System unterstützt genau einen Konfigurationspfad über das container-gebundene private Sheet und dessen Konfigurations-Tabs.
 
 ## 1. Projekt öffnen
 Öffnen Sie das deployte Apps-Script-Projekt im Browser.
@@ -16,15 +16,10 @@ Um eingehende RSVPs per HTTP zu verarbeiten, deployen Sie das Script als Web-App
 4. `Who has access`: in der Regel `Anyone`.
 5. Deployen und die Web-App-URL kopieren.
 
-## 3. Script Properties setzen
-Der Bootstrap in `src/config.ts` erwartet folgende Script Properties:
+## 3. Laufzeitmodell
+Es werden keine Script Properties fuer den Bootstrap benoetigt.
 
-- `ENV=dev`
-- `PRIVATE_SHEETS_ID=<ID des privaten Sheets>`
-- `WEBAPPURL=<deployte Web-App-URL>`
-- `TRAINER_EMAIL=<Ihre E-Mail-Adresse>`
-
-In `dev` werden alle ausgehenden Mails an `TRAINER_EMAIL` umgeleitet.
+Das Apps-Script-Projekt ist container-gebunden an das private Sheet. Laufzeitkonfiguration kommt aus dem privaten Sheet, insbesondere aus den Tabs `Konfiguration`, `Trainingsquellen`, `Trainingsdefinitionen` und `Mitglieder`.
 
 ## 4. Privates Dev-Sheet einrichten
 Das private Dev-Sheet muss genau diese Tabs enthalten:
@@ -46,18 +41,18 @@ ERINNERUNGS_OFFSETS | [48,24]
 ### Tab `Trainingsquellen`
 
 ```text
-SourceId | TabellenName | TabellenBereich | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte
+QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte
 club-rsvp | RSVP Übersicht | A1:AZ200 | 2 | 6 | A | B | E
 ```
 
-`SourceId` ist eine interne Kennung fuer die Quelle, nicht der Tabname. Sie verbindet `Trainingsquellen` mit `Trainingsdefinitionen` und taucht in erzeugten Session-IDs auf. `TabellenName` meint den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten oeffentlichen Spreadsheets. Das oeffentliche Spreadsheet selbst kommt immer aus `OEFFENTLICHES_SHEET_ID` im Tab `Konfiguration`.
+`QuellenId` ist eine interne Kennung fuer die Quelle, nicht der Tabname. Sie verbindet `Trainingsquellen` mit `Trainingsdefinitionen` und taucht in erzeugten Session-IDs auf. `TabellenName` meint den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten oeffentlichen Spreadsheets. Das oeffentliche Spreadsheet selbst kommt immer aus `OEFFENTLICHES_SHEET_ID` im Tab `Konfiguration`.
 
 `DatumsKopfZeile` und `MitgliederStartZeile` sind absolute Zeilennummern im oeffentlichen Blatt. Damit kann die App auch Tabs mit Zusatzzeilen, Summenzeilen oder mehrzeiligen Headern verarbeiten, ohne das Public Sheet selbst zu aendern.
 
 ### Tab `Trainingsdefinitionen`
 
 ```text
-SourceId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung
+QuellenId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung
 club-rsvp | wed-mixed | Mittwoch Training | Mittwoch | 18:00 | 20:00 | Sporthalle | Indoor | Mixed |
 club-rsvp | mon-late | Montag Training | Montag | 20:15 | 21:45 | Sporthalle | Indoor | Mixed |
 ```
@@ -79,12 +74,12 @@ Regeln:
 - `EMail` ist für Benachrichtigungen erforderlich.
 
 ## 5. Automatisierung einrichten
-Das System stellt folgende triggerbaren Funktionen bereit:
+Das System stellt folgende Zeit- oder Editor-Einstiegspunkte bereit:
 
 - `runReminderDispatch(dispatchAt?)`
 - `runTrainerParticipationReportDispatch(dispatchAt?, windowHours?)`
-- `doGet(e)`
-- `doPost(e)`
+
+Die Web-App-Einstiegspunkte `doGet(e)` und `doPost(e)` werden nicht manuell im Editor ausgeführt. Sie werden über die deployte Web-App-URL mit Request-Parametern aufgerufen.
 
 So legen Sie einen Zeit-Trigger an:
 
@@ -97,12 +92,20 @@ Für Trainerberichte entsprechend `runTrainerParticipationReportDispatch` verwen
 
 ## 6. Dev-Setup testen
 
-### Test 1 – Reminder manuell ausführen
-1. Im Editor `runReminderDispatch` ausführen.
-2. Den Posteingang von `TRAINER_EMAIL` prüfen.
+### Test 1 – Reminder mit festem Zeitstempel ausführen
+1. Im Editor `runReminderDispatch('2026-03-17T18:00:00.000Z')` mit einem Zeitstempel ausführen, der zu einer Session und zu `ERINNERUNGS_OFFSETS` passt.
+2. Erwartung im Rückgabewert: ein Objekt mit `sessionsProcessed` und `sentCount`.
+3. Die Posteingänge der im Tab `Mitglieder` eingetragenen Empfänger prüfen.
 3. Bei Problemen die Executions-Ansicht prüfen.
 
-### Test 2 – RSVP über die Web-App
+Wenn kein Zeitstempel übergeben wird, verwendet die Funktion die aktuelle Uhrzeit. Dann kann ein korrektes System trotzdem `sentCount: 0` liefern.
+
+### Test 2 – Trainerberichte mit festem Zeitfenster ausführen
+1. Im Editor `runTrainerParticipationReportDispatch('2026-03-17T18:00:00.000Z', 24)` ausführen.
+2. Erwartung im Rückgabewert: ein Objekt mit `sessionsProcessed` und `sentCount`.
+3. Die Posteingänge der im Tab `Mitglieder` eingetragenen Trainer prüfen.
+
+### Test 3 – RSVP über die Web-App
 Browser-Aufruf:
 
 ```text
@@ -111,7 +114,7 @@ Browser-Aufruf:
 
 Erwartung: Die Anwendung bestätigt die Antwort und aktualisiert das öffentliche Sheet.
 
-### Test 3 – Registrierung über POST
+### Test 4 – Registrierung über POST
 Die Registrierung akzeptiert nur diesen Vertrag:
 
 ```text
@@ -125,7 +128,7 @@ lastName=<nachname>
 
 Alle Felder sind Pflicht.
 
-### Test 4 – Benachrichtigungseinstellungen über POST
+### Test 5 – Benachrichtigungseinstellungen über POST
 Die Pflege der Trainings-Abonnements läuft getrennt von der Registrierung:
 
 ```text
@@ -137,7 +140,7 @@ subscribedTrainingIds=wed-mixed,mon-late
 `subscribedTrainingIds` erwartet eine komma- oder semikolon-getrennte Liste von `TrainingsId`-Werten. Ein leerer Wert entfernt alle Abonnements.
 
 ## 7. Fehlerbehebung
-- Prüfen Sie bei Bootstrap-Fehlern `ENV`, `PRIVATE_SHEETS_ID`, `WEBAPPURL` und `TRAINER_EMAIL` in den Script Properties.
+- Prüfen Sie bei Bootstrap-Fehlern, dass das Script container-gebunden an das richtige private Sheet ist.
 - Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_OFFSETS` gesetzt sind.
 - Prüfen Sie in `Trainingsquellen`, dass `DatumsKopfZeile`, `MitgliederStartZeile`, Vorname-, Nachname- und Startspalte gepflegt sind.
 - Prüfen Sie in `Mitglieder`, dass Vorname, Nachname, EMail und Rolle vorhanden sind.
