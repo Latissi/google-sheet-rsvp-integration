@@ -83,7 +83,9 @@ Regeln:
 - Nicht-Mitgliederzeilen oberhalb von `MitgliederStartZeile` werden ignoriert.
 - Die eigentliche Datumszeile wird ueber `DatumsKopfZeile` konfiguriert und muss nicht die erste Zeile des Bereichs sein.
 - Die App gleicht jede Zeile ab `MitgliederStartZeile` gegen `Mitglieder` ab.
-- Eine Quelle kann Datums-Spalten fuer mehrere Wochentage enthalten. Die Zuordnung zur passenden `TrainingsId` erfolgt ueber `Trainingsdefinitionen.Wochentag`.
+- Jede `Trainingsdefinitionen`-Zeile einer Quelle muss im oeffentlichen Blatt mindestens einer Datums-Spalte mit passendem Wochentag zugeordnet werden koennen.
+- Eine Quelle kann im oeffentlichen Blatt zusaetzliche Datums-Spalten fuer nicht konfigurierte Wochentage enthalten. Diese Spalten werden mit einer Warnung uebersprungen.
+- Die Zuordnung zur passenden `TrainingsId` erfolgt ueber `Trainingsdefinitionen.Wochentag`.
 - Trainingsabsagen werden als Notiz an der Kopfzelle der Datumsspalte gespeichert.
 
 ## 3. Registrierung über die Web-App

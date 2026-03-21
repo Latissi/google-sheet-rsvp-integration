@@ -41,6 +41,10 @@ class TestUserRepository implements IUserRepository {
   upsertUser(): void { throw new Error('Not needed in this test.'); }
 }
 
+interface TestLogger {
+  warn: jest.Mock<void, [string, string, Record<string, unknown> | undefined, string | undefined]>;
+}
+
 function createUser(memberId: string, name: string, role: 'Mitglied' | 'Trainer' = 'Mitglied'): UserRecord {
   const [firstName, ...rest] = name.split(' ');
   return {
@@ -65,13 +69,18 @@ describe('GoogleSheetTrainingDataRepository', () => {
     createUser(createCompositeMemberId('Anna', 'Ananas'), 'Anna Ananas'),
   ];
 
-  function createRepository(sources: PublicTrainingSource[], sheets: Record<string, unknown[][]>) {
+  function createRepository(
+    sources: PublicTrainingSource[],
+    sheets: Record<string, unknown[][]>,
+    logger?: TestLogger,
+  ) {
     const gateway = new MockSheetGateway(sheets);
     const repository = new GoogleSheetTrainingDataRepository(
       gateway,
       new TestConfigurationProvider(sources),
       new TestUserRepository(users),
       fixedNow,
+      logger,
     );
 
     return { gateway, repository };
@@ -368,6 +377,110 @@ describe('GoogleSheetTrainingDataRepository', () => {
         },
       },
     ]);
+  });
+
+  it('warns and skips public-sheet weekdays that are not configured privately', () => {
+    const logger: TestLogger = {
+      warn: jest.fn(),
+    };
+
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'std-outdoor',
+      sheetName: 'Outdoor Sessions',
+      tableRange: 'A1:F20',
+      attendance: {
+        dateHeaderRow: 2,
+        firstMemberRow: 4,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'D',
+      },
+      trainings: [{
+        trainingId: 'wed-outdoor',
+        day: 'Mittwoch',
+        title: 'Outdoor Mittwoch',
+        startTime: '18:30',
+      }],
+    }];
+
+    const { repository } = createRepository(sources, {
+      'Outdoor Sessions': [
+        ['', '', '', '', '', ''],
+        ['', '', '', 'Mi. 18. 3.', 'Di. 24. 3.', 'Mi. 25. 3.'],
+        ['Zusagen', '', '', 4, 0, 7],
+        ['Anna', 'Ananas', 'w', 'x', '', '-'],
+      ],
+    }, logger);
+
+    expect(repository.getUpcomingTrainingSessions()).toEqual([
+      {
+        sessionId: 'std-outdoor__wed-outdoor__2026-03-18__18:30',
+        trainingId: 'wed-outdoor',
+        sessionDate: '2026-03-18',
+        startTime: '18:30',
+        status: 'Scheduled',
+      },
+      {
+        sessionId: 'std-outdoor__wed-outdoor__2026-03-25__18:30',
+        trainingId: 'wed-outdoor',
+        sessionDate: '2026-03-25',
+        startTime: '18:30',
+        status: 'Scheduled',
+      },
+    ]);
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'training-data-repository',
+      'skipped-unconfigured-weekday',
+      {
+        sourceId: 'std-outdoor',
+        sessionDate: '2026-03-24',
+        weekday: 'Dienstag',
+      },
+      'Public training source std-outdoor has no training definition for weekday Dienstag. Skipping session date 2026-03-24.',
+    );
+  });
+
+  it('fails when a private training definition has no matching public-sheet session', () => {
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'std-outdoor',
+      sheetName: 'Outdoor Sessions',
+      tableRange: 'A1:E20',
+      attendance: {
+        dateHeaderRow: 2,
+        firstMemberRow: 4,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'D',
+      },
+      trainings: [
+        {
+          trainingId: 'wed-outdoor',
+          day: 'Mittwoch',
+          title: 'Outdoor Mittwoch',
+          startTime: '18:30',
+        },
+        {
+          trainingId: 'sat-outdoor',
+          day: 'Samstag',
+          title: 'Outdoor Samstag',
+          startTime: '10:00',
+        },
+      ],
+    }];
+
+    const { repository } = createRepository(sources, {
+      'Outdoor Sessions': [
+        ['', '', '', '', ''],
+        ['', '', '', 'Mi. 18. 3.', 'Mi. 25. 3.'],
+        ['Zusagen', '', '', 4, 7],
+        ['Anna', 'Ananas', 'w', 'x', '-'],
+      ],
+    });
+
+    expect(() => repository.getUpcomingTrainingSessions()).toThrow(
+      'Public training source "std-outdoor" is missing sessions in the public sheet for configured training definitions: sat-outdoor.',
+    );
   });
 
   it('saves RSVP state back into the configured member rows', () => {

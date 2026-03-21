@@ -27,6 +27,7 @@ import { PrivateSheetConfigurationProvider } from '../infrastructure/adapters/Pr
 import { PrivateSheetUserRepository } from '../infrastructure/adapters/PrivateSheetUserRepository';
 import { GoogleSheetGateway } from '../infrastructure/gateway/GoogleSheetGateway';
 import { ISheetGateway } from '../infrastructure/gateway/ISheetGateway';
+import { getRuntimeLogger } from './logging';
 
 export interface RuntimeContext {
   configurationProvider: IConfigurationProvider;
@@ -57,6 +58,8 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     sheetGateway,
     configurationProvider,
     userRepository,
+    undefined,
+    getRuntimeLogger(),
   );
   const mailNotificationSender = new MailNotificationSender(
     {},

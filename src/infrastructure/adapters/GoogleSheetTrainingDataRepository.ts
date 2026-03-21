@@ -53,6 +53,16 @@ interface ResolvedTrainingTemplate {
   description?: string;
 }
 
+interface SessionColumnCandidate {
+  columnIndex: number;
+  sessionDate: string;
+  trainingTemplate: ResolvedTrainingTemplate;
+}
+
+interface TrainingDataRepositoryLogger {
+  warn(operation: string, event: string, context?: Record<string, unknown>, message?: string): void;
+}
+
 const DEFAULT_MANUAL_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 
 export class GoogleSheetTrainingDataRepository implements ITrainingDataRepository {
@@ -66,6 +76,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     private readonly configurationProvider: IConfigurationProvider,
     private readonly userRepository: IUserRepository,
     private readonly nowProvider: () => Date = () => new Date(),
+    private readonly logger?: TrainingDataRepositoryLogger,
   ) {
     this.sessionDateParser = new TrainingSessionDateParser(nowProvider);
     this.memberRowUserMatcher = new MemberRowUserMatcher();
@@ -146,6 +157,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     const headers = rawTable[headerRowIndex] ?? [];
     const attendanceStartIndex = this.getAttendanceStartIndex(source, bounds);
     const sessions: SessionColumnReference[] = [];
+    const candidates: SessionColumnCandidate[] = [];
     let previousSessionDate: string | null = null;
 
     for (let columnIndex = attendanceStartIndex; columnIndex < headers.length; columnIndex += 1) {
@@ -156,6 +168,20 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       previousSessionDate = sessionDate;
 
       const trainingTemplate = this.resolveTrainingTemplate(source, sessionDate);
+      if (!trainingTemplate) {
+        continue;
+      }
+
+      candidates.push({
+        columnIndex,
+        sessionDate,
+        trainingTemplate,
+      });
+    }
+
+    this.assertConfiguredTrainingsExistInPublicSheet(source, candidates);
+
+    for (const { columnIndex, sessionDate, trainingTemplate } of candidates) {
 
       const cancellation = this.getCancellationForMemberRowsSession(source, bounds, columnIndex);
 
@@ -283,7 +309,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     this.invalidateSourceCache(reference.source);
   }
 
-  private resolveTrainingTemplate(source: PublicTrainingSource, sessionDate: string): ResolvedTrainingTemplate {
+  private resolveTrainingTemplate(source: PublicTrainingSource, sessionDate: string): ResolvedTrainingTemplate | null {
     const sessionDay = this.sessionDateParser.deriveTrainingDay(sessionDate);
     if (!sessionDay) {
       throw new Error(`Public training source "${source.sourceId}" has an unparseable session date "${sessionDate}".`);
@@ -291,7 +317,17 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
     const matches = source.trainings.filter(training => training.day === sessionDay);
     if (matches.length === 0) {
-      throw new Error(`Public training source "${source.sourceId}" has no training definition for weekday "${sessionDay}".`);
+      this.logger?.warn(
+        'training-data-repository',
+        'skipped-unconfigured-weekday',
+        {
+          sourceId: source.sourceId,
+          sessionDate,
+          weekday: sessionDay,
+        },
+        `Public training source ${source.sourceId} has no training definition for weekday ${sessionDay}. Skipping session date ${sessionDate}.`,
+      );
+      return null;
     }
 
     if (matches.length > 1) {
@@ -310,6 +346,24 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       audience: training.audience,
       description: training.description,
     };
+  }
+
+  private assertConfiguredTrainingsExistInPublicSheet(
+    source: PublicTrainingSource,
+    candidates: SessionColumnCandidate[],
+  ): void {
+    const discoveredTrainingIds = new Set(candidates.map(candidate => candidate.trainingTemplate.trainingId));
+    const missingTrainingIds = source.trainings
+      .map(training => training.trainingId)
+      .filter(trainingId => !discoveredTrainingIds.has(trainingId));
+
+    if (missingTrainingIds.length === 0) {
+      return;
+    }
+
+    throw new Error(
+      `Public training source "${source.sourceId}" is missing sessions in the public sheet for configured training definitions: ${missingTrainingIds.join(', ')}.`,
+    );
   }
 
   private findSessionReference(sessionId: string): SessionReference | null {
