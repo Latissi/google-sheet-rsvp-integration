@@ -1,4 +1,4 @@
-import { MailMessage, MailNotificationSender, IMailTransport } from '../../../infrastructure/adapters/MailNotificationSender';
+import { MailMessage, MailNotificationSender, IMailTransport, MailDispatchResult } from '../../../infrastructure/adapters/MailNotificationSender';
 import {
   AttendanceRecord,
   TrainerParticipationReportNotification,
@@ -13,10 +13,16 @@ import {
 
 class RecordingMailTransport implements IMailTransport {
   public readonly sentMessages: MailMessage[] = [];
+  public remainingQuota = 42;
 
-  sendEmail(message: MailMessage): void {
+  sendEmail(message: MailMessage): MailDispatchResult {
     this.sentMessages.push(message);
+    return { remainingQuota: this.remainingQuota };
   }
+}
+
+interface TestLogger {
+  info: jest.Mock<void, [string, string, Record<string, unknown> | undefined, string | undefined]>;
 }
 
 function createUser(overrides: Partial<UserRecord> = {}): UserRecord {
@@ -80,6 +86,34 @@ describe('MailNotificationSender', () => {
     expect(transport.sentMessages[0].body).toContain('response=Accepted');
     expect(transport.sentMessages[0].body).toContain('response=Declined');
     expect(transport.sentMessages[0].body).toContain('Umgebung: Outdoor');
+  });
+
+  it('logs the remaining quota after sending an email', () => {
+    const transport = new RecordingMailTransport();
+    transport.remainingQuota = 87;
+    const logger: TestLogger = {
+      info: jest.fn(),
+    };
+    const sender = new MailNotificationSender({}, transport, logger);
+    const notification: TrainingReminderNotification = {
+      recipient: createUser(),
+      session: createSession(),
+      training: createTraining(),
+      webAppUrl: 'https://example.test/webapp',
+    };
+
+    sender.sendTrainingReminder(notification);
+
+    expect(logger.info).toHaveBeenCalledWith(
+      'mail-notification-sender',
+      'email-sent',
+      {
+        notificationType: 'training-reminder',
+        sessionId: 'session-1',
+        trainingId: 'wed-mixed',
+        remainingQuota: 87,
+      },
+    );
   });
 
   it('sends cancellation emails to the actual recipient', () => {

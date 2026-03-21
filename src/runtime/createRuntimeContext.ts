@@ -64,6 +64,7 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
   const mailNotificationSender = new MailNotificationSender(
     {},
     new MailAppTransport('RSVP System'),
+    getRuntimeLogger(),
   );
   const notificationSender = mailNotificationSender;
   const syncAttendanceService = new SyncAttendanceService(trainingDataRepository);

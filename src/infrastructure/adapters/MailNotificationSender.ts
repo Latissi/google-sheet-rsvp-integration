@@ -13,23 +13,35 @@ export interface MailMessage {
   htmlBody?: string;
 }
 
+export interface MailDispatchResult {
+  remainingQuota?: number;
+}
+
 export interface IMailTransport {
-  sendEmail(message: MailMessage): void;
+  sendEmail(message: MailMessage): MailDispatchResult;
 }
 
 export interface MailNotificationSenderOptions {
   senderName?: string;
 }
 
+interface NotificationLogger {
+  info(operation: string, event: string, context?: Record<string, unknown>, message?: string): void;
+}
+
 export class MailAppTransport implements IMailTransport {
   constructor(private readonly senderName: string) {}
 
-  sendEmail(message: MailMessage): void {
+  sendEmail(message: MailMessage): MailDispatchResult {
     MailApp.sendEmail(message.to, message.subject, message.body, {
       htmlBody: message.htmlBody,
       name: this.senderName,
       noReply: true,
     });
+
+    return {
+      remainingQuota: MailApp.getRemainingDailyQuota(),
+    };
   }
 }
 
@@ -40,6 +52,7 @@ export class MailNotificationSender implements INotificationSender {
   constructor(
     options: MailNotificationSenderOptions = {},
     transport?: IMailTransport,
+    private readonly logger?: NotificationLogger,
   ) {
     this.senderName = options.senderName?.trim() || 'RSVP System';
     this.transport = transport ?? new MailAppTransport(this.senderName);
@@ -83,6 +96,10 @@ export class MailNotificationSender implements INotificationSender {
       subject: `Erinnerung: ${trainingLabel} am ${notification.session.sessionDate}`,
       body: textBody,
       htmlBody,
+    }, {
+      notificationType: 'training-reminder',
+      sessionId: notification.session.sessionId,
+      trainingId: notification.session.trainingId,
     });
   }
 
@@ -112,6 +129,10 @@ export class MailNotificationSender implements INotificationSender {
         '</ul>',
         htmlReason,
       ].join(''),
+    }, {
+      notificationType: 'training-cancellation',
+      sessionId: notification.session.sessionId,
+      trainingId: notification.session.trainingId,
     });
   }
 
@@ -139,14 +160,31 @@ export class MailNotificationSender implements INotificationSender {
         `<li>Rückmeldungen gesamt: ${notification.attendance.length}</li>`,
         '</ul>',
       ].join(''),
+    }, {
+      notificationType: 'trainer-participation-report',
+      sessionId: notification.session.sessionId,
+      trainingId: notification.session.trainingId,
     });
   }
 
-  private dispatch(recipientEmail: string, message: Omit<MailMessage, 'to'>): void {
-    this.transport.sendEmail({
+  private dispatch(
+    recipientEmail: string,
+    message: Omit<MailMessage, 'to'>,
+    context: Record<string, unknown>,
+  ): void {
+    const result = this.transport.sendEmail({
       to: recipientEmail,
       ...message,
     });
+
+    this.logger?.info(
+      'mail-notification-sender',
+      'email-sent',
+      {
+        ...context,
+        remainingQuota: result.remainingQuota,
+      },
+    );
   }
 
   private getRecipientLabel(notificationRecipient: TrainingReminderNotification['recipient']): string {
