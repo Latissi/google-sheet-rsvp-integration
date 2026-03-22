@@ -1,5 +1,4 @@
 import {
-  ICancelTrainingService,
   IRegisterMemberService,
   ISendCancellationNotificationService,
   ISendTrainerParticipationReportService,
@@ -7,7 +6,6 @@ import {
   ISubmitRsvpService,
   ISyncAttendanceService,
   IUpdateSubscriptionPreferencesService,
-  CancelTrainingService,
   RegisterMemberService,
   SendCancellationNotificationService,
   SendTrainerParticipationReportService,
@@ -38,7 +36,6 @@ export interface RuntimeContext {
   updateSubscriptionPreferencesService: IUpdateSubscriptionPreferencesService;
   submitRsvpService: ISubmitRsvpService;
   syncAttendanceService: ISyncAttendanceService;
-  cancelTrainingService: ICancelTrainingService;
   sendTrainingReminderService: ISendTrainingReminderService;
   sendCancellationNotificationService: ISendCancellationNotificationService;
   sendTrainerParticipationReportService: ISendTrainerParticipationReportService;
@@ -71,10 +68,10 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
   const registerMemberService = new RegisterMemberService(userRepository);
   const updateSubscriptionPreferencesService = new UpdateSubscriptionPreferencesService(userRepository);
   const submitRsvpService = new SubmitRsvpService(
+    trainingDataRepository,
     userRepository,
     syncAttendanceService,
   );
-  const cancelTrainingService = new CancelTrainingService(trainingDataRepository, userRepository);
   const sendTrainingReminderService = new SendTrainingReminderService(
     trainingDataRepository,
     userRepository,
@@ -101,7 +98,6 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     updateSubscriptionPreferencesService,
     submitRsvpService,
     syncAttendanceService,
-    cancelTrainingService,
     sendTrainingReminderService,
     sendCancellationNotificationService,
     sendTrainerParticipationReportService,

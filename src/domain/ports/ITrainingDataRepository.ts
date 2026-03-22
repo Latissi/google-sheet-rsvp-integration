@@ -10,6 +10,7 @@ export interface ITrainingDataRepository {
   getUpcomingTrainingSessions(): TrainingSession[];
   getTrainingSessionById(sessionId: string): TrainingSession | null;
   getAttendanceForSession(sessionId: string): AttendanceRecord[];
+  getCancellationNotificationSentAt(sessionId: string): string | null;
   saveAttendance(record: AttendanceRecord): void;
-  cancelTrainingSession(cancellation: TrainingCancellation): void;
+  markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void;
 }

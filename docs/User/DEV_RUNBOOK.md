@@ -41,23 +41,24 @@ ERINNERUNGS_OFFSETS | [48,24]
 ### Tab `Trainingsquellen`
 
 ```text
-QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte
-club-rsvp | RSVP Übersicht | A1:AZ200 | 2 | 6 | A | B | E
+QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | InfoZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte
+club-rsvp | RSVP Übersicht | A1:AZ200 | 2 | 1 | 6 | A | B | E
 ```
 
 `QuellenId` ist eine interne Kennung fuer die Quelle, nicht der Tabname. Sie verbindet `Trainingsquellen` mit `Trainingsdefinitionen` und taucht in erzeugten Session-IDs auf. `TabellenName` meint den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten oeffentlichen Spreadsheets. Das oeffentliche Spreadsheet selbst kommt immer aus `OEFFENTLICHES_SHEET_ID` im Tab `Konfiguration`.
 
-`DatumsKopfZeile` und `MitgliederStartZeile` sind absolute Zeilennummern im oeffentlichen Blatt. Damit kann die App auch Tabs mit Zusatzzeilen, Summenzeilen oder mehrzeiligen Headern verarbeiten, ohne das Public Sheet selbst zu aendern.
+`DatumsKopfZeile`, `InfoZeile` und `MitgliederStartZeile` sind absolute Zeilennummern im oeffentlichen Blatt. Damit kann die App auch Tabs mit Zusatzzeilen, Summenzeilen oder mehrzeiligen Headern verarbeiten, ohne das Public Sheet selbst zu aendern.
+Wenn `InfoZeile` gesetzt ist, liest die App dort pro Datumsspalte zusaetzliche Session-Information. Enthält der Text `entfällt` oder `gesperrt`, behandelt die App die Session als abgesagt.
 
 ### Tab `Trainingsdefinitionen`
 
 ```text
-QuellenId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung
-club-rsvp | wed-mixed | Mittwoch Training | Mittwoch | 18:00 | 20:00 | Sporthalle | Indoor | Mixed |
-club-rsvp | mon-late | Montag Training | Montag | 20:15 | 21:45 | Sporthalle | Indoor | Mixed |
+QuellenId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung
+club-rsvp | wed-mixed | Mittwoch Training | Mittwoch | 18:00 | 20:00 | Sporthalle | Indoor
+club-rsvp | mon-late | Montag Training | Montag | 20:15 | 21:45 | Sporthalle | Indoor
 ```
 
-`Trainingsdefinitionen` wird nicht automatisch angepasst. Wenn Sie neue Trainingsarten, Startzeiten oder andere Metadaten einfuehren, muessen Sie diesen Tab manuell pflegen.
+`Trainingsdefinitionen` wird nicht automatisch angepasst. Wenn Sie neue Trainingsarten, Startzeiten oder Orte einfuehren, muessen Sie diesen Tab manuell pflegen.
 `Startzeit` und `Endzeit` werden intern als `HH:MM` verwendet. Wenn Google Sheets diese Zellen als Zeitwerte speichert, normalisiert die Anwendung sie beim Einlesen automatisch auf dieses Format.
 Innerhalb einer Quelle muss jeder `Wochentag` eindeutig sein.
 

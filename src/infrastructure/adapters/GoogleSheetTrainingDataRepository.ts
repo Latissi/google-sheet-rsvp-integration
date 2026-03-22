@@ -7,7 +7,6 @@ import {
   PublicTrainingSource,
   RsvpStatus,
   TrainingCancellation,
-  TrainingAudience,
   TrainingDefinition,
   TrainingEnvironment,
   TrainingSession,
@@ -35,10 +34,8 @@ interface SessionColumnReference extends SessionReferenceBase {
 
 type SessionReference = SessionColumnReference;
 
-interface CancellationNoteData {
-  cancelledAt: string;
-  cancelledByMemberId: string;
-  reason?: string;
+interface SessionDispatchNoteData {
+  cancellationNotificationSentAt?: string;
 }
 
 interface ResolvedTrainingTemplate {
@@ -49,8 +46,6 @@ interface ResolvedTrainingTemplate {
   endTime?: string;
   location?: string;
   environment?: TrainingEnvironment;
-  audience?: TrainingAudience;
-  description?: string;
 }
 
 interface SessionColumnCandidate {
@@ -111,29 +106,32 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return this.getAttendanceForMemberRowsSession(reference);
   }
 
+  getCancellationNotificationSentAt(sessionId: string): string | null {
+    const reference = this.findSessionReferenceOrThrow(sessionId);
+    return this.getSessionDispatchNote(reference).cancellationNotificationSentAt ?? null;
+  }
+
   saveAttendance(record: AttendanceRecord): void {
     const reference = this.findSessionReferenceOrThrow(record.sessionId);
     this.saveAttendanceForMemberRowsSession(reference, record);
   }
 
-  cancelTrainingSession(cancellation: TrainingCancellation): void {
+  markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void {
     const reference = this.findSessionReferenceOrThrow(cancellation.sessionId);
+    const existingNote = this.getSessionDispatchNote(reference);
 
     this.gateway.setCellNote(
       reference.source.sheetName,
       reference.source.attendance.dateHeaderRow,
       reference.bounds.startColumn + reference.columnIndex + 1,
       JSON.stringify({
-        cancelledAt: cancellation.cancelledAt,
-        cancelledByMemberId: cancellation.cancelledByMemberId,
-        reason: cancellation.reason,
+        ...existingNote,
+        cancellationNotificationSentAt: notifiedAt,
       }),
       {
         spreadsheetId: this.getPublicSpreadsheetId(),
       },
     );
-
-    this.invalidateSourceCache(reference.source);
   }
 
   private getAllSessionReferences(): SessionReference[] {
@@ -182,8 +180,8 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     this.assertConfiguredTrainingsExistInPublicSheet(source, candidates);
 
     for (const { columnIndex, sessionDate, trainingTemplate } of candidates) {
-
-      const cancellation = this.getCancellationForMemberRowsSession(source, bounds, columnIndex);
+      const additionalInfo = this.getAdditionalInfoForMemberRowsSession(source, bounds, rawTable, columnIndex);
+      const isCancelled = this.isCancelledByAdditionalInfo(additionalInfo);
 
       sessions.push({
         kind: 'member-rows',
@@ -197,7 +195,8 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
           startTime: trainingTemplate.startTime,
           endTime: trainingTemplate.endTime,
           location: trainingTemplate.location,
-          status: cancellation ? 'Cancelled' : 'Scheduled',
+          additionalInfo: additionalInfo || undefined,
+          status: isCancelled ? 'Cancelled' : 'Scheduled',
         },
         trainingDefinition: {
           trainingId: trainingTemplate.trainingId,
@@ -207,8 +206,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
           endTime: trainingTemplate.endTime,
           location: trainingTemplate.location,
           environment: trainingTemplate.environment,
-          audience: trainingTemplate.audience,
-          description: trainingTemplate.description,
         },
       });
     }
@@ -343,8 +340,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       endTime: training.endTime,
       location: training.location,
       environment: training.environment,
-      audience: training.audience,
-      description: training.description,
     };
   }
 
@@ -468,36 +463,51 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return '';
   }
 
-  private getCancellationForMemberRowsSession(
+  private getAdditionalInfoForMemberRowsSession(
     source: PublicTrainingSource,
     bounds: TableBounds,
+    rawTable: unknown[][],
     columnIndex: number,
-  ): CancellationNoteData | null {
+  ): string {
+    if (source.attendance.infoRow === undefined) {
+      return '';
+    }
+
+    const infoRowIndex = source.attendance.infoRow - bounds.startRow;
+    if (!Number.isInteger(infoRowIndex) || infoRowIndex < 0 || infoRowIndex >= rawTable.length) {
+      throw new Error(`Public training source "${source.sourceId}" defines infoRow outside of tableRange.`);
+    }
+
+    return this.getCellValue(rawTable[infoRowIndex] ?? [], columnIndex);
+  }
+
+  private isCancelledByAdditionalInfo(additionalInfo: string): boolean {
+    const normalized = additionalInfo.trim().toLowerCase();
+    return normalized.includes('entfällt') || normalized.includes('gesperrt');
+  }
+
+  private getSessionDispatchNote(reference: SessionColumnReference): SessionDispatchNoteData {
     const note = this.gateway.getCellNote(
-      source.sheetName,
-      source.attendance.dateHeaderRow,
-      bounds.startColumn + columnIndex + 1,
+      reference.source.sheetName,
+      reference.source.attendance.dateHeaderRow,
+      reference.bounds.startColumn + reference.columnIndex + 1,
       { spreadsheetId: this.getPublicSpreadsheetId() },
     );
 
     if (!note.trim()) {
-      return null;
+      return {};
     }
 
     try {
-      const parsed = JSON.parse(note) as Partial<CancellationNoteData>;
-      if (parsed.cancelledAt && parsed.cancelledByMemberId) {
-        return {
-          cancelledAt: parsed.cancelledAt,
-          cancelledByMemberId: parsed.cancelledByMemberId,
-          reason: parsed.reason,
-        };
+      const parsed = JSON.parse(note) as SessionDispatchNoteData;
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
       }
     } catch {
-      return null;
+      return {};
     }
 
-    return null;
+    return {};
   }
 
   private getCellMetadata(source: PublicTrainingSource, rowIndex: number, columnIndex: number): AttendanceSyncMetadata {

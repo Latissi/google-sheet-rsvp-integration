@@ -136,6 +136,26 @@ describe('webapp RSVP handler', () => {
     });
   });
 
+  it('returns a dedicated message for cancelled training sessions', () => {
+    const failingService = {
+      execute(): void {
+        throw new Error('Training session "session-1" is cancelled.');
+      },
+    };
+
+    const result = handleRsvpRequest({
+      action: 'rsvp',
+      memberId: 'M001',
+      sessionId: 'session-1',
+      response: 'Declined',
+    }, failingService, '2026-03-09T12:00:00.000Z');
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'Dieses Training entfällt. Eine Zu- oder Absage ist nicht mehr möglich.',
+    });
+  });
+
   it('maps canonical registration parameters to a register request', () => {
     const service = new RecordingRegisterMemberService();
 

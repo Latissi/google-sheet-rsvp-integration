@@ -27,9 +27,9 @@ Erforderliche Schlüssel:
 
 ### Tab `Trainingsquellen`
 
-| QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte |
-|-----------|--------------|-----------------|-----------------|----------------------|---------------|----------------|-------------|
-| `club-rsvp` | `RSVP Übersicht` | `A1:AZ200` | `2` | `6` | `A` | `B` | `E` |
+| QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | InfoZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte |
+|-----------|--------------|-----------------|-----------------|-----------|----------------------|---------------|----------------|-------------|
+| `club-rsvp` | `RSVP Übersicht` | `A1:AZ200` | `2` | `1` | `6` | `A` | `B` | `E` |
 
 Regeln:
 - `QuellenId` ist eine stabile interne Kennung fuer diese Trainingsquelle.
@@ -37,18 +37,20 @@ Regeln:
 - `QuellenId` ist nicht der Tabname. Der eigentliche Name des Arbeitsblatts im oeffentlichen Trainings-Sheet steht in `TabellenName`.
 - `TabellenName` meint also den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten Spreadsheets, zum Beispiel `RSVP Übersicht`.
 - `DatumsKopfZeile` ist die absolute Zeilennummer im oeffentlichen Blatt, in der die eigentlichen Datums-Header stehen.
+- `InfoZeile` ist optional. Wenn gesetzt, wird in dieser absoluten Zeile pro Datumsspalte zusaetzliche Session-Information gelesen.
 - `MitgliederStartZeile` ist die absolute Zeilennummer im oeffentlichen Blatt, in der die erste echte Mitgliederzeile beginnt.
+- `InfoZeile` muss vor `MitgliederStartZeile` liegen.
 - Das oeffentliche Spreadsheet wird immer ueber `OEFFENTLICHES_SHEET_ID` aus `Konfiguration` bestimmt. Eine separate `DateiId` pro Quelle gibt es nicht.
 
 ### Tab `Trainingsdefinitionen`
 
-| QuellenId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung | Typ | Beschreibung |
-|-----------|-------------|-------|-----------|-----------|---------|-----|-----------|-----|--------------|
-| `club-rsvp` | `wed-mixed` | `Mittwoch Training` | `Mittwoch` | `18:00` | `20:00` | `Sporthalle` | `Indoor` | `Mixed` |  |
+| QuellenId | TrainingsId | Titel | Wochentag | Startzeit | Endzeit | Ort | Umgebung |
+|-----------|-------------|-------|-----------|-----------|---------|-----|-----------|
+| `club-rsvp` | `wed-mixed` | `Mittwoch Training` | `Mittwoch` | `18:00` | `20:00` | `Sporthalle` | `Indoor` |
 
 Regeln:
 - Dieser Tab wird nicht automatisch aus dem oeffentlichen Sheet erzeugt oder synchronisiert.
-- Er muss manuell gepflegt werden, wenn neue Trainingsarten, Zeiten oder Metadaten hinzukommen oder sich aendern.
+- Er muss manuell gepflegt werden, wenn neue Trainingsarten, Zeiten oder Orte hinzukommen oder sich aendern.
 - Die Anwendung liest diese Definitionen nur ein, um Sessions, Erinnerungen und Trainerberichte fachlich anzureichern.
 - `Wochentag` ist Pflicht.
 - `Startzeit` und `Endzeit` sind fachlich Zeiten im Format `HH:MM`. Google-Sheets-Zeitwerte werden beim Einlesen auf dieses Format normalisiert.
@@ -87,7 +89,9 @@ Regeln:
 - Jede `Trainingsdefinitionen`-Zeile einer Quelle muss im oeffentlichen Blatt mindestens einer Datums-Spalte mit passendem Wochentag zugeordnet werden koennen.
 - Eine Quelle kann im oeffentlichen Blatt zusaetzliche Datums-Spalten fuer nicht konfigurierte Wochentage enthalten. Diese Spalten werden mit einer Warnung uebersprungen.
 - Die Zuordnung zur passenden `TrainingsId` erfolgt ueber `Trainingsdefinitionen.Wochentag`.
-- Trainingsabsagen werden als Notiz an der Kopfzelle der Datumsspalte gespeichert.
+- Wenn `InfoZeile` konfiguriert ist, wird der Zelleninhalt dieser Zeile pro Datumsspalte als zusaetzliche Session-Information gelesen.
+- Eine Session gilt als abgesagt, wenn dieser Text `entfällt` oder `gesperrt` enthaelt, zum Beispiel `Halle gesperrt`.
+- Abgesagte Sessions akzeptieren keine Zu- oder Absagen und erhalten keine normalen Erinnerungsmails.
 
 ## 3. Registrierung über die Web-App
 Pflichtparameter:

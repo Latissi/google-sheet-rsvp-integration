@@ -216,8 +216,8 @@ export class MailNotificationSender implements INotificationSender {
       lines.push(`Umgebung: ${training.environment}`);
     }
 
-    if (training?.audience) {
-      lines.push(`Typ: ${training.audience}`);
+    if (session.additionalInfo) {
+      lines.push(`Info: ${session.additionalInfo}`);
     }
 
     return lines;

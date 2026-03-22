@@ -334,7 +334,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
         day: 'Mittwoch',
         title: 'Single Gender Mittwoch',
         startTime: '19:00',
-        audience: 'SingleGender',
       }],
     }];
     const { repository } = createRepository(sources, {
@@ -392,6 +391,7 @@ describe('GoogleSheetTrainingDataRepository', () => {
       tableRange: 'A1:G20',
       attendance: {
         dateHeaderRow: 2,
+        infoRow: 1,
         firstMemberRow: 7,
         firstNameColumn: 'A',
         lastNameColumn: 'B',
@@ -420,7 +420,7 @@ describe('GoogleSheetTrainingDataRepository', () => {
     }];
     const { repository } = createRepository(sources, {
       'Mixed Weekdays': [
-        ['Zeile nicht entfernen!', '', '', '', 'Halle gesperrt', '', ''],
+        ['Zeile nicht entfernen!', '', '', '', '', 'Halle gesperrt', ''],
         ['Mo 20:15-21:45', 'Sa 11:45-13:00', '', 'Mi. 12. 3', 'Halle gesperrt', 'Mo. 17. 3', 'Sa. 22. 3'],
         ['Zusagen', '', '', 5, 'Uni zu', 13, 17],
         ['MMPs', '', '', 2, 'Uni zu', 6, 8],
@@ -443,7 +443,8 @@ describe('GoogleSheetTrainingDataRepository', () => {
         trainingId: 'mon-late',
         sessionDate: '2025-03-17',
         startTime: '20:15',
-        status: 'Scheduled',
+        additionalInfo: 'Halle gesperrt',
+        status: 'Cancelled',
       },
       {
         sessionId: 'mixed-weekdays__sat-midday__2025-03-22__11:45',
@@ -617,13 +618,14 @@ describe('GoogleSheetTrainingDataRepository', () => {
     expect(gateway.getCellNote('RSVP Übersicht', 3, 4)).toBe('{"source":"email-rsvp","updatedAt":"2026-03-10T09:00:00.000Z"}');
   });
 
-  it('marks a session as cancelled on the configured date header row', () => {
+  it('tracks one-time cancellation notification state in the date header note', () => {
     const sources: PublicTrainingSource[] = [{
       sourceId: 'single-gender',
       sheetName: 'Single Gender',
       tableRange: 'A1:G20',
       attendance: {
         dateHeaderRow: 2,
+        infoRow: 1,
         firstMemberRow: 6,
         firstNameColumn: 'A',
         lastNameColumn: 'B',
@@ -638,7 +640,7 @@ describe('GoogleSheetTrainingDataRepository', () => {
     }];
     const { gateway, repository } = createRepository(sources, {
       'Single Gender': [
-        ['', '', '', '', 'Single Gender', '', 'Single Gender'],
+        ['', '', '', '', 'Single Gender', 'Halle gesperrt', 'Single Gender'],
         ['', '', '', '', 'Mi. 4. 3.', 'Mi. 11. 3.', 'Mi. 18. 3.'],
         ['Zusagen', '', '', '', 22, 5, 5],
         ['FMPs', '', '', '', 10, 4, 3],
@@ -647,20 +649,23 @@ describe('GoogleSheetTrainingDataRepository', () => {
       ],
     });
 
-    repository.cancelTrainingSession({
-      sessionId: 'single-gender__wed-single__2026-03-11__19:00',
-      cancelledByMemberId: 'anna::ananas',
-      cancelledAt: '2026-03-10T12:00:00.000Z',
-      reason: 'Unwetter',
-    });
-
-    expect(gateway.getCellNote('Single Gender', 2, 6)).toBe('{"cancelledAt":"2026-03-10T12:00:00.000Z","cancelledByMemberId":"anna::ananas","reason":"Unwetter"}');
     expect(repository.getTrainingSessionById('single-gender__wed-single__2026-03-11__19:00')).toEqual({
       sessionId: 'single-gender__wed-single__2026-03-11__19:00',
       trainingId: 'wed-single',
       sessionDate: '2026-03-11',
       startTime: '19:00',
+      additionalInfo: 'Halle gesperrt',
       status: 'Cancelled',
     });
+
+    repository.markCancellationNotificationSent({
+      sessionId: 'single-gender__wed-single__2026-03-11__19:00',
+      cancelledByMemberId: 'system',
+      cancelledAt: '2026-03-10T12:00:00.000Z',
+      reason: 'Halle gesperrt',
+    }, '2026-03-10T12:30:00.000Z');
+
+    expect(gateway.getCellNote('Single Gender', 2, 6)).toBe('{"cancellationNotificationSentAt":"2026-03-10T12:30:00.000Z"}');
+    expect(repository.getCancellationNotificationSentAt('single-gender__wed-single__2026-03-11__19:00')).toBe('2026-03-10T12:30:00.000Z');
   });
 });

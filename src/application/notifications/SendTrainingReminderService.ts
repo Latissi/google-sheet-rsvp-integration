@@ -3,7 +3,8 @@ import { IConfigurationProvider } from '../../domain/ports/IConfigurationProvide
 import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { INotificationSender } from '../../domain/ports/INotificationSender';
-import { indexTrainingDefinitions, isReminderDue, assertValidDate } from './notificationUtils';
+import { TrainingCancellation } from '../../domain/types';
+import { indexTrainingDefinitions, isReminderDue, assertValidDate, getSessionStartDate } from './notificationUtils';
 
 export interface SendTrainingReminderRequest {
   dispatchAt: string;
@@ -31,21 +32,28 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
     assertValidDate(dispatchAt, 'dispatchAt');
 
     const reminderPolicy = this.configurationProvider.getReminderPolicy();
-    if (reminderPolicy.offsets.length === 0) {
+    const requestedSessionIds = new Set(request.sessionIds ?? []);
+    const candidateSessions = this.trainingDataRepository.getUpcomingTrainingSessions()
+      .filter(session => requestedSessionIds.size === 0 || requestedSessionIds.has(session.sessionId));
+
+    if (reminderPolicy.offsets.length === 0 && candidateSessions.every(session => session.status !== 'Cancelled')) {
       return { sessionsProcessed: 0, sentCount: 0 };
     }
 
     const toleranceMinutes = request.toleranceMinutes ?? 5;
-    const requestedSessionIds = new Set(request.sessionIds ?? []);
-    const sessions = this.trainingDataRepository.getUpcomingTrainingSessions()
-      .filter(session => requestedSessionIds.size === 0 || requestedSessionIds.has(session.sessionId))
+    const reminderSessions = candidateSessions
+      .filter(session => session.status === 'Scheduled')
       .filter(session => isReminderDue(session, reminderPolicy.offsets, dispatchAt, toleranceMinutes));
+    const cancellationSessions = candidateSessions
+      .filter(session => session.status === 'Cancelled')
+      .filter(session => getSessionStartDate(session).getTime() >= dispatchAt.getTime())
+      .filter(session => this.trainingDataRepository.getCancellationNotificationSentAt(session.sessionId) === null);
     const trainingDefinitions = indexTrainingDefinitions(this.trainingDataRepository.getTrainingDefinitions());
     const users = this.userRepository.getAllUsers();
     const webAppUrl = this.configurationProvider.getWebAppUrl();
 
     let sentCount = 0;
-    for (const session of sessions) {
+    for (const session of reminderSessions) {
       const existingAttendance = new Set(
         this.trainingDataRepository.getAttendanceForSession(session.sessionId).map(record => record.memberId),
       );
@@ -65,8 +73,30 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
       }
     }
 
+    for (const session of cancellationSessions) {
+      const recipients = users.filter(user => user.subscribedTrainingIds.includes(session.trainingId));
+      const cancellation: TrainingCancellation = {
+        sessionId: session.sessionId,
+        cancelledByMemberId: 'system',
+        cancelledAt: dispatchAt.toISOString(),
+        reason: session.additionalInfo,
+      };
+
+      for (const user of recipients) {
+        this.notificationSender.sendTrainingCancellation({
+          recipient: user,
+          cancellation,
+          session,
+          training: trainingDefinitions.get(session.trainingId),
+        });
+        sentCount += 1;
+      }
+
+      this.trainingDataRepository.markCancellationNotificationSent(cancellation, dispatchAt.toISOString());
+    }
+
     return {
-      sessionsProcessed: sessions.length,
+      sessionsProcessed: reminderSessions.length + cancellationSessions.length,
       sentCount,
     };
   }

@@ -11,7 +11,6 @@ export const TRAINING_DAYS = [
 export type TrainingDay = typeof TRAINING_DAYS[number];
 
 export type TrainingEnvironment = 'Indoor' | 'Outdoor';
-export type TrainingAudience = 'Mixed' | 'SingleGender';
 export type TrainingSessionStatus = 'Scheduled' | 'Cancelled' | 'Completed';
 
 export interface TrainingDefinition {
@@ -22,8 +21,6 @@ export interface TrainingDefinition {
   endTime?: string;
   location?: string;
   environment?: TrainingEnvironment;
-  audience?: TrainingAudience;
-  description?: string;
 }
 
 export interface TrainingSession {
@@ -33,5 +30,6 @@ export interface TrainingSession {
   startTime: string;
   endTime?: string;
   location?: string;
+  additionalInfo?: string;
   status: TrainingSessionStatus;
 }

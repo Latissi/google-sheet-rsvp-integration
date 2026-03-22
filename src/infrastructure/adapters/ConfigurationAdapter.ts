@@ -10,7 +10,6 @@ import {
   ReminderPolicy,
   ReminderOffset,
   TRAINING_DAYS,
-  TrainingAudience,
   TrainingDay,
   TrainingEnvironment,
   UserRecord,
@@ -32,6 +31,7 @@ interface PublicTrainingSourceSheetSchema {
   sheetName: number;
   tableRange?: number;
   dateHeaderRow: number;
+  infoRow?: number;
   firstMemberRow: number;
   firstNameColumn?: number;
   lastNameColumn?: number;
@@ -48,8 +48,6 @@ interface TrainingDefinitionSheetSchema {
   endTime?: number;
   location?: number;
   environment?: number;
-  audience?: number;
-  description?: number;
 }
 
 export class ConfigurationAdapter {
@@ -157,10 +155,6 @@ export class ConfigurationAdapter {
     return typeof value === 'string' && new Set<string>(TRAINING_DAYS).has(value);
   }
 
-  private isTrainingAudience(value: unknown): value is TrainingAudience {
-    return value === 'Mixed' || value === 'SingleGender';
-  }
-
   private isTrainingEnvironment(value: unknown): value is TrainingEnvironment {
     return value === 'Indoor' || value === 'Outdoor';
   }
@@ -170,7 +164,7 @@ export class ConfigurationAdapter {
       throw new Error(`Public training source "${sourceId}" must define an attendance object.`);
     }
 
-    const candidate = value as Partial<AttendanceConfig>;
+    const candidate = value as Record<string, unknown>;
     if (!candidate.startColumn || typeof candidate.startColumn !== 'string') {
       throw new Error(`Public training source "${sourceId}" must define attendance.startColumn.`);
     }
@@ -184,6 +178,14 @@ export class ConfigurationAdapter {
       throw new Error(`Public training source "${sourceId}" must define attendance.dateHeaderRow as a positive row number.`);
     }
 
+    const infoRowValue = candidate.infoRow;
+    const infoRow = infoRowValue === undefined || infoRowValue === null || infoRowValue === ''
+      ? undefined
+      : Number(infoRowValue);
+    if (infoRow !== undefined && (!Number.isInteger(infoRow) || infoRow < 1)) {
+      throw new Error(`Public training source "${sourceId}" must define attendance.infoRow as a positive row number.`);
+    }
+
     const firstMemberRow = Number(candidate.firstMemberRow);
     if (!Number.isInteger(firstMemberRow) || firstMemberRow < 1) {
       throw new Error(`Public training source "${sourceId}" must define attendance.firstMemberRow as a positive row number.`);
@@ -191,6 +193,10 @@ export class ConfigurationAdapter {
 
     if (firstMemberRow <= dateHeaderRow) {
       throw new Error(`Public training source "${sourceId}" must define attendance.firstMemberRow after attendance.dateHeaderRow.`);
+    }
+
+    if (infoRow !== undefined && infoRow >= firstMemberRow) {
+      throw new Error(`Public training source "${sourceId}" must define attendance.infoRow before attendance.firstMemberRow.`);
     }
 
     if (typeof candidate.firstNameColumn !== 'string') {
@@ -208,6 +214,7 @@ export class ConfigurationAdapter {
     return {
       startColumn: candidate.startColumn,
       metadataColumn: candidate.metadataColumn,
+      infoRow,
       firstNameColumn: candidate.firstNameColumn,
       lastNameColumn: candidate.lastNameColumn,
       dateHeaderRow,
@@ -230,10 +237,6 @@ export class ConfigurationAdapter {
       throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid day value.`);
     }
 
-    if (selector.audience !== undefined && !this.isTrainingAudience(selector.audience)) {
-      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid audience value.`);
-    }
-
     if (selector.environment !== undefined && !this.isTrainingEnvironment(selector.environment)) {
       throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid environment value.`);
     }
@@ -253,20 +256,14 @@ export class ConfigurationAdapter {
       throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid location value.`);
     }
 
-    if (selector.description !== undefined && typeof selector.description !== 'string') {
-      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid description value.`);
-    }
-
     return {
       trainingId,
       day: selector.day,
-      audience: selector.audience as TrainingAudience | undefined,
       environment: selector.environment as TrainingEnvironment | undefined,
       title: selector.title as string | undefined,
       startTime,
       endTime,
       location: selector.location as string | undefined,
-      description: selector.description as string | undefined,
     };
   }
 
@@ -340,6 +337,7 @@ export class ConfigurationAdapter {
       sheetName: this.getRequiredColumnIndex(headers, ['TabellenName']),
       tableRange: this.getColumnIndex(headers, ['TabellenBereich']),
       dateHeaderRow: this.getRequiredColumnIndex(headers, ['DatumsKopfZeile']),
+      infoRow: this.getColumnIndex(headers, ['InfoZeile']),
       firstMemberRow: this.getRequiredColumnIndex(headers, ['MitgliederStartZeile']),
       firstNameColumn: this.getRequiredColumnIndex(headers, ['VornameSpalte']),
       lastNameColumn: this.getRequiredColumnIndex(headers, ['NachnameSpalte']),
@@ -358,8 +356,6 @@ export class ConfigurationAdapter {
       endTime: this.getColumnIndex(headers, ['Endzeit']),
       location: this.getColumnIndex(headers, ['Ort']),
       environment: this.getColumnIndex(headers, ['Umgebung']),
-      audience: this.getColumnIndex(headers, ['Typ']),
-      description: this.getColumnIndex(headers, ['Beschreibung']),
     };
   }
 
@@ -406,8 +402,6 @@ export class ConfigurationAdapter {
         endTime: this.getCellValue(displayRow, definitionSchema.endTime) || undefined,
         location: this.getCellValue(displayRow, definitionSchema.location) || undefined,
         environment: this.getCellValue(displayRow, definitionSchema.environment) || undefined,
-        audience: this.getCellValue(displayRow, definitionSchema.audience) || undefined,
-        description: this.getCellValue(displayRow, definitionSchema.description) || undefined,
       }, sourceId, `row ${rowIndex + 1}`);
 
       const definitions = definitionsBySource.get(sourceId) ?? [];
@@ -445,6 +439,7 @@ export class ConfigurationAdapter {
 
       const attendance = this.parseAttendanceConfig({
         dateHeaderRow: this.getCellValue(row, sourceSchema.dateHeaderRow),
+        infoRow: this.getCellValue(row, sourceSchema.infoRow) || undefined,
         firstMemberRow: this.getCellValue(row, sourceSchema.firstMemberRow),
         firstNameColumn: this.getCellValue(row, sourceSchema.firstNameColumn) || undefined,
         lastNameColumn: this.getCellValue(row, sourceSchema.lastNameColumn) || undefined,

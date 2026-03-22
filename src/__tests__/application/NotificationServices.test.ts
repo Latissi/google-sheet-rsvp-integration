@@ -37,6 +37,8 @@ class InMemoryUserRepository implements IUserRepository {
 }
 
 class InMemoryTrainingRepository implements ITrainingDataRepository {
+  private readonly cancellationNotificationSentAt = new Map<string, string>();
+
   constructor(
     private readonly definitions: TrainingDefinition[],
     private readonly sessions: TrainingSession[],
@@ -49,8 +51,13 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
     return this.sessions.find(session => session.sessionId === sessionId) ?? null;
   }
   getAttendanceForSession(sessionId: string): AttendanceRecord[] { return this.attendance.filter(record => record.sessionId === sessionId); }
+  getCancellationNotificationSentAt(sessionId: string): string | null {
+    return this.cancellationNotificationSentAt.get(sessionId) ?? null;
+  }
   saveAttendance(): void { throw new Error('Not needed in this test.'); }
-  cancelTrainingSession(_cancellation: TrainingCancellation): void { throw new Error('Not needed in this test.'); }
+  markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void {
+    this.cancellationNotificationSentAt.set(cancellation.sessionId, notifiedAt);
+  }
 }
 
 class RecordingNotificationSender implements INotificationSender {
@@ -96,7 +103,6 @@ describe('Notification application services', () => {
     day: 'Mittwoch',
     startTime: '18:00',
     environment: 'Outdoor',
-    audience: 'Mixed',
   }];
   const sessions: TrainingSession[] = [{
     sessionId: 'session-1',
@@ -160,6 +166,55 @@ describe('Notification application services', () => {
     expect(sender.cancellations).toEqual([
       { recipientId: 'M001', sessionId: 'session-1' },
       { recipientId: 'T001', sessionId: 'session-1' },
+    ]);
+
+    expect(service.execute({
+      cancellation: {
+        sessionId: 'session-1',
+        cancelledByMemberId: 'T001',
+        cancelledAt: '2026-03-09T10:00:00.000Z',
+      },
+    })).toEqual({ sentCount: 0 });
+  });
+
+  it('sends one cancellation mail batch instead of reminders for cancelled sessions', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, [{
+      ...sessions[0],
+      status: 'Cancelled',
+      additionalInfo: 'Halle gesperrt',
+    }]);
+    const userRepository = new InMemoryUserRepository([
+      createUser('M001', 'Mitglied', ['wed-mixed']),
+      createUser('M002', 'Mitglied', ['wed-mixed']),
+    ]);
+    const configProvider = new TestConfigurationProvider({
+      offsets: [{ hours: 48, minutes: 0 }],
+      channels: ['email'],
+    });
+    const sender = new RecordingNotificationSender();
+    const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+
+    const first = service.execute({
+      dispatchAt: '2026-03-09T18:00:00.000Z',
+      toleranceMinutes: 1,
+    });
+    const second = service.execute({
+      dispatchAt: '2026-03-09T18:05:00.000Z',
+      toleranceMinutes: 1,
+    });
+
+    expect(first).toEqual({
+      sessionsProcessed: 1,
+      sentCount: 2,
+    });
+    expect(second).toEqual({
+      sessionsProcessed: 0,
+      sentCount: 0,
+    });
+    expect(sender.reminders).toEqual([]);
+    expect(sender.cancellations).toEqual([
+      { recipientId: 'M001', sessionId: 'session-1' },
+      { recipientId: 'M002', sessionId: 'session-1' },
     ]);
   });
 

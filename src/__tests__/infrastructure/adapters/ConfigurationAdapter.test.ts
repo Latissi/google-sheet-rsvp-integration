@@ -18,12 +18,12 @@ describe('ConfigurationAdapter', () => {
       ['ERINNERUNGS_OFFSETS', JSON.stringify([48, 24])],
     ],
     Trainingsquellen: [
-      ['QuellenId', 'TabellenName', 'TabellenBereich', 'DatumsKopfZeile', 'MitgliederStartZeile', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
-      ['club-rsvp', 'RSVP Übersicht', 'A1:F50', '1', '2', 'A', 'B', 'C'],
+      ['QuellenId', 'TabellenName', 'TabellenBereich', 'DatumsKopfZeile', 'InfoZeile', 'MitgliederStartZeile', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
+      ['club-rsvp', 'RSVP Übersicht', 'A1:F50', '2', '1', '3', 'A', 'B', 'C'],
     ],
     Trainingsdefinitionen: [
-      ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Ort', 'Umgebung', 'Typ'],
-      ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', '18:00', 'Sporthalle', 'Indoor', 'Mixed'],
+      ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Ort', 'Umgebung'],
+      ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', '18:00', 'Sporthalle', 'Indoor'],
     ],
     Mitglieder: [
       ['Vorname', 'Nachname', 'EMail', 'Geschlecht', 'Rolle', 'AbonnierteTrainings', 'AbonnierteTrainingsIds'],
@@ -53,8 +53,9 @@ describe('ConfigurationAdapter', () => {
           sheetName: 'RSVP Übersicht',
           tableRange: 'A1:F50',
           attendance: {
-            dateHeaderRow: 1,
-            firstMemberRow: 2,
+            dateHeaderRow: 2,
+            infoRow: 1,
+            firstMemberRow: 3,
             firstNameColumn: 'A',
             lastNameColumn: 'B',
             startColumn: 'C',
@@ -67,7 +68,6 @@ describe('ConfigurationAdapter', () => {
               startTime: '18:00',
               location: 'Sporthalle',
               environment: 'Indoor',
-              audience: 'Mixed',
             },
           ],
         },
@@ -79,14 +79,14 @@ describe('ConfigurationAdapter', () => {
         Konfiguration: initialData.Konfiguration,
         Trainingsquellen: initialData.Trainingsquellen,
         Trainingsdefinitionen: [
-          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung', 'Typ'],
-          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', new Date(1899, 11, 30, 19, 0, 39), new Date(1899, 11, 30, 21, 5, 0), 'Sporthalle', 'Indoor', 'Mixed'],
+          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung'],
+          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', new Date(1899, 11, 30, 19, 0, 39), new Date(1899, 11, 30, 21, 5, 0), 'Sporthalle', 'Indoor'],
         ],
         Mitglieder: initialData.Mitglieder,
       }, {
         Trainingsdefinitionen: [
-          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung', 'Typ'],
-          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', '19:00', '21:05', 'Sporthalle', 'Indoor', 'Mixed'],
+          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung'],
+          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', '19:00', '21:05', 'Sporthalle', 'Indoor'],
         ],
       });
       const dateValueAdapter = new ConfigurationAdapter(dateValueGateway);
@@ -97,8 +97,9 @@ describe('ConfigurationAdapter', () => {
           sheetName: 'RSVP Übersicht',
           tableRange: 'A1:F50',
           attendance: {
-            dateHeaderRow: 1,
-            firstMemberRow: 2,
+            dateHeaderRow: 2,
+            infoRow: 1,
+            firstMemberRow: 3,
             firstNameColumn: 'A',
             lastNameColumn: 'B',
             startColumn: 'C',
@@ -112,7 +113,6 @@ describe('ConfigurationAdapter', () => {
               endTime: '21:05',
               location: 'Sporthalle',
               environment: 'Indoor',
-              audience: 'Mixed',
             },
           ],
         },
@@ -154,8 +154,8 @@ describe('ConfigurationAdapter', () => {
         Konfiguration: initialData.Konfiguration,
         Trainingsquellen: initialData.Trainingsquellen,
         Trainingsdefinitionen: [
-          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung', 'Typ'],
-          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', 'Sat Dec 30 1899 19:00:39 GMT+0100 (Central European Standard Time)', 'Sat Dec 30 1899 21:05:00 GMT+0100 (Central European Standard Time)', 'Sporthalle', 'Indoor', 'Mixed'],
+          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung'],
+          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', 'Sat Dec 30 1899 19:00:39 GMT+0100 (Central European Standard Time)', 'Sat Dec 30 1899 21:05:00 GMT+0100 (Central European Standard Time)', 'Sporthalle', 'Indoor'],
         ],
         Mitglieder: initialData.Mitglieder,
       });
@@ -171,7 +171,6 @@ describe('ConfigurationAdapter', () => {
             endTime: '21:05',
             location: 'Sporthalle',
             environment: 'Indoor',
-            audience: 'Mixed',
           },
         ]);
       } finally {
@@ -233,8 +232,8 @@ describe('ConfigurationAdapter', () => {
         Konfiguration: initialData.Konfiguration,
         Trainingsquellen: initialData.Trainingsquellen,
         Trainingsdefinitionen: [
-          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Typ'],
-          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', '', '18:00', 'Mixed'],
+          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit'],
+          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', '', '18:00'],
         ],
         Mitglieder: initialData.Mitglieder,
       });

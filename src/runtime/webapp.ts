@@ -81,6 +81,7 @@ const PUBLIC_RSVP_ERROR_MESSAGE = 'RSVP request failed. The server could not sav
 const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Registration request failed. The server could not save this submission.';
 const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Preferences request failed. The server could not save these subscription settings.';
 const DEFAULT_TRAINER_REPORT_WINDOW_HOURS = 24;
+const CANCELLED_SESSION_PUBLIC_MESSAGE = 'Dieses Training entfällt. Eine Zu- oder Absage ist nicht mehr möglich.';
 
 export function handleRsvpRequest(
   parameters: RsvpRequestParameters,
@@ -124,6 +125,12 @@ export function handleRsvpRequest(
     };
   } catch (error) {
     logPublicRequestError('rsvp', error, { memberId, sessionId, rsvpStatus });
+    if (isCancelledSessionError(error)) {
+      return {
+        ok: false,
+        message: CANCELLED_SESSION_PUBLIC_MESSAGE,
+      };
+    }
     return {
       ok: false,
       message: buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error),
@@ -449,6 +456,10 @@ function parseRsvpStatus(value: string | undefined): RsvpResponse | null {
   }
 
   return null;
+}
+
+function isCancelledSessionError(error: unknown): boolean {
+  return error instanceof Error && /is cancelled\.$/.test(error.message);
 }
 
 function parseListParameter(value: string | undefined): string[] {

@@ -1,11 +1,9 @@
 import { SubmitRsvpService } from '../../application/rsvp/SubmitRsvpService';
 import { SyncAttendanceService } from '../../application/rsvp/SyncAttendanceService';
-import { CancelTrainingService } from '../../application/training/CancelTrainingService';
 import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import {
   AttendanceRecord,
-  TrainingCancellation,
   TrainingDefinition,
   TrainingSession,
   UserRecord,
@@ -30,7 +28,7 @@ class InMemoryUserRepository implements IUserRepository {
 
 class InMemoryTrainingRepository implements ITrainingDataRepository {
   public attendance: AttendanceRecord[] = [];
-  public cancellations: TrainingCancellation[] = [];
+  public cancellationNotificationSentAt = new Map<string, string>();
 
   constructor(
     private readonly definitions: TrainingDefinition[],
@@ -43,6 +41,9 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
     return this.sessions.find(session => session.sessionId === sessionId) ?? null;
   }
   getAttendanceForSession(sessionId: string): AttendanceRecord[] { return this.attendance.filter(record => record.sessionId === sessionId); }
+  getCancellationNotificationSentAt(sessionId: string): string | null {
+    return this.cancellationNotificationSentAt.get(sessionId) ?? null;
+  }
   saveAttendance(record: AttendanceRecord): void {
     const index = this.attendance.findIndex(existing => existing.sessionId === record.sessionId && existing.memberId === record.memberId);
     if (index >= 0) {
@@ -51,7 +52,9 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
     }
     this.attendance.push(record);
   }
-  cancelTrainingSession(cancellation: TrainingCancellation): void { this.cancellations.push(cancellation); }
+  markCancellationNotificationSent(cancellation: { sessionId: string }, notifiedAt: string): void {
+    this.cancellationNotificationSentAt.set(cancellation.sessionId, notifiedAt);
+  }
 }
 
 function createUser(memberId: string, role: 'Mitglied' | 'Trainer'): UserRecord {
@@ -75,7 +78,6 @@ describe('RSVP application services', () => {
     day: 'Mittwoch',
     startTime: '18:00',
     environment: 'Outdoor',
-    audience: 'Mixed',
   }];
   const sessions: TrainingSession[] = [{
     sessionId: 'session-1',
@@ -88,7 +90,7 @@ describe('RSVP application services', () => {
   it('stores an RSVP from an eligible user', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
     const userRepository = new InMemoryUserRepository([createUser('M001', 'Mitglied')]);
-    const service = new SubmitRsvpService(userRepository, new SyncAttendanceService(trainingRepository));
+    const service = new SubmitRsvpService(trainingRepository, userRepository, new SyncAttendanceService(trainingRepository));
 
     const result = service.execute({
       memberId: 'M001',
@@ -131,28 +133,22 @@ describe('RSVP application services', () => {
     expect(trainingRepository.getAttendanceForSession('session-1')[0].rsvpStatus).toBe('Accepted');
   });
 
-  it('allows only trainers to cancel training', () => {
+  it('rejects RSVP for cancelled sessions', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
-    const userRepository = new InMemoryUserRepository([
-      createUser('M001', 'Mitglied'),
-      createUser('T001', 'Trainer'),
-    ]);
-    const service = new CancelTrainingService(trainingRepository, userRepository);
+    const cancelledSessions: TrainingSession[] = [{
+      ...sessions[0],
+      status: 'Cancelled',
+      additionalInfo: 'Halle gesperrt',
+    }];
+    const cancelledRepository = new InMemoryTrainingRepository(definitions, cancelledSessions);
+    const userRepository = new InMemoryUserRepository([createUser('M001', 'Mitglied')]);
+    const service = new SubmitRsvpService(cancelledRepository, userRepository, new SyncAttendanceService(cancelledRepository));
 
     expect(() => service.execute({
       sessionId: 'session-1',
-      cancelledByMemberId: 'M001',
-      cancelledAt: '2026-03-09T10:00:00.000Z',
-    })).toThrow('User with memberId "M001" is not allowed to cancel training.');
-
-    const result = service.execute({
-      sessionId: 'session-1',
-      cancelledByMemberId: 'T001',
-      cancelledAt: '2026-03-09T10:00:00.000Z',
-      reason: 'Weather',
-    });
-
-    expect(result.cancellation.reason).toBe('Weather');
-    expect(trainingRepository.cancellations).toHaveLength(1);
+      memberId: 'M001',
+      rsvpStatus: 'Accepted',
+      respondedAt: '2026-03-09T10:00:00.000Z',
+    })).toThrow('Training session "session-1" is cancelled.');
   });
 });

@@ -29,6 +29,10 @@ export class SendCancellationNotificationService implements ISendCancellationNot
       throw new Error(`Training session "${request.cancellation.sessionId}" not found.`);
     }
 
+    if (this.trainingDataRepository.getCancellationNotificationSentAt(session.sessionId)) {
+      return { sentCount: 0 };
+    }
+
     const trainingDefinitions = indexTrainingDefinitions(this.trainingDataRepository.getTrainingDefinitions());
     const recipients = this.userRepository
       .getAllUsers()
@@ -42,6 +46,8 @@ export class SendCancellationNotificationService implements ISendCancellationNot
         training: trainingDefinitions.get(session.trainingId),
       });
     }
+
+    this.trainingDataRepository.markCancellationNotificationSent(request.cancellation, new Date().toISOString());
 
     return {
       sentCount: recipients.length,

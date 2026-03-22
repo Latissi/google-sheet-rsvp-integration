@@ -62,7 +62,6 @@ function createTraining(overrides: Partial<TrainingDefinition> = {}): TrainingDe
     endTime: '19:30',
     location: 'Sporthalle',
     environment: 'Outdoor',
-    audience: 'Mixed',
     ...overrides,
   };
 }

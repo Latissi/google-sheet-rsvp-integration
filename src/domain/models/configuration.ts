@@ -1,5 +1,4 @@
 import {
-  TrainingAudience,
   TrainingDay,
   TrainingEnvironment,
 } from './training';
@@ -8,6 +7,7 @@ import { NotificationChannel } from './user';
 export interface AttendanceConfig {
   startColumn: string;
   metadataColumn?: string;
+  infoRow?: number;
   firstNameColumn: string;
   lastNameColumn: string;
   dateHeaderRow: number;
@@ -28,12 +28,10 @@ export interface TrainingSourceMatch {
   trainingId: string;
   day: TrainingDay;
   environment?: TrainingEnvironment;
-  audience?: TrainingAudience;
   title?: string;
   startTime: string;
   endTime?: string;
   location?: string;
-  description?: string;
 }
 
 export interface PublicTrainingSource {
