@@ -11,6 +11,11 @@ import {
 import { GoogleSheetTrainingDataRepository } from '../../../infrastructure/adapters/GoogleSheetTrainingDataRepository';
 import { MockSheetGateway } from '../../mocks/MockSheetGateway';
 
+const ATTENDANCE_METADATA_SHEET_NAME = 'TeilnahmeMetadaten';
+const ATTENDANCE_METADATA_HEADERS = ['SessionId', 'MitgliedId', 'Quelle', 'AktualisiertAm'];
+const DISPATCH_METADATA_SHEET_NAME = 'VersandMetadaten';
+const DISPATCH_METADATA_HEADERS = ['SessionId', 'AbsageBenachrichtigungGesendetAm'];
+
 class TestConfigurationProvider implements IConfigurationProvider {
   constructor(private readonly sources: PublicTrainingSource[]) {}
 
@@ -258,8 +263,11 @@ describe('GoogleSheetTrainingDataRepository', () => {
         ['Alice', 'Example', 'x', '-'],
         ['Charlie', 'Coach', '-', ''],
       ],
+      [ATTENDANCE_METADATA_SHEET_NAME]: [
+        ATTENDANCE_METADATA_HEADERS,
+        ['club-rsvp__wed-mixed__2026-03-11__18:00', 'alice::example', 'email-rsvp', '2026-03-09T10:00:00.000Z'],
+      ],
     });
-    gateway.setCellNote('RSVP Übersicht', 2, 3, '{"source":"email-rsvp","updatedAt":"2026-03-09T10:00:00.000Z"}');
 
     expect(repository.getAttendanceForSession('club-rsvp__wed-mixed__2026-03-11__18:00')).toEqual([
       {
@@ -615,7 +623,10 @@ describe('GoogleSheetTrainingDataRepository', () => {
       columnIndex: 4,
       value: '-',
     });
-    expect(gateway.getCellNote('RSVP Übersicht', 3, 4)).toBe('{"source":"email-rsvp","updatedAt":"2026-03-10T09:00:00.000Z"}');
+    expect(gateway.getSheetValues(ATTENDANCE_METADATA_SHEET_NAME)).toEqual([
+      ATTENDANCE_METADATA_HEADERS,
+      ['club-rsvp__wed-mixed__2026-03-18__18:00', 'bob::example', 'email-rsvp', '2026-03-10T09:00:00.000Z'],
+    ]);
   });
 
   it('tracks one-time cancellation notification state in the date header note', () => {
@@ -665,7 +676,10 @@ describe('GoogleSheetTrainingDataRepository', () => {
       reason: 'Halle gesperrt',
     }, '2026-03-10T12:30:00.000Z');
 
-    expect(gateway.getCellNote('Single Gender', 2, 6)).toBe('{"cancellationNotificationSentAt":"2026-03-10T12:30:00.000Z"}');
+    expect(gateway.getSheetValues(DISPATCH_METADATA_SHEET_NAME)).toEqual([
+      DISPATCH_METADATA_HEADERS,
+      ['single-gender__wed-single__2026-03-11__19:00', '2026-03-10T12:30:00.000Z'],
+    ]);
     expect(repository.getCancellationNotificationSentAt('single-gender__wed-single__2026-03-11__19:00')).toBe('2026-03-10T12:30:00.000Z');
   });
 

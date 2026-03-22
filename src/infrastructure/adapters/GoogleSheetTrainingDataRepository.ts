@@ -34,8 +34,18 @@ interface SessionColumnReference extends SessionReferenceBase {
 
 type SessionReference = SessionColumnReference;
 
-interface SessionDispatchNoteData {
+interface SessionDispatchMetadata {
   cancellationNotificationSentAt?: string;
+}
+
+interface AttendanceMetadataEntry {
+  rowIndex: number;
+  metadata: AttendanceSyncMetadata;
+}
+
+interface SessionDispatchMetadataEntry {
+  rowIndex: number;
+  metadata: SessionDispatchMetadata;
 }
 
 interface ResolvedTrainingTemplate {
@@ -59,10 +69,16 @@ interface TrainingDataRepositoryLogger {
 }
 
 const DEFAULT_MANUAL_TIMESTAMP = '1970-01-01T00:00:00.000Z';
+const ATTENDANCE_METADATA_SHEET_NAME = 'TeilnahmeMetadaten';
+const ATTENDANCE_METADATA_HEADERS = ['SessionId', 'MitgliedId', 'Quelle', 'AktualisiertAm'];
+const DISPATCH_METADATA_SHEET_NAME = 'VersandMetadaten';
+const DISPATCH_METADATA_HEADERS = ['SessionId', 'AbsageBenachrichtigungGesendetAm'];
 
 export class GoogleSheetTrainingDataRepository implements ITrainingDataRepository {
   private sessionReferencesCache: SessionReference[] | null = null;
   private readonly sourceTableCache = new Map<string, unknown[][]>();
+  private attendanceMetadataCache: Map<string, AttendanceMetadataEntry> | null = null;
+  private sessionDispatchMetadataCache: Map<string, SessionDispatchMetadataEntry> | null = null;
   private readonly sessionDateParser: TrainingSessionDateParser;
   private readonly memberRowUserMatcher: MemberRowUserMatcher;
 
@@ -108,7 +124,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
   getCancellationNotificationSentAt(sessionId: string): string | null {
     const reference = this.findSessionReferenceOrThrow(sessionId);
-    return this.getSessionDispatchNote(reference).cancellationNotificationSentAt ?? null;
+    return this.getSessionDispatchMetadata(reference.session.sessionId).cancellationNotificationSentAt ?? null;
   }
 
   cancelTrainingSession(cancellation: TrainingCancellation): void {
@@ -140,20 +156,10 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
   markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void {
     const reference = this.findSessionReferenceOrThrow(cancellation.sessionId);
-    const existingNote = this.getSessionDispatchNote(reference);
-
-    this.gateway.setCellNote(
-      reference.source.sheetName,
-      reference.source.attendance.dateHeaderRow,
-      reference.bounds.startColumn + reference.columnIndex + 1,
-      JSON.stringify({
-        ...existingNote,
-        cancellationNotificationSentAt: notifiedAt,
-      }),
-      {
-        spreadsheetId: this.getPublicSpreadsheetId(),
-      },
-    );
+    this.upsertSessionDispatchMetadata(reference.session.sessionId, {
+      ...this.getSessionDispatchMetadata(reference.session.sessionId),
+      cancellationNotificationSentAt: notifiedAt,
+    });
   }
 
   private getAllSessionReferences(): SessionReference[] {
@@ -265,9 +271,8 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
         }
 
         const metadata = this.getCellMetadata(
-          reference.source,
-          reference.source.attendance.firstMemberRow + rowOffset,
-          reference.bounds.startColumn + columnIndex + 1,
+          reference.session.sessionId,
+          user.memberId,
         );
 
         return {
@@ -317,13 +322,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       this.formatAttendanceCell(record.rsvpStatus),
       { spreadsheetId: this.getPublicSpreadsheetId() },
     );
-    this.gateway.setCellNote(
-      reference.source.sheetName,
-      absoluteRowIndex,
-      absoluteColumnIndex,
-      JSON.stringify(record.metadata),
-      { spreadsheetId: this.getPublicSpreadsheetId() },
-    );
+    this.upsertAttendanceMetadata(record);
 
     this.invalidateSourceCache(reference.source);
   }
@@ -531,48 +530,188 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return `${cancellationPrefix} | ${existingAdditionalInfo}`;
   }
 
-  private getSessionDispatchNote(reference: SessionColumnReference): SessionDispatchNoteData {
-    const note = this.gateway.getCellNote(
-      reference.source.sheetName,
-      reference.source.attendance.dateHeaderRow,
-      reference.bounds.startColumn + reference.columnIndex + 1,
-      { spreadsheetId: this.getPublicSpreadsheetId() },
-    );
-
-    if (!note.trim()) {
-      return {};
-    }
-
-    try {
-      const parsed = JSON.parse(note) as SessionDispatchNoteData;
-      if (parsed && typeof parsed === 'object') {
-        return parsed;
-      }
-    } catch {
-      return {};
-    }
-
-    return {};
+  private getSessionDispatchMetadata(sessionId: string): SessionDispatchMetadata {
+    return this.getSessionDispatchMetadataCache().get(sessionId)?.metadata ?? {};
   }
 
-  private getCellMetadata(source: PublicTrainingSource, rowIndex: number, columnIndex: number): AttendanceSyncMetadata {
-    const note = this.gateway.getCellNote(source.sheetName, rowIndex, columnIndex, {
-      spreadsheetId: this.getPublicSpreadsheetId(),
-    });
-    if (!note.trim()) {
-      return this.getDefaultManualMetadata();
+  private getCellMetadata(sessionId: string, memberId: string): AttendanceSyncMetadata {
+    return this.getAttendanceMetadataCache().get(this.createAttendanceMetadataKey(sessionId, memberId))?.metadata
+      ?? this.getDefaultManualMetadata();
+  }
+
+  private getAttendanceMetadataCache(): Map<string, AttendanceMetadataEntry> {
+    if (!this.attendanceMetadataCache) {
+      this.attendanceMetadataCache = this.loadAttendanceMetadataCache();
     }
 
-    try {
-      const parsed = JSON.parse(note) as AttendanceSyncMetadata;
-      if (parsed && typeof parsed === 'object' && parsed.source && parsed.updatedAt) {
-        return parsed;
+    return this.attendanceMetadataCache;
+  }
+
+  private getSessionDispatchMetadataCache(): Map<string, SessionDispatchMetadataEntry> {
+    if (!this.sessionDispatchMetadataCache) {
+      this.sessionDispatchMetadataCache = this.loadSessionDispatchMetadataCache();
+    }
+
+    return this.sessionDispatchMetadataCache;
+  }
+
+  private loadAttendanceMetadataCache(): Map<string, AttendanceMetadataEntry> {
+    const rows = this.getPrivateSheetValuesOrEmpty(ATTENDANCE_METADATA_SHEET_NAME);
+    const metadata = new Map<string, AttendanceMetadataEntry>();
+    if (rows.length === 0) {
+      return metadata;
+    }
+
+    const sessionIdIndex = this.getRequiredSheetColumnIndex(ATTENDANCE_METADATA_SHEET_NAME, rows[0] ?? [], 'SessionId');
+    const memberIdIndex = this.getRequiredSheetColumnIndex(ATTENDANCE_METADATA_SHEET_NAME, rows[0] ?? [], 'MitgliedId');
+    const sourceIndex = this.getRequiredSheetColumnIndex(ATTENDANCE_METADATA_SHEET_NAME, rows[0] ?? [], 'Quelle');
+    const updatedAtIndex = this.getRequiredSheetColumnIndex(ATTENDANCE_METADATA_SHEET_NAME, rows[0] ?? [], 'AktualisiertAm');
+
+    for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex];
+      if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
+        continue;
       }
-    } catch {
-      return this.getDefaultManualMetadata();
+
+      const sessionId = this.getCellValue(row, sessionIdIndex);
+      const memberId = this.getCellValue(row, memberIdIndex);
+      const source = this.getCellValue(row, sourceIndex);
+      const updatedAt = this.getCellValue(row, updatedAtIndex);
+      if (!sessionId || !memberId || !source || !updatedAt) {
+        throw new Error(`Sheet "${ATTENDANCE_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowIndex + 1}.`);
+      }
+      if (!this.isAttendanceSource(source)) {
+        throw new Error(`Sheet "${ATTENDANCE_METADATA_SHEET_NAME}" contains an invalid attendance source at row ${rowIndex + 1}.`);
+      }
+
+      const key = this.createAttendanceMetadataKey(sessionId, memberId);
+      if (metadata.has(key)) {
+        throw new Error(`Sheet "${ATTENDANCE_METADATA_SHEET_NAME}" contains duplicate attendance metadata for sessionId "${sessionId}" and memberId "${memberId}".`);
+      }
+
+      metadata.set(key, {
+        rowIndex: rowIndex + 1,
+        metadata: {
+          source,
+          updatedAt,
+        },
+      });
     }
 
-    return this.getDefaultManualMetadata();
+    return metadata;
+  }
+
+  private loadSessionDispatchMetadataCache(): Map<string, SessionDispatchMetadataEntry> {
+    const rows = this.getPrivateSheetValuesOrEmpty(DISPATCH_METADATA_SHEET_NAME);
+    const metadata = new Map<string, SessionDispatchMetadataEntry>();
+    if (rows.length === 0) {
+      return metadata;
+    }
+
+    const sessionIdIndex = this.getRequiredSheetColumnIndex(DISPATCH_METADATA_SHEET_NAME, rows[0] ?? [], 'SessionId');
+    const sentAtIndex = this.getRequiredSheetColumnIndex(DISPATCH_METADATA_SHEET_NAME, rows[0] ?? [], 'AbsageBenachrichtigungGesendetAm');
+
+    for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex];
+      if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
+        continue;
+      }
+
+      const sessionId = this.getCellValue(row, sessionIdIndex);
+      const cancellationNotificationSentAt = this.getCellValue(row, sentAtIndex);
+      if (!sessionId || !cancellationNotificationSentAt) {
+        throw new Error(`Sheet "${DISPATCH_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowIndex + 1}.`);
+      }
+      if (metadata.has(sessionId)) {
+        throw new Error(`Sheet "${DISPATCH_METADATA_SHEET_NAME}" contains duplicate dispatch metadata for sessionId "${sessionId}".`);
+      }
+
+      metadata.set(sessionId, {
+        rowIndex: rowIndex + 1,
+        metadata: {
+          cancellationNotificationSentAt,
+        },
+      });
+    }
+
+    return metadata;
+  }
+
+  private upsertAttendanceMetadata(record: AttendanceRecord): void {
+    this.gateway.ensureSheetHeaders(ATTENDANCE_METADATA_SHEET_NAME, ATTENDANCE_METADATA_HEADERS);
+
+    const cache = this.getAttendanceMetadataCache();
+    const key = this.createAttendanceMetadataKey(record.sessionId, record.memberId);
+    const values = [record.sessionId, record.memberId, record.metadata.source, record.metadata.updatedAt];
+    const existing = cache.get(key);
+    if (existing) {
+      this.gateway.setRowValues(ATTENDANCE_METADATA_SHEET_NAME, existing.rowIndex, values);
+      existing.metadata = { ...record.metadata };
+      return;
+    }
+
+    const rowIndex = this.getNextMetadataRowIndex(cache);
+    this.gateway.appendRow(ATTENDANCE_METADATA_SHEET_NAME, values);
+    cache.set(key, {
+      rowIndex,
+      metadata: { ...record.metadata },
+    });
+  }
+
+  private upsertSessionDispatchMetadata(sessionId: string, metadata: SessionDispatchMetadata): void {
+    if (!metadata.cancellationNotificationSentAt) {
+      return;
+    }
+
+    this.gateway.ensureSheetHeaders(DISPATCH_METADATA_SHEET_NAME, DISPATCH_METADATA_HEADERS);
+
+    const cache = this.getSessionDispatchMetadataCache();
+    const values = [sessionId, metadata.cancellationNotificationSentAt];
+    const existing = cache.get(sessionId);
+    if (existing) {
+      this.gateway.setRowValues(DISPATCH_METADATA_SHEET_NAME, existing.rowIndex, values);
+      existing.metadata = { ...metadata };
+      return;
+    }
+
+    const rowIndex = this.getNextMetadataRowIndex(cache);
+    this.gateway.appendRow(DISPATCH_METADATA_SHEET_NAME, values);
+    cache.set(sessionId, {
+      rowIndex,
+      metadata: { ...metadata },
+    });
+  }
+
+  private getPrivateSheetValuesOrEmpty(sheetName: string): unknown[][] {
+    try {
+      return this.gateway.getSheetValues(sheetName);
+    } catch (error) {
+      if (error instanceof Error && error.message === `Sheet with name "${sheetName}" not found.`) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  private getRequiredSheetColumnIndex(sheetName: string, headers: unknown[], requiredHeader: string): number {
+    const normalizedRequiredHeader = this.normalizeHeader(requiredHeader);
+    const index = headers.findIndex(header => this.normalizeHeader(header) === normalizedRequiredHeader);
+    if (index === -1) {
+      throw new Error(`Sheet "${sheetName}" is missing required column "${requiredHeader}".`);
+    }
+    return index;
+  }
+
+  private getNextMetadataRowIndex<T extends { rowIndex: number }>(cache: Map<string, T>): number {
+    return Array.from(cache.values()).reduce((maxRowIndex, entry) => Math.max(maxRowIndex, entry.rowIndex), 1) + 1;
+  }
+
+  private createAttendanceMetadataKey(sessionId: string, memberId: string): string {
+    return `${sessionId}::${memberId}`;
+  }
+
+  private isAttendanceSource(value: string): value is AttendanceSyncMetadata['source'] {
+    return ['manual', 'email-rsvp', 'sheet-sync', 'system'].includes(value);
   }
 
   private getDefaultManualMetadata(): AttendanceSyncMetadata {
@@ -630,6 +769,13 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       .trim()
       .toLowerCase()
       .replace(/\s+/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  private normalizeHeader(value: unknown): string {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase()
       .replace(/[^a-z0-9]/g, '');
   }
 }

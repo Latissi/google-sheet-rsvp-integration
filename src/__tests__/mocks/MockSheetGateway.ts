@@ -7,7 +7,6 @@ import {
 export class MockSheetGateway implements ISheetGateway {
   private inMemorySheets: Map<string, unknown[][]>;
   private displaySheets: Map<string, string[][]>;
-  private notes: Map<string, string> = new Map();
   private readCounts: Map<string, number> = new Map();
   public appendedRows: Array<{ sheetName: string, values: unknown[] }> = [];
   public updatedRows: Array<{ sheetName: string, rowIndex: number, values: unknown[] }> = [];
@@ -67,6 +66,25 @@ export class MockSheetGateway implements ISheetGateway {
     this.appendedRows.push({ sheetName, values });
   }
 
+  ensureSheetHeaders(sheetName: string, headers: string[], _options?: SheetWriteOptions): void {
+    const data = this.inMemorySheets.get(sheetName);
+    if (!data) {
+      this.inMemorySheets.set(sheetName, [headers]);
+      return;
+    }
+
+    if (data.length === 0) {
+      data.push(headers);
+      return;
+    }
+
+    const firstRow = data[0] ?? [];
+    const matchesExpectedHeaders = headers.every((header, index) => String(firstRow[index] ?? '').trim() === header);
+    if (!matchesExpectedHeaders) {
+      throw new Error(`Sheet "${sheetName}" does not match the expected header schema.`);
+    }
+  }
+
   setCellValue(sheetName: string, rowIndex: number, columnIndex: number, value: unknown, _options?: SheetWriteOptions): void {
     const data = this.inMemorySheets.get(sheetName);
     if (!data) throw new Error(`Sheet with name "${sheetName}" not found.`);
@@ -78,14 +96,6 @@ export class MockSheetGateway implements ISheetGateway {
 
     row[columnIndex - 1] = value;
     this.updatedCells.push({ sheetName, rowIndex, columnIndex, value });
-  }
-
-  getCellNote(sheetName: string, rowIndex: number, columnIndex: number, _options?: SheetAccessOptions): string {
-    return this.notes.get(this.getNoteKey(sheetName, rowIndex, columnIndex)) ?? '';
-  }
-
-  setCellNote(sheetName: string, rowIndex: number, columnIndex: number, note: string, _options?: SheetWriteOptions): void {
-    this.notes.set(this.getNoteKey(sheetName, rowIndex, columnIndex), note);
   }
 
   getUpdatesCount(): number {
@@ -133,10 +143,6 @@ export class MockSheetGateway implements ISheetGateway {
       .toUpperCase()
       .split('')
       .reduce((total, character) => (total * 26) + character.charCodeAt(0) - 64, 0) - 1;
-  }
-
-  private getNoteKey(sheetName: string, rowIndex: number, columnIndex: number): string {
-    return `${sheetName}:${rowIndex}:${columnIndex}`;
   }
 
   private getReadKey(sheetName: string, rangeA1?: string): string {

@@ -21,7 +21,6 @@ interface PublicTrainingSourceSheetSchema {
   firstNameColumn?: number;
   lastNameColumn?: number;
   startColumn: number;
-  metadataColumn?: number;
 }
 
 interface TrainingDefinitionSheetSchema {
@@ -138,10 +137,6 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
       throw new Error(`Public training source "${sourceId}" must define attendance.startColumn.`);
     }
 
-    if (candidate.metadataColumn !== undefined && typeof candidate.metadataColumn !== 'string') {
-      throw new Error(`Public training source "${sourceId}" has an invalid attendance.metadataColumn value.`);
-    }
-
     const dateHeaderRow = Number(candidate.dateHeaderRow);
     if (!Number.isInteger(dateHeaderRow) || dateHeaderRow < 1) {
       throw new Error(`Public training source "${sourceId}" must define attendance.dateHeaderRow as a positive row number.`);
@@ -182,7 +177,6 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
 
     return {
       startColumn: candidate.startColumn,
-      metadataColumn: candidate.metadataColumn,
       infoRow,
       firstNameColumn: candidate.firstNameColumn,
       lastNameColumn: candidate.lastNameColumn,
@@ -307,7 +301,6 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
       firstNameColumn: getRequiredColumnIndex(headers, ['VornameSpalte']),
       lastNameColumn: getRequiredColumnIndex(headers, ['NachnameSpalte']),
       startColumn: getRequiredColumnIndex(headers, ['StartSpalte']),
-      metadataColumn: getColumnIndex(headers, ['MetadatenSpalte']),
     };
   }
 
@@ -409,7 +402,6 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
         firstNameColumn: getCellValue(row, sourceSchema.firstNameColumn) || undefined,
         lastNameColumn: getCellValue(row, sourceSchema.lastNameColumn) || undefined,
         startColumn: getCellValue(row, sourceSchema.startColumn),
-        metadataColumn: getCellValue(row, sourceSchema.metadataColumn) || undefined,
       }, sourceId);
       const trainings = definitionsBySource.get(sourceId) ?? [];
 

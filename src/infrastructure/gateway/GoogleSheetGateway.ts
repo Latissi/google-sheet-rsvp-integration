@@ -62,13 +62,25 @@ export class GoogleSheetGateway implements ISheetGateway {
     sheet.appendRow(values);
   }
 
-  getCellNote(sheetName: string, rowIndex: number, columnIndex: number, options?: SheetAccessOptions): string {
-    const sheet = this.getSheet(sheetName, options);
-    return sheet.getRange(rowIndex, columnIndex, 1, 1).getNote();
-  }
+  ensureSheetHeaders(sheetName: string, headers: string[], options?: SheetWriteOptions): void {
+    const spreadsheet = this.getSpreadsheet(options?.spreadsheetId);
+    let sheet = spreadsheet.getSheetByName(sheetName);
 
-  setCellNote(sheetName: string, rowIndex: number, columnIndex: number, note: string, options?: SheetWriteOptions): void {
-    const sheet = this.getSheet(sheetName, options);
-    sheet.getRange(rowIndex, columnIndex, 1, 1).setNote(note);
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet(sheetName);
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+    if (lastRow === 0 || lastColumn === 0) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      return;
+    }
+
+    const existingHeaders = sheet.getRange(1, 1, 1, Math.max(lastColumn, headers.length)).getDisplayValues()[0] ?? [];
+    const matchesExpectedHeaders = headers.every((header, index) => String(existingHeaders[index] ?? '').trim() === header);
+    if (!matchesExpectedHeaders) {
+      throw new Error(`Sheet "${sheetName}" does not match the expected header schema.`);
+    }
   }
 }

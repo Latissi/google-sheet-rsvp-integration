@@ -3,13 +3,19 @@
 Dieses Dokument beschreibt die einzige unterstützte Tabellenstruktur für das RSVP-System. Die Anwendung erwartet einen festen privaten Konfigurationsaufbau und ein öffentliches Trainingsblatt mit Mitgliederzeilen und Datumsspalten.
 
 ## 1. Private Systemtabelle
-Dieses Spreadsheet ist das container-gebundene private Apps-Script-Sheet. Es enthält Konfiguration, Trainingsdefinitionen und private Mitgliederdaten und muss privat bleiben.
+Dieses Spreadsheet ist das container-gebundene private Apps-Script-Sheet. Es enthält Konfiguration, Trainingsdefinitionen, private Mitgliederdaten und laufzeitinterne Metadaten und muss privat bleiben.
 
 Erforderliche Tabs:
 - `Konfiguration`
 - `Trainingsquellen`
 - `Trainingsdefinitionen`
 - `Mitglieder`
+
+Laufzeit-Tabs:
+- `TeilnahmeMetadaten`
+- `VersandMetadaten`
+
+Die beiden Laufzeit-Tabs werden von der Anwendung selbst verwendet, um interne Metadaten ausserhalb des oeffentlichen Sheets zu speichern. Sie werden bei der ersten schreibenden Verwendung automatisch mit den erwarteten Headern angelegt.
 
 ### Tab `Konfiguration`
 Der Tab wird als Key-Value-Tabelle gelesen.
@@ -69,6 +75,29 @@ Regeln:
 - `Rolle` darf nur `Mitglied` oder `Trainer` sein.
 - Alle Personen, die RSVP oder Benachrichtigungen nutzen, müssen in diesem Tab vorhanden sein.
 - E-Mail-Empfänger fuer Erinnerungen, Absagen und Trainerberichte werden direkt aus diesem Tab gelesen.
+
+### Tab `TeilnahmeMetadaten`
+
+| SessionId | MitgliedId | Quelle | AktualisiertAm |
+|-----------|------------|--------|----------------|
+| `club-rsvp__wed-mixed__2026-03-11__18:00` | `max::mustermann` | `email-rsvp` | `2026-03-09T10:00:00.000Z` |
+
+Regeln:
+- Eine Zeile pro Kombination aus `SessionId` und `MitgliedId`.
+- `Quelle` verwendet die internen Werte `manual`, `email-rsvp`, `sheet-sync` oder `system`.
+- `AktualisiertAm` ist ein ISO-8601-Zeitstempel.
+- Fehlt fuer eine Kombination eine Zeile, behandelt die Anwendung den Eintrag als manuell gepflegt.
+
+### Tab `VersandMetadaten`
+
+| SessionId | AbsageBenachrichtigungGesendetAm |
+|-----------|----------------------------------|
+| `club-rsvp__wed-mixed__2026-03-11__18:00` | `2026-03-10T12:30:00.000Z` |
+
+Regeln:
+- Eine Zeile pro `SessionId`.
+- Der Zeitstempel ist ein ISO-8601-Wert.
+- Die Anwendung nutzt diesen Tab ausschliesslich als Idempotenz-Schutz fuer bereits verschickte Absage-Benachrichtigungen.
 
 ## 2. Öffentliches Trainings-Sheet
 Unterstützt wird ausschließlich die Struktur mit einer Zeile pro Mitglied und einer Datumsspalte pro Session.
