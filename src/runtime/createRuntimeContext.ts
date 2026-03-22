@@ -1,4 +1,5 @@
 import {
+  ICancelTrainingSessionService,
   IRegisterMemberService,
   ISendCancellationNotificationService,
   ISendTrainerParticipationReportService,
@@ -6,6 +7,7 @@ import {
   ISubmitRsvpService,
   ISyncAttendanceService,
   IUpdateSubscriptionPreferencesService,
+  CancelTrainingSessionService,
   RegisterMemberService,
   SendCancellationNotificationService,
   SendTrainerParticipationReportService,
@@ -18,7 +20,6 @@ import { IConfigurationProvider } from '../domain/ports/IConfigurationProvider';
 import { INotificationSender } from '../domain/ports/INotificationSender';
 import { ITrainingDataRepository } from '../domain/ports/ITrainingDataRepository';
 import { IUserRepository } from '../domain/ports/IUserRepository';
-import { ConfigurationAdapter } from '../infrastructure/adapters/ConfigurationAdapter';
 import { GoogleSheetTrainingDataRepository } from '../infrastructure/adapters/GoogleSheetTrainingDataRepository';
 import { MailAppTransport, MailNotificationSender } from '../infrastructure/adapters/MailNotificationSender';
 import { PrivateSheetConfigurationProvider } from '../infrastructure/adapters/PrivateSheetConfigurationProvider';
@@ -35,6 +36,7 @@ export interface RuntimeContext {
   registerMemberService: IRegisterMemberService;
   updateSubscriptionPreferencesService: IUpdateSubscriptionPreferencesService;
   submitRsvpService: ISubmitRsvpService;
+  cancelTrainingSessionService: ICancelTrainingSessionService;
   syncAttendanceService: ISyncAttendanceService;
   sendTrainingReminderService: ISendTrainingReminderService;
   sendCancellationNotificationService: ISendCancellationNotificationService;
@@ -47,10 +49,8 @@ export interface RuntimeContextOptions {
 
 export function createRuntimeContext(options: RuntimeContextOptions = {}): RuntimeContext {
   const sheetGateway = options.sheetGateway ?? new GoogleSheetGateway();
-  const privateSheetConfigurationSource = new ConfigurationAdapter(sheetGateway);
-  const privateSheetUserStore = new ConfigurationAdapter(sheetGateway);
-  const configurationProvider = new PrivateSheetConfigurationProvider(privateSheetConfigurationSource);
-  const userRepository = new PrivateSheetUserRepository(privateSheetUserStore);
+  const configurationProvider = new PrivateSheetConfigurationProvider(sheetGateway);
+  const userRepository = new PrivateSheetUserRepository(sheetGateway);
   const trainingDataRepository = new GoogleSheetTrainingDataRepository(
     sheetGateway,
     configurationProvider,
@@ -83,6 +83,11 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     userRepository,
     notificationSender,
   );
+  const cancelTrainingSessionService = new CancelTrainingSessionService(
+    trainingDataRepository,
+    userRepository,
+    sendCancellationNotificationService,
+  );
   const sendTrainerParticipationReportService = new SendTrainerParticipationReportService(
     trainingDataRepository,
     userRepository,
@@ -97,6 +102,7 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     registerMemberService,
     updateSubscriptionPreferencesService,
     submitRsvpService,
+    cancelTrainingSessionService,
     syncAttendanceService,
     sendTrainingReminderService,
     sendCancellationNotificationService,

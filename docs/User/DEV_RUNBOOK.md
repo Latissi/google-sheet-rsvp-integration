@@ -92,6 +92,8 @@ So legen Sie einen Zeit-Trigger an:
 
 Für Trainerberichte entsprechend `runTrainerParticipationReportDispatch` verwenden.
 
+Trainer erhalten in Reminder-Mails zusätzlich einen Link `Training absagen`. Der erste Klick öffnet nur eine Bestätigungsseite; erst nach der Bestätigung wird die Session abgesagt und eine Absage-Mail an alle Abonnenten verschickt.
+
 ## 6. Dev-Setup testen
 
 ### Test 1 – Reminder mit festem Zeitstempel ausführen
@@ -115,6 +117,15 @@ Browser-Aufruf:
 ```
 
 Erwartung: Die Anwendung bestätigt die Antwort und aktualisiert das öffentliche Sheet.
+
+### Test 3a – Trainingsabsage für Trainer
+Browser-Aufruf aus einem Trainer-Reminder oder manuell:
+
+```text
+[IHRE_WEB_APP_URL]?action=cancel-training&memberId=trainer::eins&sessionId=session-456
+```
+
+Erwartung: Zuerst erscheint nur eine Bestätigungsseite. Nach der Bestätigung schreibt die Anwendung einen Absage-Marker in die konfigurierte `InfoZeile`, verschickt Absage-Mails und das Training akzeptiert danach keine RSVP-Aktionen mehr.
 
 ### Test 4 – Registrierung über POST
 Die Registrierung akzeptiert nur diesen Vertrag:

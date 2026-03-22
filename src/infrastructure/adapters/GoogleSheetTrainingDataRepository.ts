@@ -111,6 +111,28 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return this.getSessionDispatchNote(reference).cancellationNotificationSentAt ?? null;
   }
 
+  cancelTrainingSession(cancellation: TrainingCancellation): void {
+    const reference = this.findSessionReferenceOrThrow(cancellation.sessionId);
+    const infoRow = reference.source.attendance.infoRow;
+
+    if (infoRow === undefined) {
+      throw new Error(`Training session "${cancellation.sessionId}" cannot be cancelled because the source has no infoRow configured.`);
+    }
+
+    const nextAdditionalInfo = this.createCancellationAdditionalInfo(reference, cancellation.reason);
+    this.gateway.setCellValue(
+      reference.source.sheetName,
+      infoRow,
+      reference.bounds.startColumn + reference.columnIndex + 1,
+      nextAdditionalInfo,
+      {
+        spreadsheetId: this.getPublicSpreadsheetId(),
+      },
+    );
+
+    this.invalidateSourceCache(reference.source);
+  }
+
   saveAttendance(record: AttendanceRecord): void {
     const reference = this.findSessionReferenceOrThrow(record.sessionId);
     this.saveAttendanceForMemberRowsSession(reference, record);
@@ -484,6 +506,29 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   private isCancelledByAdditionalInfo(additionalInfo: string): boolean {
     const normalized = additionalInfo.trim().toLowerCase();
     return normalized.includes('entfällt') || normalized.includes('gesperrt');
+  }
+
+  private createCancellationAdditionalInfo(reference: SessionColumnReference, reason?: string): string {
+    const rawTable = this.getSourceTable(reference.source);
+    const existingAdditionalInfo = this.getAdditionalInfoForMemberRowsSession(
+      reference.source,
+      reference.bounds,
+      rawTable,
+      reference.columnIndex,
+    );
+    const cancellationPrefix = reason?.trim()
+      ? `Training entfällt: ${reason.trim()}`
+      : 'Training entfällt';
+
+    if (!existingAdditionalInfo) {
+      return cancellationPrefix;
+    }
+
+    if (this.isCancelledByAdditionalInfo(existingAdditionalInfo)) {
+      return existingAdditionalInfo;
+    }
+
+    return `${cancellationPrefix} | ${existingAdditionalInfo}`;
   }
 
   private getSessionDispatchNote(reference: SessionColumnReference): SessionDispatchNoteData {

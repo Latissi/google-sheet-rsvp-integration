@@ -1,4 +1,5 @@
 import {
+  CancelTrainingSessionRequest,
   RegisterMemberRequest,
   SubmitRsvpRequest,
   UpdateSubscriptionPreferencesRequest,
@@ -12,6 +13,8 @@ import {
 } from '../../domain/types';
 import {
   handleRegistrationRequest,
+  handleCancelTrainingConfirmationRequest,
+  handleCancelTrainingRequest,
   handleRsvpRequest,
   handleSubscriptionPreferencesRequest,
   runTrainerParticipationReportDispatchWithRuntime,
@@ -70,7 +73,20 @@ class RecordingUpdateSubscriptionPreferencesService {
   }
 }
 
+class RecordingCancelTrainingService {
+  public readonly requests: CancelTrainingSessionRequest[] = [];
+
+  execute(request: CancelTrainingSessionRequest): { sentCount: number; alreadyCancelled: boolean } {
+    this.requests.push(request);
+    return {
+      sentCount: 3,
+      alreadyCancelled: false,
+    };
+  }
+}
+
 class EmptyUserLookup {
+  getUserByMemberId(): UserRecord | null { return null; }
   getUserByEmail(): UserRecord | null { return null; }
   getUserByName(): UserRecord | null { return null; }
 }
@@ -236,6 +252,52 @@ describe('webapp RSVP handler', () => {
     }]);
   });
 
+  it('builds a confirmation payload for trainer cancellation links', () => {
+    const trainer = {
+      ...createUserRecord('trainer::one', 'Trainer One', 'Trainer'),
+    };
+    const result = handleCancelTrainingConfirmationRequest(
+      {
+        action: 'cancel-training',
+        memberId: 'trainer::one',
+        sessionId: 'session-1',
+      },
+      { getUserByMemberId: () => trainer },
+      { getTrainingSessionById: () => ({ sessionId: 'session-1', trainingId: 'wed-mixed', sessionDate: '2026-03-11', startTime: '18:00', status: 'Scheduled' }) },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message: 'Bitte bestätige die Absage dieses Trainings.',
+      memberId: 'trainer::one',
+      sessionId: 'session-1',
+      requiresConfirmation: true,
+    });
+  });
+
+  it('maps confirmed cancellation parameters to a cancel request', () => {
+    const service = new RecordingCancelTrainingService();
+
+    const result = handleCancelTrainingRequest({
+      action: 'cancel-training',
+      memberId: 'trainer::one',
+      sessionId: 'session-1',
+      confirm: 'yes',
+      cancelledAt: '2026-03-09T12:00:00.000Z',
+    }, service);
+
+    expect(result).toEqual({
+      ok: true,
+      message: 'Das Training wurde abgesagt. 3 Benachrichtigungen wurden versendet.',
+    });
+    expect(service.requests).toEqual([{
+      memberId: 'trainer::one',
+      sessionId: 'session-1',
+      cancelledAt: '2026-03-09T12:00:00.000Z',
+      reason: undefined,
+    }]);
+  });
+
   it('dispatches trainer participation reports for sessions in the configured window', () => {
     const sessions: TrainingSession[] = [
       {
@@ -275,3 +337,18 @@ describe('webapp RSVP handler', () => {
     });
   });
 });
+
+function createUserRecord(memberId: string, name: string, role: 'Mitglied' | 'Trainer'): UserRecord {
+  const [firstName, ...rest] = name.split(' ');
+  return {
+    memberId,
+    name,
+    email: `${memberId}@example.com`,
+    role,
+    roleDefinition: getRoleDefinition(role),
+    personName: createPersonName(firstName ?? '', rest.join(' ')),
+    subscriptions: [],
+    subscribedTrainingIds: [],
+    subscribedTrainings: [],
+  };
+}

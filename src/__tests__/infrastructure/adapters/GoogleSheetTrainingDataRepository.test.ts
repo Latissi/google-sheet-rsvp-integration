@@ -668,4 +668,51 @@ describe('GoogleSheetTrainingDataRepository', () => {
     expect(gateway.getCellNote('Single Gender', 2, 6)).toBe('{"cancellationNotificationSentAt":"2026-03-10T12:30:00.000Z"}');
     expect(repository.getCancellationNotificationSentAt('single-gender__wed-single__2026-03-11__19:00')).toBe('2026-03-10T12:30:00.000Z');
   });
+
+  it('writes an explicit cancellation marker into the configured info row', () => {
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'club-rsvp',
+      sheetName: 'RSVP Übersicht',
+      tableRange: 'A1:G20',
+      attendance: {
+        dateHeaderRow: 2,
+        infoRow: 1,
+        firstMemberRow: 6,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'E',
+      },
+      trainings: [{
+        trainingId: 'wed-mixed',
+        day: 'Mittwoch',
+        title: 'Mittwoch Training',
+        startTime: '18:00',
+      }],
+    }];
+    const { gateway, repository } = createRepository(sources, {
+      'RSVP Übersicht': [
+        ['', '', '', '', 'Info', '', ''],
+        ['', '', '', '', 'Mi. 11. 3.', 'Mi. 18. 3.', 'Mi. 25. 3.'],
+        ['Zusagen', '', '', '', 22, 5, 5],
+        ['FMPs', '', '', '', 10, 4, 3],
+        ['(x) und ?', '', '', 'Akkreditierung', 0, 0, 0],
+        ['Anna', 'Ananas', 'w', '', 'x', 'x', '-'],
+      ],
+    });
+
+    repository.cancelTrainingSession({
+      sessionId: 'club-rsvp__wed-mixed__2026-03-18__18:00',
+      cancelledByMemberId: 'trainer::one',
+      cancelledAt: '2026-03-10T12:00:00.000Z',
+      reason: 'Trainer verhindert',
+    });
+
+    expect(gateway.updatedCells).toContainEqual({
+      sheetName: 'RSVP Übersicht',
+      rowIndex: 1,
+      columnIndex: 6,
+      value: 'Training entfällt: Trainer verhindert',
+    });
+    expect(repository.getTrainingSessionById('club-rsvp__wed-mixed__2026-03-18__18:00')?.status).toBe('Cancelled');
+  });
 });

@@ -87,6 +87,25 @@ describe('MailNotificationSender', () => {
     expect(transport.sentMessages[0].body).toContain('Umgebung: Outdoor');
   });
 
+  it('includes a cancel link for trainer recipients in reminder mails', () => {
+    const transport = new RecordingMailTransport();
+    const sender = new MailNotificationSender({}, transport);
+
+    sender.sendTrainingReminder({
+      recipient: createUser({
+        memberId: 'T001',
+        role: 'Trainer',
+        roleDefinition: getRoleDefinition('Trainer'),
+        email: 'trainer@example.com',
+      }),
+      session: createSession(),
+      training: createTraining(),
+      webAppUrl: 'https://example.test/webapp',
+    });
+
+    expect(transport.sentMessages[0].body).toContain('action=cancel-training');
+  });
+
   it('logs the remaining quota after sending an email', () => {
     const transport = new RecordingMailTransport();
     transport.remainingQuota = 87;

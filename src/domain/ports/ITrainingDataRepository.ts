@@ -11,6 +11,7 @@ export interface ITrainingDataRepository {
   getTrainingSessionById(sessionId: string): TrainingSession | null;
   getAttendanceForSession(sessionId: string): AttendanceRecord[];
   getCancellationNotificationSentAt(sessionId: string): string | null;
+  cancelTrainingSession(cancellation: TrainingCancellation): void;
   saveAttendance(record: AttendanceRecord): void;
   markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void;
 }

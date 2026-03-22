@@ -1,3 +1,4 @@
+import { CancelTrainingSessionService } from '../../application/training/CancelTrainingSessionService';
 import { SendCancellationNotificationService } from '../../application/notifications/SendCancellationNotificationService';
 import { SendTrainerParticipationReportService } from '../../application/notifications/SendTrainerParticipationReportService';
 import { SendTrainingReminderService } from '../../application/notifications/SendTrainingReminderService';
@@ -53,6 +54,15 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
   getAttendanceForSession(sessionId: string): AttendanceRecord[] { return this.attendance.filter(record => record.sessionId === sessionId); }
   getCancellationNotificationSentAt(sessionId: string): string | null {
     return this.cancellationNotificationSentAt.get(sessionId) ?? null;
+  }
+  cancelTrainingSession(cancellation: TrainingCancellation): void {
+    const session = this.sessions.find(candidate => candidate.sessionId === cancellation.sessionId);
+    if (!session) {
+      throw new Error(`Training session "${cancellation.sessionId}" not found.`);
+    }
+
+    session.status = 'Cancelled';
+    session.additionalInfo = cancellation.reason ? `Training entfällt: ${cancellation.reason}` : 'Training entfällt';
   }
   saveAttendance(): void { throw new Error('Not needed in this test.'); }
   markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void {
@@ -191,6 +201,33 @@ describe('Notification application services', () => {
         cancelledAt: '2026-03-09T10:00:00.000Z',
       },
     })).toEqual({ sentCount: 0 });
+  });
+
+  it('cancels a training immediately when triggered by a trainer', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, [{ ...sessions[0] }]);
+    const userRepository = new InMemoryUserRepository([
+      createUser('T001', 'Trainer', ['wed-mixed']),
+      createUser('M001', 'Mitglied', ['wed-mixed']),
+    ]);
+    const sender = new RecordingNotificationSender();
+    const notificationService = new SendCancellationNotificationService(trainingRepository, userRepository, sender);
+    const service = new CancelTrainingSessionService(trainingRepository, userRepository, notificationService);
+
+    const result = service.execute({
+      memberId: 'T001',
+      sessionId: 'session-1',
+      cancelledAt: '2026-03-09T10:00:00.000Z',
+    });
+
+    expect(result).toEqual({
+      sentCount: 2,
+      alreadyCancelled: false,
+    });
+    expect(trainingRepository.getTrainingSessionById('session-1')?.status).toBe('Cancelled');
+    expect(sender.cancellations).toEqual([
+      { recipientId: 'T001', sessionId: 'session-1' },
+      { recipientId: 'M001', sessionId: 'session-1' },
+    ]);
   });
 
   it('sends one cancellation mail batch instead of reminders for cancelled sessions', () => {

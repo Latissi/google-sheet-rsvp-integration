@@ -6,3 +6,4 @@ export * from './preferences/UpdateSubscriptionPreferencesService';
 export * from './registration/RegisterMemberService';
 export * from './rsvp/SubmitRsvpService';
 export * from './rsvp/SyncAttendanceService';
+export * from './training/CancelTrainingSessionService';

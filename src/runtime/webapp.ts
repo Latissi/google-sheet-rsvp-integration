@@ -1,8 +1,10 @@
 import {
+  CancelTrainingSessionRequest,
   RegisterMemberRequest,
   SubmitRsvpRequest,
   UpdateSubscriptionPreferencesRequest,
 } from '../application';
+import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
 import { getSessionStartDate } from '../application/notifications/notificationUtils';
 import { createRuntimeContext } from './createRuntimeContext';
 import { getRuntimeLogger, sanitizeLogMessage } from './logging';
@@ -13,6 +15,14 @@ type RsvpResponse = Exclude<SubmitRsvpRequest['rsvpStatus'], 'Pending'>;
 interface RegistrationUserLookup {
   getUserByEmail(email: string): UserRecord | null;
   getUserByName(name: string): UserRecord | null;
+}
+
+interface CancellationUserLookup {
+  getUserByMemberId(memberId: string): UserRecord | null;
+}
+
+interface CancellationSessionLookup {
+  getTrainingSessionById(sessionId: string): TrainingSession | null;
 }
 
 export interface RsvpRequestParameters {
@@ -39,6 +49,15 @@ export interface SubscriptionPreferencesRequestParameters {
   subscribedTrainingIds?: string;
 }
 
+export interface CancelTrainingRequestParameters {
+  action?: string;
+  memberId?: string;
+  sessionId?: string;
+  reason?: string;
+  confirm?: string;
+  cancelledAt?: string;
+}
+
 export interface RsvpResponsePayload {
   ok: boolean;
   message: string;
@@ -47,6 +66,12 @@ export interface RsvpResponsePayload {
 export interface RegistrationResponsePayload extends RsvpResponsePayload {
   memberId?: string;
   created?: boolean;
+}
+
+export interface CancelTrainingConfirmationPayload extends RsvpResponsePayload {
+  memberId?: string;
+  sessionId?: string;
+  requiresConfirmation?: boolean;
 }
 
 export interface TrainerParticipationDispatchResult {
@@ -66,6 +91,10 @@ export interface UpdateSubscriptionPreferencesExecutor {
   execute(request: UpdateSubscriptionPreferencesRequest): { user: UserRecord };
 }
 
+export interface CancelTrainingExecutor {
+  execute(request: CancelTrainingSessionRequest): { sentCount: number; alreadyCancelled: boolean };
+}
+
 interface TrainerParticipationReportExecutor {
   execute(request: { sessionId: string }): { sentCount: number };
 }
@@ -80,6 +109,7 @@ interface TrainerParticipationDispatchRuntime {
 const PUBLIC_RSVP_ERROR_MESSAGE = 'RSVP request failed. The server could not save this response.';
 const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Registration request failed. The server could not save this submission.';
 const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Preferences request failed. The server could not save these subscription settings.';
+const PUBLIC_CANCELLATION_ERROR_MESSAGE = 'Cancellation request failed. The server could not cancel this training.';
 const DEFAULT_TRAINER_REPORT_WINDOW_HOURS = 24;
 const CANCELLED_SESSION_PUBLIC_MESSAGE = 'Dieses Training entfällt. Eine Zu- oder Absage ist nicht mehr möglich.';
 
@@ -235,28 +265,160 @@ export function handleSubscriptionPreferencesRequest(
   }
 }
 
-export function doGet(event?: GoogleAppsScript.Events.DoGet): GoogleAppsScript.Content.TextOutput {
+export function handleCancelTrainingConfirmationRequest(
+  parameters: CancelTrainingRequestParameters,
+  userLookup: CancellationUserLookup,
+  sessionLookup: CancellationSessionLookup,
+): CancelTrainingConfirmationPayload {
+  const action = (parameters.action ?? '').trim().toLowerCase();
+  if (action !== 'cancel-training') {
+    return {
+      ok: false,
+      message: 'Invalid action. Expected action=cancel-training.',
+    };
+  }
+
+  const memberId = parameters.memberId?.trim() ?? '';
+  const sessionId = parameters.sessionId?.trim() ?? '';
+  if (!memberId || !sessionId) {
+    return {
+      ok: false,
+      message: 'Incomplete cancellation request. Required parameters: memberId, sessionId.',
+    };
+  }
+
+  const user = userLookup.getUserByMemberId(memberId);
+  if (!user) {
+    return {
+      ok: false,
+      message: buildVerbosePublicErrorMessage(PUBLIC_CANCELLATION_ERROR_MESSAGE, new Error(`User with memberId "${memberId}" not found.`)),
+    };
+  }
+
+  if (!user.roleDefinition.capabilities.canCancelTraining) {
+    return {
+      ok: false,
+      message: buildVerbosePublicErrorMessage(PUBLIC_CANCELLATION_ERROR_MESSAGE, new Error(`User "${memberId}" is not allowed to cancel trainings.`)),
+    };
+  }
+
+  const session = sessionLookup.getTrainingSessionById(sessionId);
+  if (!session) {
+    return {
+      ok: false,
+      message: buildVerbosePublicErrorMessage(PUBLIC_CANCELLATION_ERROR_MESSAGE, new Error(`Training session "${sessionId}" not found.`)),
+    };
+  }
+
+  if (session.status === 'Cancelled') {
+    return {
+      ok: false,
+      message: 'Dieses Training ist bereits abgesagt.',
+      memberId,
+      sessionId,
+    };
+  }
+
+  return {
+    ok: true,
+    message: 'Bitte bestätige die Absage dieses Trainings.',
+    memberId,
+    sessionId,
+    requiresConfirmation: true,
+  };
+}
+
+export function handleCancelTrainingRequest(
+  parameters: CancelTrainingRequestParameters,
+  cancelTrainingService: CancelTrainingExecutor,
+  now: string = new Date().toISOString(),
+): RsvpResponsePayload {
+  const action = (parameters.action ?? '').trim().toLowerCase();
+  if (action !== 'cancel-training') {
+    return {
+      ok: false,
+      message: 'Invalid action. Expected action=cancel-training.',
+    };
+  }
+
+  const memberId = parameters.memberId?.trim() ?? '';
+  const sessionId = parameters.sessionId?.trim() ?? '';
+  const confirmed = (parameters.confirm ?? '').trim().toLowerCase() === 'yes';
+
+  if (!memberId || !sessionId || !confirmed) {
+    return {
+      ok: false,
+      message: 'Incomplete cancellation request. Required parameters: memberId, sessionId, confirm=yes.',
+    };
+  }
+
+  try {
+    const result = cancelTrainingService.execute({
+      memberId,
+      sessionId,
+      cancelledAt: parameters.cancelledAt?.trim() || now,
+      reason: parameters.reason?.trim() || undefined,
+    });
+
+    return {
+      ok: true,
+      message: result.alreadyCancelled
+        ? 'Dieses Training war bereits abgesagt.'
+        : `Das Training wurde abgesagt. ${result.sentCount} Benachrichtigungen wurden versendet.`,
+    };
+  } catch (error) {
+    logPublicRequestError('cancel-training', error, { memberId, sessionId });
+    return {
+      ok: false,
+      message: buildVerbosePublicErrorMessage(PUBLIC_CANCELLATION_ERROR_MESSAGE, error),
+    };
+  }
+}
+
+export function doGet(
+  event?: GoogleAppsScript.Events.DoGet,
+): GoogleAppsScript.Content.TextOutput | GoogleAppsScript.HTML.HtmlOutput {
   const parameters = event?.parameter ?? {};
   const logger = getRuntimeLogger();
+  const action = (parameters.action ?? '').trim().toLowerCase();
 
   logger.info('doGet', 'start', {
-    action: parameters.action,
+    action,
     memberId: parameters.memberId,
     sessionId: parameters.sessionId,
   });
 
   try {
     const runtime = createRuntimeContext();
+    if (action === 'cancel-training') {
+      const result = handleCancelTrainingConfirmationRequest(parameters, runtime.userRepository, runtime.trainingDataRepository);
+      if (result.ok) {
+        logger.info('doGet', 'completed', {
+          action,
+          memberId: parameters.memberId,
+          sessionId: parameters.sessionId,
+        });
+      } else {
+        logger.warn('doGet', 'completed-with-warning', {
+          action,
+          memberId: parameters.memberId,
+          sessionId: parameters.sessionId,
+        }, result.message);
+      }
+
+      return renderCancelTrainingConfirmation(result, parameters.reason?.trim() || '');
+    }
+
     const result = handleRsvpRequest(parameters, runtime.submitRsvpService);
     if (result.ok) {
       logger.info('doGet', 'completed', {
-        action: parameters.action,
+        action,
         memberId: parameters.memberId,
         sessionId: parameters.sessionId,
       });
     } else {
       logger.warn('doGet', 'completed-with-warning', {
-        action: parameters.action,
+        action,
         memberId: parameters.memberId,
         sessionId: parameters.sessionId,
       }, result.message);
@@ -267,10 +429,17 @@ export function doGet(event?: GoogleAppsScript.Events.DoGet): GoogleAppsScript.C
       .setMimeType(ContentService.MimeType.TEXT);
   } catch (error) {
     logger.error('doGet', 'failed', error, {
-      action: parameters.action,
+      action,
       memberId: parameters.memberId,
       sessionId: parameters.sessionId,
     });
+    if (action === 'cancel-training') {
+      const errorMessage = buildVerbosePublicErrorMessage(PUBLIC_CANCELLATION_ERROR_MESSAGE, error);
+      return HtmlService
+        .createHtmlOutput(`<!DOCTYPE html><html><body><p>${escapeHtml(errorMessage)}</p></body></html>`)
+        .setTitle('Training absagen');
+    }
+
     return ContentService
       .createTextOutput(buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error))
       .setMimeType(ContentService.MimeType.TEXT);
@@ -292,9 +461,13 @@ export function doPost(event?: GoogleAppsScript.Events.DoPost): GoogleAppsScript
     const runtime = createRuntimeContext();
     const result = action === 'rsvp'
       ? handleRsvpRequest(parameters, runtime.submitRsvpService)
+      : action === 'cancel-training'
+        ? handleCancelTrainingRequest(parameters, runtime.cancelTrainingSessionService)
       : action === 'preferences'
         ? handleSubscriptionPreferencesRequest(parameters, runtime.updateSubscriptionPreferencesService)
-      : handleRegistrationRequest(parameters, runtime.registerMemberService, runtime.userRepository);
+      : action === 'register'
+        ? handleRegistrationRequest(parameters, runtime.registerMemberService, runtime.userRepository)
+        : { ok: false, message: 'Invalid action.' };
 
     if (result.ok) {
       logger.info('doPost', 'completed', {
@@ -323,6 +496,8 @@ export function doPost(event?: GoogleAppsScript.Events.DoPost): GoogleAppsScript
 
     const fallbackMessage = action === 'rsvp'
       ? buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error)
+      : action === 'cancel-training'
+        ? buildVerbosePublicErrorMessage(PUBLIC_CANCELLATION_ERROR_MESSAGE, error)
       : action === 'preferences'
         ? buildVerbosePublicErrorMessage(PUBLIC_PREFERENCES_ERROR_MESSAGE, error)
       : buildVerbosePublicErrorMessage(PUBLIC_REGISTRATION_ERROR_MESSAGE, error);
@@ -458,6 +633,50 @@ function parseRsvpStatus(value: string | undefined): RsvpResponse | null {
   return null;
 }
 
+function renderCancelTrainingConfirmation(
+  result: CancelTrainingConfirmationPayload,
+  reason: string,
+): GoogleAppsScript.HTML.HtmlOutput {
+  const escapedMessage = escapeHtml(result.message);
+  if (!result.ok || !result.requiresConfirmation || !result.memberId || !result.sessionId) {
+    return HtmlService
+      .createHtmlOutput(`<!DOCTYPE html><html><body><p>${escapedMessage}</p></body></html>`)
+      .setTitle('Training absagen');
+  }
+
+  return HtmlService.createHtmlOutput(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; background: #f6f2eb; color: #1f2937; }
+      main { max-width: 32rem; margin: 3rem auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12); }
+      h1 { margin-top: 0; font-size: 1.5rem; }
+      p { line-height: 1.5; }
+      form { margin-top: 1.5rem; }
+      button { background: #b42318; color: #fff; border: 0; border-radius: 999px; padding: 0.85rem 1.2rem; cursor: pointer; font-size: 1rem; }
+      a { color: #1d4ed8; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Training absagen</h1>
+      <p>${escapedMessage}</p>
+      <p>Diese Aktion informiert alle Abonnenten sofort und unterdrückt weitere RSVP-Erinnerungen für dieses Training.</p>
+      <form method="post">
+        <input type="hidden" name="action" value="cancel-training" />
+        <input type="hidden" name="memberId" value="${escapeHtml(result.memberId)}" />
+        <input type="hidden" name="sessionId" value="${escapeHtml(result.sessionId)}" />
+        <input type="hidden" name="confirm" value="yes" />
+        <input type="hidden" name="reason" value="${escapeHtml(reason)}" />
+        <button type="submit">Absage jetzt bestätigen</button>
+      </form>
+      <p><a href="javascript:window.close()">Abbrechen</a></p>
+    </main>
+  </body>
+</html>`).setTitle('Training absagen');
+}
+
 function isCancelledSessionError(error: unknown): boolean {
   return error instanceof Error && /is cancelled\.$/.test(error.message);
 }
@@ -490,3 +709,4 @@ function getPublicErrorDetail(error: unknown): string | null {
 
   return sanitizeLogMessage(message);
 }
+

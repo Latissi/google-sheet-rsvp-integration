@@ -44,6 +44,9 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
   getCancellationNotificationSentAt(sessionId: string): string | null {
     return this.cancellationNotificationSentAt.get(sessionId) ?? null;
   }
+  cancelTrainingSession(): void {
+    throw new Error('Not needed in this test.');
+  }
   saveAttendance(record: AttendanceRecord): void {
     const index = this.attendance.findIndex(existing => existing.sessionId === record.sessionId && existing.memberId === record.memberId);
     if (index >= 0) {

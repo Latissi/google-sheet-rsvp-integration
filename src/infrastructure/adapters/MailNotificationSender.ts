@@ -1,4 +1,5 @@
 import { INotificationSender } from '../../domain/ports/INotificationSender';
+import { escapeHtml } from './htmlEscape';
 import {
   AttendanceRecord,
   TrainerParticipationReportNotification,
@@ -71,6 +72,13 @@ export class MailNotificationSender implements INotificationSender {
       sessionId: notification.session.sessionId,
       response: 'Declined',
     });
+    const cancelUrl = notification.recipient.roleDefinition.capabilities.canCancelTraining
+      ? this.buildUrl(notification.webAppUrl, {
+        action: 'cancel-training',
+        memberId: notification.recipient.memberId,
+        sessionId: notification.session.sessionId,
+      })
+      : null;
     const trainingLabel = this.getTrainingLabel(notification.training?.title, notification.session.trainingId);
     const detailLines = this.getSessionDetailLines(notification.session, notification.training);
     const textBody = [
@@ -81,15 +89,17 @@ export class MailNotificationSender implements INotificationSender {
       '',
       `Zusagen: ${acceptUrl}`,
       `Absagen: ${declineUrl}`,
+      ...(cancelUrl ? [`Training absagen: ${cancelUrl}`] : []),
     ].join('\n');
     const htmlBody = [
-      `<p>Hallo ${this.escapeHtml(this.getRecipientLabel(notification.recipient))},</p>`,
-      `<p>bitte gib deine Rückmeldung für <strong>${this.escapeHtml(trainingLabel)}</strong> ab.</p>`,
+      `<p>Hallo ${escapeHtml(this.getRecipientLabel(notification.recipient))},</p>`,
+      `<p>bitte gib deine Rückmeldung für <strong>${escapeHtml(trainingLabel)}</strong> ab.</p>`,
       '<ul>',
-      ...detailLines.map(line => `<li>${this.escapeHtml(line)}</li>`),
+      ...detailLines.map(line => `<li>${escapeHtml(line)}</li>`),
       '</ul>',
-      `<p><a href="${this.escapeHtml(acceptUrl)}">Teilnahme zusagen</a></p>`,
-      `<p><a href="${this.escapeHtml(declineUrl)}">Teilnahme absagen</a></p>`,
+      `<p><a href="${escapeHtml(acceptUrl)}">Teilnahme zusagen</a></p>`,
+      `<p><a href="${escapeHtml(declineUrl)}">Teilnahme absagen</a></p>`,
+      ...(cancelUrl ? [`<p><a href="${escapeHtml(cancelUrl)}">Training absagen</a></p>`] : []),
     ].join('');
 
     this.dispatch(notification.recipient.email, {
@@ -116,16 +126,16 @@ export class MailNotificationSender implements INotificationSender {
       ...detailLines,
       ...(reasonLine ? ['', reasonLine] : []),
     ];
-    const htmlReason = reasonLine ? `<p>${this.escapeHtml(reasonLine)}</p>` : '';
+    const htmlReason = reasonLine ? `<p>${escapeHtml(reasonLine)}</p>` : '';
 
     this.dispatch(notification.recipient.email, {
       subject: `Absage: ${trainingLabel} am ${notification.session.sessionDate}`,
       body: bodyLines.join('\n'),
       htmlBody: [
-        `<p>Hallo ${this.escapeHtml(this.getRecipientLabel(notification.recipient))},</p>`,
-        `<p>das Training <strong>${this.escapeHtml(trainingLabel)}</strong> am <strong>${this.escapeHtml(notification.session.sessionDate)}</strong> wurde abgesagt.</p>`,
+        `<p>Hallo ${escapeHtml(this.getRecipientLabel(notification.recipient))},</p>`,
+        `<p>das Training <strong>${escapeHtml(trainingLabel)}</strong> am <strong>${escapeHtml(notification.session.sessionDate)}</strong> wurde abgesagt.</p>`,
         '<ul>',
-        ...detailLines.map(line => `<li>${this.escapeHtml(line)}</li>`),
+        ...detailLines.map(line => `<li>${escapeHtml(line)}</li>`),
         '</ul>',
         htmlReason,
       ].join(''),
@@ -152,8 +162,8 @@ export class MailNotificationSender implements INotificationSender {
       subject: `Beteiligungsreport: ${trainingLabel} am ${notification.session.sessionDate}`,
       body: bodyLines.join('\n'),
       htmlBody: [
-        `<p>Hallo ${this.escapeHtml(this.getRecipientLabel(notification.recipient))},</p>`,
-        `<p>Trainingsbeteiligung für <strong>${this.escapeHtml(trainingLabel)}</strong> am <strong>${this.escapeHtml(notification.session.sessionDate)}</strong>:</p>`,
+        `<p>Hallo ${escapeHtml(this.getRecipientLabel(notification.recipient))},</p>`,
+        `<p>Trainingsbeteiligung für <strong>${escapeHtml(trainingLabel)}</strong> am <strong>${escapeHtml(notification.session.sessionDate)}</strong>:</p>`,
         '<ul>',
         `<li>Zusagen: ${counts.accepted}</li>`,
         `<li>Absagen: ${counts.declined}</li>`,
@@ -245,12 +255,4 @@ export class MailNotificationSender implements INotificationSender {
     return `${baseUrl}${separator}${query}`;
   }
 
-  private escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
 }
