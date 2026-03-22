@@ -9,6 +9,7 @@ export interface SheetWriteOptions {
 
 export interface ISheetGateway {
   getSheetValues(sheetName: string, options?: SheetAccessOptions): unknown[][];
+  getSheetDisplayValues(sheetName: string, options?: SheetAccessOptions): string[][];
   setRowValues(sheetName: string, rowIndex: number, values: unknown[], options?: SheetWriteOptions): void;
   appendRow(sheetName: string, values: unknown[], options?: SheetWriteOptions): void;
   getCellNote(sheetName: string, rowIndex: number, columnIndex: number, options?: SheetAccessOptions): string;

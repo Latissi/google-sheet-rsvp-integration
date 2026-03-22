@@ -83,6 +83,11 @@ describe('ConfigurationAdapter', () => {
           ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', new Date(1899, 11, 30, 19, 0, 39), new Date(1899, 11, 30, 21, 5, 0), 'Sporthalle', 'Indoor', 'Mixed'],
         ],
         Mitglieder: initialData.Mitglieder,
+      }, {
+        Trainingsdefinitionen: [
+          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung', 'Typ'],
+          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', '19:00', '21:05', 'Sporthalle', 'Indoor', 'Mixed'],
+        ],
       });
       const dateValueAdapter = new ConfigurationAdapter(dateValueGateway);
 

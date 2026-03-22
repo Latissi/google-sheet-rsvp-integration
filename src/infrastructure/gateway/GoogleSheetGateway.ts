@@ -35,6 +35,18 @@ export class GoogleSheetGateway implements ISheetGateway {
     return sheet.getRange(1, 1, lastRow, lastCol).getValues();
   }
 
+  getSheetDisplayValues(sheetName: string, options?: SheetAccessOptions): string[][] {
+    const sheet = this.getSheet(sheetName, options);
+    if (options?.rangeA1) {
+      return sheet.getRange(options.rangeA1).getDisplayValues();
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow === 0 || lastCol === 0) return [];
+    return sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+  }
+
   setRowValues(sheetName: string, rowIndex: number, values: unknown[], options?: SheetWriteOptions): void {
     const sheet = this.getSheet(sheetName, options);
     sheet.getRange(rowIndex, 1, 1, values.length).setValues([values]);

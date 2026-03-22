@@ -377,6 +377,7 @@ export class ConfigurationAdapter {
     const definitionSheet = {
       sheetName: this.TRAINING_DEFINITION_SHEET,
       rows: this.getRequiredSheetValues(this.TRAINING_DEFINITION_SHEET),
+      displayRows: this.gateway.getSheetDisplayValues(this.TRAINING_DEFINITION_SHEET),
     };
     const definitionsBySource = new Map<string, ReturnType<ConfigurationAdapter['parseTrainingSelector']>[]>();
 
@@ -387,6 +388,7 @@ export class ConfigurationAdapter {
     const definitionSchema = this.getTrainingDefinitionSheetSchema(definitionSheet.rows[0] ?? []);
     for (let rowIndex = 1; rowIndex < definitionSheet.rows.length; rowIndex += 1) {
       const row = definitionSheet.rows[rowIndex];
+      const displayRow = definitionSheet.displayRows[rowIndex] ?? [];
       if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
         continue;
       }
@@ -398,14 +400,14 @@ export class ConfigurationAdapter {
 
       const training = this.parseTrainingSelector({
         trainingId: this.getCellValue(row, definitionSchema.trainingId),
-        title: this.getCellValue(row, definitionSchema.title) || undefined,
-        day: this.getCellValue(row, definitionSchema.day) || undefined,
-        startTime: this.getRawCellValue(row, definitionSchema.startTime),
-        endTime: this.getRawCellValue(row, definitionSchema.endTime) || undefined,
-        location: this.getCellValue(row, definitionSchema.location) || undefined,
-        environment: this.getCellValue(row, definitionSchema.environment) || undefined,
-        audience: this.getCellValue(row, definitionSchema.audience) || undefined,
-        description: this.getCellValue(row, definitionSchema.description) || undefined,
+        title: this.getCellValue(displayRow, definitionSchema.title) || undefined,
+        day: this.getCellValue(displayRow, definitionSchema.day) || undefined,
+        startTime: this.getCellValue(displayRow, definitionSchema.startTime) || undefined,
+        endTime: this.getCellValue(displayRow, definitionSchema.endTime) || undefined,
+        location: this.getCellValue(displayRow, definitionSchema.location) || undefined,
+        environment: this.getCellValue(displayRow, definitionSchema.environment) || undefined,
+        audience: this.getCellValue(displayRow, definitionSchema.audience) || undefined,
+        description: this.getCellValue(displayRow, definitionSchema.description) || undefined,
       }, sourceId, `row ${rowIndex + 1}`);
 
       const definitions = definitionsBySource.get(sourceId) ?? [];
@@ -532,14 +534,6 @@ export class ConfigurationAdapter {
     }
 
     return String(row[index] ?? '').trim();
-  }
-
-  private getRawCellValue(row: unknown[], index?: number): unknown {
-    if (index === undefined || index < 0 || index >= row.length) {
-      return '';
-    }
-
-    return row[index];
   }
 
   private parseDelimitedList(value: string): string[] {

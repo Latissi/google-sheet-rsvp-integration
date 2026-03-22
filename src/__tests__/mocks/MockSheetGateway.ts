@@ -6,14 +6,19 @@ import {
 
 export class MockSheetGateway implements ISheetGateway {
   private inMemorySheets: Map<string, unknown[][]>;
+  private displaySheets: Map<string, string[][]>;
   private notes: Map<string, string> = new Map();
   private readCounts: Map<string, number> = new Map();
   public appendedRows: Array<{ sheetName: string, values: unknown[] }> = [];
   public updatedRows: Array<{ sheetName: string, rowIndex: number, values: unknown[] }> = [];
   public updatedCells: Array<{ sheetName: string, rowIndex: number, columnIndex: number, value: unknown }> = [];
 
-  constructor(initialData: { [sheetName: string]: unknown[][] } = {}) {
+  constructor(
+    initialData: { [sheetName: string]: unknown[][] } = {},
+    displayData: { [sheetName: string]: string[][] } = {},
+  ) {
     this.inMemorySheets = new Map(Object.entries(initialData));
+    this.displaySheets = new Map(Object.entries(displayData));
   }
 
   getSheetValues(sheetName: string, options?: SheetAccessOptions): unknown[][] {
@@ -25,6 +30,19 @@ export class MockSheetGateway implements ISheetGateway {
       return this.getRangeValues(data, options.rangeA1);
     }
     return data;
+  }
+
+  getSheetDisplayValues(sheetName: string, options?: SheetAccessOptions): string[][] {
+    const displayData = this.displaySheets.get(sheetName)
+      ?? this.getSheetValues(sheetName, options).map(row => row.map(value => String(value ?? '').trim()));
+    const readKey = this.getReadKey(`${sheetName}::display`, options?.rangeA1);
+    this.readCounts.set(readKey, (this.readCounts.get(readKey) ?? 0) + 1);
+
+    if (options?.rangeA1) {
+      return this.getRangeValues(displayData, options.rangeA1);
+    }
+
+    return displayData;
   }
 
   setRowValues(sheetName: string, rowIndex: number, values: unknown[], _options?: SheetWriteOptions): void {
@@ -82,7 +100,7 @@ export class MockSheetGateway implements ISheetGateway {
     return this.readCounts.get(this.getReadKey(sheetName, rangeA1)) ?? 0;
   }
 
-  private getRangeValues(data: unknown[][], rangeA1: string): unknown[][] {
+  private getRangeValues<T>(data: T[][], rangeA1: string): T[][] {
     const [startCell, endCell = startCell] = rangeA1.split(':');
     const start = this.parseCellReference(startCell);
     const end = this.parseCellReference(endCell);
