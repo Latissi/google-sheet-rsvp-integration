@@ -64,13 +64,24 @@ class RecordingNotificationSender implements INotificationSender {
   public reminders: Array<{ recipientId: string; sessionId: string }> = [];
   public cancellations: Array<{ recipientId: string; sessionId: string }> = [];
   public reports: Array<{ recipientId: string; sessionId: string; attendanceCount: number }> = [];
+  public events: Array<{ type: 'reminder' | 'cancellation' | 'report'; recipientId: string; sessionId: string }> = [];
 
   sendTrainingReminder(notification: { recipient: UserRecord; session: TrainingSession }): void {
     this.reminders.push({ recipientId: notification.recipient.memberId, sessionId: notification.session.sessionId });
+    this.events.push({
+      type: 'reminder',
+      recipientId: notification.recipient.memberId,
+      sessionId: notification.session.sessionId,
+    });
   }
 
   sendTrainingCancellation(notification: { recipient: UserRecord; session: TrainingSession }): void {
     this.cancellations.push({ recipientId: notification.recipient.memberId, sessionId: notification.session.sessionId });
+    this.events.push({
+      type: 'cancellation',
+      recipientId: notification.recipient.memberId,
+      sessionId: notification.session.sessionId,
+    });
   }
 
   sendTrainerParticipationReport(notification: { recipient: UserRecord; session: TrainingSession; attendance: AttendanceRecord[] }): void {
@@ -78,6 +89,11 @@ class RecordingNotificationSender implements INotificationSender {
       recipientId: notification.recipient.memberId,
       sessionId: notification.session.sessionId,
       attendanceCount: notification.attendance.length,
+    });
+    this.events.push({
+      type: 'report',
+      recipientId: notification.recipient.memberId,
+      sessionId: notification.session.sessionId,
     });
   }
 }
@@ -215,6 +231,49 @@ describe('Notification application services', () => {
     expect(sender.cancellations).toEqual([
       { recipientId: 'M001', sessionId: 'session-1' },
       { recipientId: 'M002', sessionId: 'session-1' },
+    ]);
+  });
+
+  it('dispatches cancellation notifications before reminder mails in the same run', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, [
+      {
+        sessionId: 'session-cancelled',
+        trainingId: 'wed-mixed',
+        sessionDate: '2026-03-11',
+        startTime: '18:00',
+        status: 'Cancelled',
+        additionalInfo: 'Halle gesperrt',
+      },
+      {
+        sessionId: 'session-scheduled',
+        trainingId: 'wed-mixed',
+        sessionDate: '2026-03-11',
+        startTime: '18:00',
+        status: 'Scheduled',
+      },
+    ]);
+    const userRepository = new InMemoryUserRepository([
+      createUser('M001', 'Mitglied', ['wed-mixed']),
+    ]);
+    const configProvider = new TestConfigurationProvider({
+      offsets: [{ hours: 48, minutes: 0 }],
+      channels: ['email'],
+    });
+    const sender = new RecordingNotificationSender();
+    const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+
+    const result = service.execute({
+      dispatchAt: '2026-03-09T18:00:00.000Z',
+      toleranceMinutes: 1,
+    });
+
+    expect(result).toEqual({
+      sessionsProcessed: 2,
+      sentCount: 2,
+    });
+    expect(sender.events).toEqual([
+      { type: 'cancellation', recipientId: 'M001', sessionId: 'session-cancelled' },
+      { type: 'reminder', recipientId: 'M001', sessionId: 'session-scheduled' },
     ]);
   });
 

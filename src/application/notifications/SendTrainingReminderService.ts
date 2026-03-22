@@ -53,26 +53,6 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
     const webAppUrl = this.configurationProvider.getWebAppUrl();
 
     let sentCount = 0;
-    for (const session of reminderSessions) {
-      const existingAttendance = new Set(
-        this.trainingDataRepository.getAttendanceForSession(session.sessionId).map(record => record.memberId),
-      );
-      const subscribedUsers = users.filter(user => (
-        user.subscribedTrainingIds.includes(session.trainingId)
-        && !existingAttendance.has(user.memberId)
-      ));
-
-      for (const user of subscribedUsers) {
-        this.notificationSender.sendTrainingReminder({
-          recipient: user,
-          session,
-          training: trainingDefinitions.get(session.trainingId),
-          webAppUrl,
-        });
-        sentCount += 1;
-      }
-    }
-
     for (const session of cancellationSessions) {
       const recipients = users.filter(user => user.subscribedTrainingIds.includes(session.trainingId));
       const cancellation: TrainingCancellation = {
@@ -93,6 +73,26 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
       }
 
       this.trainingDataRepository.markCancellationNotificationSent(cancellation, dispatchAt.toISOString());
+    }
+
+    for (const session of reminderSessions) {
+      const existingAttendance = new Set(
+        this.trainingDataRepository.getAttendanceForSession(session.sessionId).map(record => record.memberId),
+      );
+      const subscribedUsers = users.filter(user => (
+        user.subscribedTrainingIds.includes(session.trainingId)
+        && !existingAttendance.has(user.memberId)
+      ));
+
+      for (const user of subscribedUsers) {
+        this.notificationSender.sendTrainingReminder({
+          recipient: user,
+          session,
+          training: trainingDefinitions.get(session.trainingId),
+          webAppUrl,
+        });
+        sentCount += 1;
+      }
     }
 
     return {
