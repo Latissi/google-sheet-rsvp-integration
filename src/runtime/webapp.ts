@@ -5,7 +5,7 @@ import {
 } from '../application';
 import { getSessionStartDate } from '../application/notifications/notificationUtils';
 import { createRuntimeContext } from './createRuntimeContext';
-import { getRuntimeLogger } from './logging';
+import { getRuntimeLogger, sanitizeLogMessage } from './logging';
 import { TrainingSession, UserRecord } from '../domain/types';
 
 type RsvpResponse = Exclude<SubmitRsvpRequest['rsvpStatus'], 'Pending'>;
@@ -77,9 +77,9 @@ interface TrainerParticipationDispatchRuntime {
   sendTrainerParticipationReportService: TrainerParticipationReportExecutor;
 }
 
-const PUBLIC_RSVP_ERROR_MESSAGE = 'Die RSVP konnte momentan nicht verarbeitet werden.';
-const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Die Registrierung konnte momentan nicht verarbeitet werden.';
-const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Die Benachrichtigungseinstellungen konnten momentan nicht verarbeitet werden.';
+const PUBLIC_RSVP_ERROR_MESSAGE = 'RSVP request failed. The server could not save this response.';
+const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Registration request failed. The server could not save this submission.';
+const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Preferences request failed. The server could not save these subscription settings.';
 const DEFAULT_TRAINER_REPORT_WINDOW_HOURS = 24;
 
 export function handleRsvpRequest(
@@ -90,7 +90,7 @@ export function handleRsvpRequest(
   if ((parameters.action ?? '').trim().toLowerCase() !== 'rsvp') {
     return {
       ok: false,
-      message: 'Ungültige Aktion.',
+      message: 'Invalid action. Expected action=rsvp.',
     };
   }
 
@@ -101,7 +101,7 @@ export function handleRsvpRequest(
   if (!memberId || !sessionId || !rsvpStatus) {
     return {
       ok: false,
-      message: 'Die RSVP-Anfrage ist unvollständig.',
+      message: 'Incomplete RSVP request. Required parameters: memberId, sessionId, response.',
     };
   }
 
@@ -126,7 +126,7 @@ export function handleRsvpRequest(
     logPublicRequestError('rsvp', error, { memberId, sessionId, rsvpStatus });
     return {
       ok: false,
-      message: PUBLIC_RSVP_ERROR_MESSAGE,
+      message: buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error),
     };
   }
 }
@@ -141,7 +141,7 @@ export function handleRegistrationRequest(
   if (action !== 'register') {
     return {
       ok: false,
-      message: 'Ungültige Aktion.',
+      message: 'Invalid action. Expected action=register.',
     };
   }
 
@@ -154,7 +154,7 @@ export function handleRegistrationRequest(
   if (!email || !role || !firstName || !lastName) {
     return {
       ok: false,
-      message: 'Die Registrierungsanfrage ist unvollständig.',
+      message: 'Incomplete registration request. Required parameters: email, role, firstName, lastName.',
     };
   }
 
@@ -184,7 +184,7 @@ export function handleRegistrationRequest(
     logPublicRequestError('register', error, { email, role, memberId });
     return {
       ok: false,
-      message: PUBLIC_REGISTRATION_ERROR_MESSAGE,
+      message: buildVerbosePublicErrorMessage(PUBLIC_REGISTRATION_ERROR_MESSAGE, error),
     };
   }
 }
@@ -197,7 +197,7 @@ export function handleSubscriptionPreferencesRequest(
   if (action !== 'preferences') {
     return {
       ok: false,
-      message: 'Ungültige Aktion.',
+      message: 'Invalid action. Expected action=preferences.',
     };
   }
 
@@ -205,7 +205,7 @@ export function handleSubscriptionPreferencesRequest(
   if (!memberId || parameters.subscribedTrainingIds === undefined) {
     return {
       ok: false,
-      message: 'Die Einstellungsanfrage ist unvollständig.',
+      message: 'Incomplete preferences request. Required parameters: memberId, subscribedTrainingIds.',
     };
   }
 
@@ -223,7 +223,7 @@ export function handleSubscriptionPreferencesRequest(
     logPublicRequestError('preferences', error, { memberId });
     return {
       ok: false,
-      message: PUBLIC_PREFERENCES_ERROR_MESSAGE,
+      message: buildVerbosePublicErrorMessage(PUBLIC_PREFERENCES_ERROR_MESSAGE, error),
     };
   }
 }
@@ -265,7 +265,7 @@ export function doGet(event?: GoogleAppsScript.Events.DoGet): GoogleAppsScript.C
       sessionId: parameters.sessionId,
     });
     return ContentService
-      .createTextOutput(PUBLIC_RSVP_ERROR_MESSAGE)
+      .createTextOutput(buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error))
       .setMimeType(ContentService.MimeType.TEXT);
   }
 }
@@ -315,10 +315,10 @@ export function doPost(event?: GoogleAppsScript.Events.DoPost): GoogleAppsScript
     });
 
     const fallbackMessage = action === 'rsvp'
-      ? PUBLIC_RSVP_ERROR_MESSAGE
+      ? buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error)
       : action === 'preferences'
-        ? PUBLIC_PREFERENCES_ERROR_MESSAGE
-      : PUBLIC_REGISTRATION_ERROR_MESSAGE;
+        ? buildVerbosePublicErrorMessage(PUBLIC_PREFERENCES_ERROR_MESSAGE, error)
+      : buildVerbosePublicErrorMessage(PUBLIC_REGISTRATION_ERROR_MESSAGE, error);
 
     return ContentService
       .createTextOutput(fallbackMessage)
@@ -464,4 +464,18 @@ function parseListParameter(value: string | undefined): string[] {
 
 function logPublicRequestError(action: string, error: unknown, context: Record<string, unknown>): void {
   getRuntimeLogger().error(`public-${action}`, 'failed', error, context);
+}
+
+function buildVerbosePublicErrorMessage(baseMessage: string, error: unknown): string {
+  const detail = getPublicErrorDetail(error);
+  return detail ? `${baseMessage} Details: ${detail}` : baseMessage;
+}
+
+function getPublicErrorDetail(error: unknown): string | null {
+  const message = error instanceof Error ? error.message : String(error ?? '').trim();
+  if (!message) {
+    return null;
+  }
+
+  return sanitizeLogMessage(message);
 }

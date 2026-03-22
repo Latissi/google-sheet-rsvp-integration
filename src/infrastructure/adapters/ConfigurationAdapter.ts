@@ -242,12 +242,11 @@ export class ConfigurationAdapter {
       throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid title value.`);
     }
 
-    if (typeof selector.startTime !== 'string' || !selector.startTime.trim()) {
-      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid startTime value.`);
-    }
+    const startTime = this.normalizeTrainingTimeValue(selector.startTime, sourceId, trainingId, 'startTime', true);
+    const endTime = this.normalizeTrainingTimeValue(selector.endTime, sourceId, trainingId, 'endTime', false);
 
-    if (selector.endTime !== undefined && typeof selector.endTime !== 'string') {
-      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid endTime value.`);
+    if (!startTime) {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid startTime value.`);
     }
 
     if (selector.location !== undefined && typeof selector.location !== 'string') {
@@ -264,11 +263,71 @@ export class ConfigurationAdapter {
       audience: selector.audience as TrainingAudience | undefined,
       environment: selector.environment as TrainingEnvironment | undefined,
       title: selector.title as string | undefined,
-      startTime: selector.startTime,
-      endTime: selector.endTime as string | undefined,
+      startTime,
+      endTime,
       location: selector.location as string | undefined,
       description: selector.description as string | undefined,
     };
+  }
+
+  private normalizeTrainingTimeValue(
+    value: unknown,
+    sourceId: string,
+    trainingId: string,
+    fieldName: 'startTime' | 'endTime',
+    required: boolean,
+  ): string | undefined {
+    if (value === undefined || value === null || String(value).trim() === '') {
+      if (required) {
+        throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid ${fieldName} value.`);
+      }
+
+      return undefined;
+    }
+
+    if (value instanceof Date) {
+      return this.formatTrainingTime(value);
+    }
+
+    if (typeof value !== 'string') {
+      throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid ${fieldName} value.`);
+    }
+
+    const trimmed = value.trim();
+    const canonicalTime = this.extractCanonicalTime(trimmed);
+    if (canonicalTime) {
+      return canonicalTime;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      return this.formatTrainingTime(parsed);
+    }
+
+    throw new Error(`Training selector "${trainingId}" in source "${sourceId}" has an invalid ${fieldName} value.`);
+  }
+
+  private extractCanonicalTime(value: string): string | null {
+    const match = value.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (!match) {
+      return null;
+    }
+
+    const hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    if (hours > 23 || minutes > 59) {
+      return null;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
+  private formatTrainingTime(value: Date): string {
+    if (typeof Utilities !== 'undefined' && typeof Session !== 'undefined') {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'HH:mm');
+    }
+
+    return `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
   }
 
   private getRequiredSheetValues(sheetName: string): unknown[][] {
@@ -341,8 +400,8 @@ export class ConfigurationAdapter {
         trainingId: this.getCellValue(row, definitionSchema.trainingId),
         title: this.getCellValue(row, definitionSchema.title) || undefined,
         day: this.getCellValue(row, definitionSchema.day) || undefined,
-        startTime: this.getCellValue(row, definitionSchema.startTime) || undefined,
-        endTime: this.getCellValue(row, definitionSchema.endTime) || undefined,
+        startTime: this.getRawCellValue(row, definitionSchema.startTime),
+        endTime: this.getRawCellValue(row, definitionSchema.endTime) || undefined,
         location: this.getCellValue(row, definitionSchema.location) || undefined,
         environment: this.getCellValue(row, definitionSchema.environment) || undefined,
         audience: this.getCellValue(row, definitionSchema.audience) || undefined,
@@ -473,6 +532,14 @@ export class ConfigurationAdapter {
     }
 
     return String(row[index] ?? '').trim();
+  }
+
+  private getRawCellValue(row: unknown[], index?: number): unknown {
+    if (index === undefined || index < 0 || index >= row.length) {
+      return '';
+    }
+
+    return row[index];
   }
 
   private parseDelimitedList(value: string): string[] {

@@ -58,6 +58,7 @@ club-rsvp | mon-late | Montag Training | Montag | 20:15 | 21:45 | Sporthalle | I
 ```
 
 `Trainingsdefinitionen` wird nicht automatisch angepasst. Wenn Sie neue Trainingsarten, Startzeiten oder andere Metadaten einfuehren, muessen Sie diesen Tab manuell pflegen.
+`Startzeit` und `Endzeit` werden intern als `HH:MM` verwendet. Wenn Google Sheets diese Zellen als Zeitwerte speichert, normalisiert die Anwendung sie beim Einlesen automatisch auf dieses Format.
 Innerhalb einer Quelle muss jeder `Wochentag` eindeutig sein.
 
 ### Tab `Mitglieder`

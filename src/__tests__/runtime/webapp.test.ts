@@ -111,7 +111,7 @@ describe('webapp RSVP handler', () => {
 
     expect(result).toEqual({
       ok: false,
-      message: 'Die RSVP-Anfrage ist unvollständig.',
+      message: 'Incomplete RSVP request. Required parameters: memberId, sessionId, response.',
     });
     expect(service.requests).toEqual([]);
   });
@@ -132,7 +132,7 @@ describe('webapp RSVP handler', () => {
 
     expect(result).toEqual({
       ok: false,
-      message: 'Die RSVP konnte momentan nicht verarbeitet werden.',
+      message: 'RSVP request failed. The server could not save this response. Details: Training session "[redacted]" not found.',
     });
   });
 
@@ -176,7 +176,7 @@ describe('webapp RSVP handler', () => {
 
     expect(result).toEqual({
       ok: false,
-      message: 'Ungültige Aktion.',
+      message: 'Invalid action. Expected action=register.',
     });
     expect(service.requests).toEqual([]);
   });

@@ -51,6 +51,7 @@ Regeln:
 - Er muss manuell gepflegt werden, wenn neue Trainingsarten, Zeiten oder Metadaten hinzukommen oder sich aendern.
 - Die Anwendung liest diese Definitionen nur ein, um Sessions, Erinnerungen und Trainerberichte fachlich anzureichern.
 - `Wochentag` ist Pflicht.
+- `Startzeit` und `Endzeit` sind fachlich Zeiten im Format `HH:MM`. Google-Sheets-Zeitwerte werden beim Einlesen auf dieses Format normalisiert.
 - Eine Quelle darf mehrere Trainingsdefinitionen enthalten.
 - Innerhalb einer Quelle muss jeder `Wochentag` eindeutig sein, damit jede Datumsspalte genau einer `TrainingsId` zugeordnet werden kann.
 

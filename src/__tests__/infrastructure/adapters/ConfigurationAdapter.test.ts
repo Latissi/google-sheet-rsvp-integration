@@ -74,6 +74,116 @@ describe('ConfigurationAdapter', () => {
       ]);
     });
 
+    it('normalizes Date-backed training definition times to HH:MM', () => {
+      const dateValueGateway = new MockSheetGateway({
+        Konfiguration: initialData.Konfiguration,
+        Trainingsquellen: initialData.Trainingsquellen,
+        Trainingsdefinitionen: [
+          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung', 'Typ'],
+          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', new Date(1899, 11, 30, 19, 0, 39), new Date(1899, 11, 30, 21, 5, 0), 'Sporthalle', 'Indoor', 'Mixed'],
+        ],
+        Mitglieder: initialData.Mitglieder,
+      });
+      const dateValueAdapter = new ConfigurationAdapter(dateValueGateway);
+
+      expect(dateValueAdapter.getPublicTrainingSources()).toEqual([
+        {
+          sourceId: 'club-rsvp',
+          sheetName: 'RSVP Übersicht',
+          tableRange: 'A1:F50',
+          attendance: {
+            dateHeaderRow: 1,
+            firstMemberRow: 2,
+            firstNameColumn: 'A',
+            lastNameColumn: 'B',
+            startColumn: 'C',
+          },
+          trainings: [
+            {
+              trainingId: 'wed-mixed',
+              title: 'Mittwoch Training',
+              day: 'Mittwoch',
+              startTime: '19:00',
+              endTime: '21:05',
+              location: 'Sporthalle',
+              environment: 'Indoor',
+              audience: 'Mixed',
+            },
+          ],
+        },
+      ]);
+    });
+
+    it('normalizes Date-like training definition strings to HH:MM', () => {
+      const globalScope = globalThis as unknown as {
+        Session?: { getScriptTimeZone(): string };
+        Utilities?: { formatDate(date: Date, timeZone: string, pattern: string): string };
+      };
+      const originalSession = globalScope.Session;
+      const originalUtilities = globalScope.Utilities;
+
+      globalScope.Session = {
+        getScriptTimeZone() {
+          return 'Europe/Berlin';
+        },
+      };
+      globalScope.Utilities = {
+        formatDate(date: Date, timeZone: string, pattern: string) {
+          expect(pattern).toBe('HH:mm');
+
+          const parts = new Intl.DateTimeFormat('en-GB', {
+            timeZone,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }).formatToParts(date);
+
+          const hours = parts.find(part => part.type === 'hour')?.value;
+          const minutes = parts.find(part => part.type === 'minute')?.value;
+
+          return `${hours}:${minutes}`;
+        },
+      };
+
+      const stringifiedDateGateway = new MockSheetGateway({
+        Konfiguration: initialData.Konfiguration,
+        Trainingsquellen: initialData.Trainingsquellen,
+        Trainingsdefinitionen: [
+          ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Endzeit', 'Ort', 'Umgebung', 'Typ'],
+          ['club-rsvp', 'wed-mixed', 'Mittwoch Training', 'Mittwoch', 'Sat Dec 30 1899 19:00:39 GMT+0100 (Central European Standard Time)', 'Sat Dec 30 1899 21:05:00 GMT+0100 (Central European Standard Time)', 'Sporthalle', 'Indoor', 'Mixed'],
+        ],
+        Mitglieder: initialData.Mitglieder,
+      });
+      const stringifiedDateAdapter = new ConfigurationAdapter(stringifiedDateGateway);
+
+      try {
+        expect(stringifiedDateAdapter.getPublicTrainingSources()[0].trainings).toEqual([
+          {
+            trainingId: 'wed-mixed',
+            title: 'Mittwoch Training',
+            day: 'Mittwoch',
+            startTime: '19:00',
+            endTime: '21:05',
+            location: 'Sporthalle',
+            environment: 'Indoor',
+            audience: 'Mixed',
+          },
+        ]);
+      } finally {
+        if (originalSession === undefined) {
+          delete globalScope.Session;
+        } else {
+          globalScope.Session = originalSession;
+        }
+
+        if (originalUtilities === undefined) {
+          delete globalScope.Utilities;
+        } else {
+          globalScope.Utilities = originalUtilities;
+        }
+      }
+    });
+
     it('returns a reminder policy from ERINNERUNGS_OFFSETS', () => {
       expect(adapter.getReminderPolicy()).toEqual({
         offsets: [
