@@ -99,6 +99,17 @@ interface TrainerParticipationReportExecutor {
   execute(request: { sessionId: string }): { sentCount: number };
 }
 
+interface ReminderDispatchExecutor {
+  execute(request: { dispatchAt: string }): { sessionsProcessed: number; sentCount: number };
+}
+
+interface ReminderDispatchRuntime {
+  trainingDataRepository: {
+    markLastSuccessfulReminderDispatchAt(completedAt: string): void;
+  };
+  sendTrainingReminderService: ReminderDispatchExecutor;
+}
+
 interface TrainerParticipationDispatchRuntime {
   trainingDataRepository: {
     getUpcomingTrainingSessions(): TrainingSession[];
@@ -516,7 +527,7 @@ export function runReminderDispatch(dispatchAt: string = new Date().toISOString(
 
   try {
     const runtime = createRuntimeContext();
-    const result = runtime.sendTrainingReminderService.execute({ dispatchAt });
+    const result = runReminderDispatchWithRuntime(runtime, dispatchAt);
     logger.info('runReminderDispatch', 'completed', {
       dispatchAt,
       sessionsProcessed: result.sessionsProcessed,
@@ -531,6 +542,20 @@ export function runReminderDispatch(dispatchAt: string = new Date().toISOString(
     });
     throw error;
   }
+}
+
+export function runReminderDispatchWithRuntime(
+  runtime: ReminderDispatchRuntime,
+  dispatchAt: string,
+) {
+  const dispatchDate = new Date(dispatchAt);
+  if (Number.isNaN(dispatchDate.getTime())) {
+    throw new Error('dispatchAt must be a valid ISO timestamp.');
+  }
+
+  const result = runtime.sendTrainingReminderService.execute({ dispatchAt });
+  runtime.trainingDataRepository.markLastSuccessfulReminderDispatchAt(dispatchAt);
+  return result;
 }
 
 export function runTrainerParticipationReport(sessionId: string) {

@@ -3,12 +3,18 @@ import { IConfigurationProvider } from '../../domain/ports/IConfigurationProvide
 import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { INotificationSender } from '../../domain/ports/INotificationSender';
-import { TrainingCancellation } from '../../domain/types';
-import { indexTrainingDefinitions, isReminderDue, assertValidDate, getSessionStartDate } from './notificationUtils';
+import { ReminderOffset, TrainingCancellation, TrainingSession } from '../../domain/types';
+import {
+  indexTrainingDefinitions,
+  getDueReminderOffset,
+  getReminderWindowStart,
+  assertValidDate,
+  getSessionStartDate,
+} from './notificationUtils';
 
 export interface SendTrainingReminderRequest {
   dispatchAt: string;
-  toleranceMinutes?: number;
+  fallbackWindowMinutes?: number;
   sessionIds?: string[];
 }
 
@@ -18,6 +24,11 @@ export interface SendTrainingReminderResult {
 }
 
 export interface ISendTrainingReminderService extends IApplicationService<SendTrainingReminderRequest, SendTrainingReminderResult> {}
+
+interface DueReminderSession {
+  session: TrainingSession;
+  offset: ReminderOffset;
+}
 
 export class SendTrainingReminderService implements ISendTrainingReminderService {
   constructor(
@@ -40,10 +51,25 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
       return { sessionsProcessed: 0, sentCount: 0 };
     }
 
-    const toleranceMinutes = request.toleranceMinutes ?? 5;
-    const reminderSessions = candidateSessions
+    const previousDispatchAtValue = this.trainingDataRepository.getLastSuccessfulReminderDispatchAt();
+    const previousDispatchAt = previousDispatchAtValue ? new Date(previousDispatchAtValue) : null;
+    if (previousDispatchAt) {
+      assertValidDate(previousDispatchAt, 'lastSuccessfulReminderDispatchAt');
+    }
+
+    const reminderWindowStart = getReminderWindowStart(
+      dispatchAt,
+      previousDispatchAt,
+      request.fallbackWindowMinutes ?? 15,
+    );
+    const reminderSessions: DueReminderSession[] = candidateSessions
       .filter(session => session.status === 'Scheduled')
-      .filter(session => isReminderDue(session, reminderPolicy.offsets, dispatchAt, toleranceMinutes));
+      .map(session => ({
+        session,
+        offset: getDueReminderOffset(session, reminderPolicy.offsets, reminderWindowStart, dispatchAt),
+      }))
+      .filter((entry): entry is DueReminderSession => entry.offset !== null)
+      .filter(entry => this.trainingDataRepository.getReminderNotificationSentAt(entry.session.sessionId, entry.offset) === null);
     const cancellationSessions = candidateSessions
       .filter(session => session.status === 'Cancelled')
       .filter(session => getSessionStartDate(session).getTime() >= dispatchAt.getTime())
@@ -75,7 +101,8 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
       this.trainingDataRepository.markCancellationNotificationSent(cancellation, dispatchAt.toISOString());
     }
 
-    for (const session of reminderSessions) {
+    for (const reminderSession of reminderSessions) {
+      const { session, offset } = reminderSession;
       const existingAttendance = new Set(
         this.trainingDataRepository.getAttendanceForSession(session.sessionId).map(record => record.memberId),
       );
@@ -93,6 +120,8 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
         });
         sentCount += 1;
       }
+
+      this.trainingDataRepository.markReminderNotificationSent(session.sessionId, offset, dispatchAt.toISOString());
     }
 
     return {

@@ -4,11 +4,13 @@ import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataReposit
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import {
   AttendanceRecord,
+  ReminderOffset,
   TrainingDefinition,
   TrainingSession,
   UserRecord,
   createPersonName,
   getRoleDefinition,
+  getReminderOffsetMinutes,
 } from '../../domain/types';
 
 class InMemoryUserRepository implements IUserRepository {
@@ -29,6 +31,8 @@ class InMemoryUserRepository implements IUserRepository {
 class InMemoryTrainingRepository implements ITrainingDataRepository {
   public attendance: AttendanceRecord[] = [];
   public cancellationNotificationSentAt = new Map<string, string>();
+  public reminderNotificationSentAt = new Map<string, string>();
+  public lastSuccessfulReminderDispatchAt: string | null = null;
 
   constructor(
     private readonly definitions: TrainingDefinition[],
@@ -44,6 +48,12 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
   getCancellationNotificationSentAt(sessionId: string): string | null {
     return this.cancellationNotificationSentAt.get(sessionId) ?? null;
   }
+  getReminderNotificationSentAt(sessionId: string, offset: ReminderOffset): string | null {
+    return this.reminderNotificationSentAt.get(`${sessionId}::${getReminderOffsetMinutes(offset)}`) ?? null;
+  }
+  getLastSuccessfulReminderDispatchAt(): string | null {
+    return this.lastSuccessfulReminderDispatchAt;
+  }
   cancelTrainingSession(): void {
     throw new Error('Not needed in this test.');
   }
@@ -57,6 +67,12 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
   }
   markCancellationNotificationSent(cancellation: { sessionId: string }, notifiedAt: string): void {
     this.cancellationNotificationSentAt.set(cancellation.sessionId, notifiedAt);
+  }
+  markReminderNotificationSent(sessionId: string, offset: ReminderOffset, notifiedAt: string): void {
+    this.reminderNotificationSentAt.set(`${sessionId}::${getReminderOffsetMinutes(offset)}`, notifiedAt);
+  }
+  markLastSuccessfulReminderDispatchAt(completedAt: string): void {
+    this.lastSuccessfulReminderDispatchAt = completedAt;
   }
 }
 

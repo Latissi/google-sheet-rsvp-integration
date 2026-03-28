@@ -6,7 +6,7 @@ Dieses Runbook beschreibt die kanonische Dev-Einrichtung. Das System unterstütz
 Öffnen Sie das deployte Apps-Script-Projekt im Browser.
 
 Das Projekt ist typischerweise container-gebunden an das private Dev-Sheet. Das private Sheet enthält die Tabs `Konfiguration`, `Trainingsquellen`, `Trainingsdefinitionen` und `Mitglieder`. Das öffentliche Trainings-Sheet wird separat per ID referenziert.
-Zusätzlich kann die Anwendung dort die Laufzeit-Tabs `TeilnahmeMetadaten` und `VersandMetadaten` anlegen, sobald RSVP-Metadaten oder Absageversand-Metadaten geschrieben werden.
+Zusätzlich kann die Anwendung dort die Laufzeit-Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` anlegen, sobald RSVP-, Versand- oder Laufzeitmetadaten geschrieben werden.
 
 ## 2. Als Web-App deployen
 Um eingehende RSVPs per HTTP zu verarbeiten, deployen Sie das Script als Web-App.
@@ -30,7 +30,7 @@ Das private Dev-Sheet muss genau diese Tabs enthalten:
 - `Trainingsdefinitionen`
 - `Mitglieder`
 
-Die Tabs `TeilnahmeMetadaten` und `VersandMetadaten` werden von der Anwendung selbst verwaltet. Sie muessen nicht manuell vorbereitet werden, duerfen aber auch nicht fuer Fachdaten zweckentfremdet werden.
+Die Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` werden von der Anwendung selbst verwaltet. Sie muessen nicht manuell vorbereitet werden, duerfen aber auch nicht fuer Fachdaten zweckentfremdet werden.
 
 ### Tab `Konfiguration`
 
@@ -91,7 +91,13 @@ So legen Sie einen Zeit-Trigger an:
 1. Im Apps-Script-Editor `Triggers` öffnen.
 2. `Add Trigger` klicken.
 3. `runReminderDispatch` auswählen.
-4. `Time-driven` und ein passendes Zeitfenster wählen.
+4. `Time-driven` und `Every 15 minutes` wählen.
+
+Für Reminder gilt bewusst genau ein installierbarer 15-Minuten-Trigger. Die Anwendung wertet beim Lauf nicht nur den exakten aktuellen Zeitpunkt aus, sondern den Intervallbereich seit dem letzten erfolgreichen Reminder-Lauf. Dadurch werden Reminder nach kurzen Ausfällen oder verzögerten Triggerstarts beim nächsten erfolgreichen Lauf nachgeholt.
+
+Die Tabs `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` bilden dabei den technischen Schutz:
+- `ErinnerungsVersandMetadaten` verhindert doppelte Reminder pro Session und Offset.
+- `LaufzeitMetadaten` speichert den letzten erfolgreichen Reminder-Lauf als Startpunkt fuer den naechsten Catch-up-Intervallvergleich.
 
 Für Trainerberichte entsprechend `runTrainerParticipationReportDispatch` verwenden.
 
@@ -100,12 +106,12 @@ Trainer erhalten in Reminder-Mails zusätzlich einen Link `Training absagen`. De
 ## 6. Dev-Setup testen
 
 ### Test 1 – Reminder mit festem Zeitstempel ausführen
-1. Im Editor `runReminderDispatch('2026-03-17T18:00:00.000Z')` mit einem Zeitstempel ausführen, der zu einer Session und zu `ERINNERUNGS_OFFSETS` passt.
+1. Im Editor `runReminderDispatch('2026-03-17T18:15:00.000Z')` mit einem Zeitstempel ausführen, dessen 15-Minuten-Intervall einen Reminder-Zeitpunkt einschliesst.
 2. Erwartung im Rückgabewert: ein Objekt mit `sessionsProcessed` und `sentCount`.
 3. Die Posteingänge der im Tab `Mitglieder` eingetragenen Empfänger prüfen.
-3. Bei Problemen die Executions-Ansicht prüfen.
+4. Bei Problemen die Executions-Ansicht sowie die Tabs `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` prüfen.
 
-Wenn kein Zeitstempel übergeben wird, verwendet die Funktion die aktuelle Uhrzeit. Dann kann ein korrektes System trotzdem `sentCount: 0` liefern.
+Wenn kein Zeitstempel übergeben wird, verwendet die Funktion die aktuelle Uhrzeit. Dann kann ein korrektes System trotzdem `sentCount: 0` liefern, wenn im seit dem letzten erfolgreichen Lauf betrachteten Intervall kein Reminder faellig war.
 
 ### Test 2 – Trainerberichte mit festem Zeitfenster ausführen
 1. Im Editor `runTrainerParticipationReportDispatch('2026-03-17T18:00:00.000Z', 24)` ausführen.
@@ -160,7 +166,7 @@ subscribedTrainingIds=wed-mixed,mon-late
 - Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_OFFSETS` gesetzt sind.
 - Prüfen Sie in `Trainingsquellen`, dass `DatumsKopfZeile`, `MitgliederStartZeile`, Vorname-, Nachname- und Startspalte gepflegt sind.
 - Prüfen Sie in `Mitglieder`, dass Vorname, Nachname, EMail und Rolle vorhanden sind.
-- Prüfen Sie bei Metadaten-Problemen die privaten Tabs `TeilnahmeMetadaten` und `VersandMetadaten` auf unvollständige oder doppelte Zeilen.
+- Prüfen Sie bei Metadaten-Problemen die privaten Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` auf unvollständige oder doppelte Zeilen.
 - Prüfen Sie die `Executions`-Ansicht und den privaten Tab `Systemprotokoll` auf Laufzeitfehler.
 
 Dieses Runbook beschreibt absichtlich keinen Migrationspfad. Wenn ein bestehendes Sheet nicht in dieses Schema passt, muss das Sheet angepasst werden.

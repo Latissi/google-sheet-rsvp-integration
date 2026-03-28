@@ -17,6 +17,7 @@ import {
   handleCancelTrainingRequest,
   handleRsvpRequest,
   handleSubscriptionPreferencesRequest,
+  runReminderDispatchWithRuntime,
   runTrainerParticipationReportDispatchWithRuntime,
 } from '../../runtime/webapp';
 
@@ -335,6 +336,46 @@ describe('webapp RSVP handler', () => {
       sessionsProcessed: 1,
       sentCount: 2,
     });
+  });
+
+  it('marks the reminder watermark only after a successful dispatch run', () => {
+    const markLastSuccessfulReminderDispatchAt = jest.fn<void, [string]>();
+    const runtime = {
+      trainingDataRepository: {
+        markLastSuccessfulReminderDispatchAt,
+      },
+      sendTrainingReminderService: {
+        execute: ({ dispatchAt }: { dispatchAt: string }) => ({
+          sessionsProcessed: dispatchAt === '2026-03-09T18:15:00.000Z' ? 1 : 0,
+          sentCount: 2,
+        }),
+      },
+    };
+
+    const result = runReminderDispatchWithRuntime(runtime, '2026-03-09T18:15:00.000Z');
+
+    expect(result).toEqual({
+      sessionsProcessed: 1,
+      sentCount: 2,
+    });
+    expect(markLastSuccessfulReminderDispatchAt).toHaveBeenCalledWith('2026-03-09T18:15:00.000Z');
+  });
+
+  it('does not mark the reminder watermark when dispatch fails', () => {
+    const markLastSuccessfulReminderDispatchAt = jest.fn<void, [string]>();
+    const runtime = {
+      trainingDataRepository: {
+        markLastSuccessfulReminderDispatchAt,
+      },
+      sendTrainingReminderService: {
+        execute: () => {
+          throw new Error('mail failed');
+        },
+      },
+    };
+
+    expect(() => runReminderDispatchWithRuntime(runtime, '2026-03-09T18:15:00.000Z')).toThrow('mail failed');
+    expect(markLastSuccessfulReminderDispatchAt).not.toHaveBeenCalled();
   });
 });
 

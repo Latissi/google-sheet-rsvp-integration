@@ -18,6 +18,10 @@ export interface ReminderOffset {
   minutes: number;
 }
 
+export function getReminderOffsetMinutes(offset: ReminderOffset): number {
+  return offset.hours * 60 + offset.minutes;
+}
+
 export interface ReminderPolicy {
   offsets: ReminderOffset[];
   channels: NotificationChannel[];

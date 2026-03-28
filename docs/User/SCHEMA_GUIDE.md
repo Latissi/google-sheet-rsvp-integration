@@ -14,8 +14,10 @@ Erforderliche Tabs:
 Laufzeit-Tabs:
 - `TeilnahmeMetadaten`
 - `VersandMetadaten`
+- `ErinnerungsVersandMetadaten`
+- `LaufzeitMetadaten`
 
-Die beiden Laufzeit-Tabs werden von der Anwendung selbst verwendet, um interne Metadaten ausserhalb des oeffentlichen Sheets zu speichern. Sie werden bei der ersten schreibenden Verwendung automatisch mit den erwarteten Headern angelegt.
+Die Laufzeit-Tabs werden von der Anwendung selbst verwendet, um interne Metadaten ausserhalb des oeffentlichen Sheets zu speichern. Sie werden bei der ersten schreibenden Verwendung automatisch mit den erwarteten Headern angelegt.
 
 ### Tab `Konfiguration`
 Der Tab wird als Key-Value-Tabelle gelesen.
@@ -98,6 +100,30 @@ Regeln:
 - Eine Zeile pro `SessionId`.
 - Der Zeitstempel ist ein ISO-8601-Wert.
 - Die Anwendung nutzt diesen Tab ausschliesslich als Idempotenz-Schutz fuer bereits verschickte Absage-Benachrichtigungen.
+
+### Tab `ErinnerungsVersandMetadaten`
+
+| SessionId | OffsetMinuten | GesendetAm |
+|-----------|---------------|------------|
+| `club-rsvp__wed-mixed__2026-03-11__18:00` | `2880` | `2026-03-09T18:05:00.000Z` |
+
+Regeln:
+- Eine Zeile pro Kombination aus `SessionId` und `OffsetMinuten`.
+- `OffsetMinuten` ist der konfigurierte Erinnerungsabstand in Minuten, zum Beispiel `2880` fuer 48 Stunden.
+- `GesendetAm` ist ein ISO-8601-Zeitstempel.
+- Die Anwendung nutzt diesen Tab als Idempotenz-Schutz fuer bereits verschickte Reminder pro Session und Reminder-Offset.
+
+### Tab `LaufzeitMetadaten`
+
+| Schluessel | Wert |
+|------------|------|
+| `runReminderDispatch:lastSuccessfulRunAt` | `2026-03-09T18:15:00.000Z` |
+
+Regeln:
+- Eine Zeile pro Laufzeit-Schluessel.
+- `Wert` ist ein ISO-8601-Zeitstempel oder ein anderer interner String-Wert.
+- Fuer Reminder nutzt die Anwendung aktuell den Schluessel `runReminderDispatch:lastSuccessfulRunAt`.
+- Der Zeitstempel wird nur nach einem erfolgreichen Reminder-Lauf aktualisiert und dient als Startpunkt fuer die naechste Catch-up-Auswertung.
 
 ## 2. Öffentliches Trainings-Sheet
 Unterstützt wird ausschließlich die Struktur mit einer Zeile pro Mitglied und einer Datumsspalte pro Session.

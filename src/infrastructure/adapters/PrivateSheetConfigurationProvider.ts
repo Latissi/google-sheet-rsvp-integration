@@ -7,6 +7,7 @@ import {
   TRAINING_DAYS,
   TrainingDay,
   TrainingEnvironment,
+  getReminderOffsetMinutes,
 } from '../../domain/types';
 import { ISheetGateway } from '../gateway/ISheetGateway';
 import { getCellValue, getColumnIndex, getRequiredColumnIndex } from './SheetColumnMapper';
@@ -92,13 +93,11 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
 
     const totals = new Set<number>();
     const normalized = [...offsets].sort((left, right) => {
-      const leftTotal = left.hours * 60 + left.minutes;
-      const rightTotal = right.hours * 60 + right.minutes;
-      return rightTotal - leftTotal;
+      return getReminderOffsetMinutes(right) - getReminderOffsetMinutes(left);
     });
 
     for (const offset of normalized) {
-      const totalMinutes = offset.hours * 60 + offset.minutes;
+      const totalMinutes = getReminderOffsetMinutes(offset);
       if (totals.has(totalMinutes)) {
         throw new Error(`Duplicate reminder offset configured for ${totalMinutes} minutes before training.`);
       }

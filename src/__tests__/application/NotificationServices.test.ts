@@ -9,6 +9,7 @@ import { IUserRepository } from '../../domain/ports/IUserRepository';
 import {
   AttendanceRecord,
   PublicTrainingSource,
+  ReminderOffset,
   ReminderPolicy,
   TrainingCancellation,
   TrainingDefinition,
@@ -16,6 +17,7 @@ import {
   UserRecord,
   createPersonName,
   getRoleDefinition,
+  getReminderOffsetMinutes,
 } from '../../domain/types';
 
 class TestConfigurationProvider implements IConfigurationProvider {
@@ -39,6 +41,8 @@ class InMemoryUserRepository implements IUserRepository {
 
 class InMemoryTrainingRepository implements ITrainingDataRepository {
   private readonly cancellationNotificationSentAt = new Map<string, string>();
+  private readonly reminderNotificationSentAt = new Map<string, string>();
+  private lastSuccessfulReminderDispatchAt: string | null = null;
 
   constructor(
     private readonly definitions: TrainingDefinition[],
@@ -55,6 +59,12 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
   getCancellationNotificationSentAt(sessionId: string): string | null {
     return this.cancellationNotificationSentAt.get(sessionId) ?? null;
   }
+  getReminderNotificationSentAt(sessionId: string, offset: ReminderOffset): string | null {
+    return this.reminderNotificationSentAt.get(`${sessionId}::${getReminderOffsetMinutes(offset)}`) ?? null;
+  }
+  getLastSuccessfulReminderDispatchAt(): string | null {
+    return this.lastSuccessfulReminderDispatchAt;
+  }
   cancelTrainingSession(cancellation: TrainingCancellation): void {
     const session = this.sessions.find(candidate => candidate.sessionId === cancellation.sessionId);
     if (!session) {
@@ -67,6 +77,12 @@ class InMemoryTrainingRepository implements ITrainingDataRepository {
   saveAttendance(): void { throw new Error('Not needed in this test.'); }
   markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void {
     this.cancellationNotificationSentAt.set(cancellation.sessionId, notifiedAt);
+  }
+  markReminderNotificationSent(sessionId: string, offset: ReminderOffset, notifiedAt: string): void {
+    this.reminderNotificationSentAt.set(`${sessionId}::${getReminderOffsetMinutes(offset)}`, notifiedAt);
+  }
+  markLastSuccessfulReminderDispatchAt(completedAt: string): void {
+    this.lastSuccessfulReminderDispatchAt = completedAt;
   }
 }
 
@@ -162,12 +178,66 @@ describe('Notification application services', () => {
 
     const result = service.execute({
       dispatchAt: '2026-03-09T18:00:00.000Z',
-      toleranceMinutes: 1,
     });
 
     expect(result.sessionsProcessed).toBe(1);
     expect(result.sentCount).toBe(1);
     expect(sender.reminders).toEqual([{ recipientId: 'M002', sessionId: 'session-1' }]);
+  });
+
+  it('sends reminders whose due time falls inside the elapsed interval since the last successful run', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
+    trainingRepository.markLastSuccessfulReminderDispatchAt('2026-03-09T17:59:00.000Z');
+    const userRepository = new InMemoryUserRepository([
+      createUser('M001', 'Mitglied', ['wed-mixed']),
+    ]);
+    const configProvider = new TestConfigurationProvider({
+      offsets: [{ hours: 48, minutes: 0 }],
+      channels: ['email'],
+    });
+    const sender = new RecordingNotificationSender();
+    const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+
+    const result = service.execute({
+      dispatchAt: '2026-03-09T18:14:00.000Z',
+    });
+
+    expect(result).toEqual({
+      sessionsProcessed: 1,
+      sentCount: 1,
+    });
+    expect(sender.reminders).toEqual([{ recipientId: 'M001', sessionId: 'session-1' }]);
+  });
+
+  it('does not resend the same reminder offset on repeated runs', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
+    const userRepository = new InMemoryUserRepository([
+      createUser('M001', 'Mitglied', ['wed-mixed']),
+    ]);
+    const configProvider = new TestConfigurationProvider({
+      offsets: [{ hours: 48, minutes: 0 }],
+      channels: ['email'],
+    });
+    const sender = new RecordingNotificationSender();
+    const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+
+    const first = service.execute({
+      dispatchAt: '2026-03-09T18:00:00.000Z',
+    });
+    const second = service.execute({
+      dispatchAt: '2026-03-09T18:10:00.000Z',
+      fallbackWindowMinutes: 15,
+    });
+
+    expect(first).toEqual({
+      sessionsProcessed: 1,
+      sentCount: 1,
+    });
+    expect(second).toEqual({
+      sessionsProcessed: 0,
+      sentCount: 0,
+    });
+    expect(sender.reminders).toEqual([{ recipientId: 'M001', sessionId: 'session-1' }]);
   });
 
   it('sends cancellation notifications to subscribed users', () => {
@@ -249,11 +319,9 @@ describe('Notification application services', () => {
 
     const first = service.execute({
       dispatchAt: '2026-03-09T18:00:00.000Z',
-      toleranceMinutes: 1,
     });
     const second = service.execute({
       dispatchAt: '2026-03-09T18:05:00.000Z',
-      toleranceMinutes: 1,
     });
 
     expect(first).toEqual({
@@ -301,7 +369,6 @@ describe('Notification application services', () => {
 
     const result = service.execute({
       dispatchAt: '2026-03-09T18:00:00.000Z',
-      toleranceMinutes: 1,
     });
 
     expect(result).toEqual({

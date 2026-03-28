@@ -5,11 +5,13 @@ import {
   AttendanceRecord,
   AttendanceSyncMetadata,
   PublicTrainingSource,
+  ReminderOffset,
   RsvpStatus,
   TrainingCancellation,
   TrainingDefinition,
   TrainingEnvironment,
   TrainingSession,
+  getReminderOffsetMinutes,
 } from '../../domain/types';
 import { MemberRowUserMatcher } from './MemberRowUserMatcher';
 import { TrainingSessionDateParser } from './TrainingSessionDateParser';
@@ -48,6 +50,16 @@ interface SessionDispatchMetadataEntry {
   metadata: SessionDispatchMetadata;
 }
 
+interface ReminderDispatchMetadataEntry {
+  rowIndex: number;
+  sentAt: string;
+}
+
+interface RuntimeMetadataEntry {
+  rowIndex: number;
+  value: string;
+}
+
 interface ResolvedTrainingTemplate {
   trainingId: string;
   title: string;
@@ -73,12 +85,19 @@ const ATTENDANCE_METADATA_SHEET_NAME = 'TeilnahmeMetadaten';
 const ATTENDANCE_METADATA_HEADERS = ['SessionId', 'MitgliedId', 'Quelle', 'AktualisiertAm'];
 const DISPATCH_METADATA_SHEET_NAME = 'VersandMetadaten';
 const DISPATCH_METADATA_HEADERS = ['SessionId', 'AbsageBenachrichtigungGesendetAm'];
+const REMINDER_DISPATCH_METADATA_SHEET_NAME = 'ErinnerungsVersandMetadaten';
+const REMINDER_DISPATCH_METADATA_HEADERS = ['SessionId', 'OffsetMinuten', 'GesendetAm'];
+const RUNTIME_METADATA_SHEET_NAME = 'LaufzeitMetadaten';
+const RUNTIME_METADATA_HEADERS = ['Schluessel', 'Wert'];
+const LAST_SUCCESSFUL_REMINDER_DISPATCH_KEY = 'runReminderDispatch:lastSuccessfulRunAt';
 
 export class GoogleSheetTrainingDataRepository implements ITrainingDataRepository {
   private sessionReferencesCache: SessionReference[] | null = null;
   private readonly sourceTableCache = new Map<string, unknown[][]>();
   private attendanceMetadataCache: Map<string, AttendanceMetadataEntry> | null = null;
   private sessionDispatchMetadataCache: Map<string, SessionDispatchMetadataEntry> | null = null;
+  private reminderDispatchMetadataCache: Map<string, ReminderDispatchMetadataEntry> | null = null;
+  private runtimeMetadataCache: Map<string, RuntimeMetadataEntry> | null = null;
   private readonly sessionDateParser: TrainingSessionDateParser;
   private readonly memberRowUserMatcher: MemberRowUserMatcher;
 
@@ -127,6 +146,15 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return this.getSessionDispatchMetadata(reference.session.sessionId).cancellationNotificationSentAt ?? null;
   }
 
+  getReminderNotificationSentAt(sessionId: string, offset: ReminderOffset): string | null {
+    const reference = this.findSessionReferenceOrThrow(sessionId);
+    return this.getReminderDispatchMetadata(reference.session.sessionId, offset) ?? null;
+  }
+
+  getLastSuccessfulReminderDispatchAt(): string | null {
+    return this.getRuntimeMetadataValue(LAST_SUCCESSFUL_REMINDER_DISPATCH_KEY);
+  }
+
   cancelTrainingSession(cancellation: TrainingCancellation): void {
     const reference = this.findSessionReferenceOrThrow(cancellation.sessionId);
     const infoRow = reference.source.attendance.infoRow;
@@ -160,6 +188,15 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       ...this.getSessionDispatchMetadata(reference.session.sessionId),
       cancellationNotificationSentAt: notifiedAt,
     });
+  }
+
+  markReminderNotificationSent(sessionId: string, offset: ReminderOffset, notifiedAt: string): void {
+    const reference = this.findSessionReferenceOrThrow(sessionId);
+    this.upsertReminderDispatchMetadata(reference.session.sessionId, offset, notifiedAt);
+  }
+
+  markLastSuccessfulReminderDispatchAt(completedAt: string): void {
+    this.upsertRuntimeMetadata(LAST_SUCCESSFUL_REMINDER_DISPATCH_KEY, completedAt);
   }
 
   private getAllSessionReferences(): SessionReference[] {
@@ -534,6 +571,14 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return this.getSessionDispatchMetadataCache().get(sessionId)?.metadata ?? {};
   }
 
+  private getReminderDispatchMetadata(sessionId: string, offset: ReminderOffset): string | null {
+    return this.getReminderDispatchMetadataCache().get(this.createReminderDispatchMetadataKey(sessionId, offset))?.sentAt ?? null;
+  }
+
+  private getRuntimeMetadataValue(key: string): string | null {
+    return this.getRuntimeMetadataCache().get(key)?.value ?? null;
+  }
+
   private getCellMetadata(sessionId: string, memberId: string): AttendanceSyncMetadata {
     return this.getAttendanceMetadataCache().get(this.createAttendanceMetadataKey(sessionId, memberId))?.metadata
       ?? this.getDefaultManualMetadata();
@@ -553,6 +598,22 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     }
 
     return this.sessionDispatchMetadataCache;
+  }
+
+  private getReminderDispatchMetadataCache(): Map<string, ReminderDispatchMetadataEntry> {
+    if (!this.reminderDispatchMetadataCache) {
+      this.reminderDispatchMetadataCache = this.loadReminderDispatchMetadataCache();
+    }
+
+    return this.reminderDispatchMetadataCache;
+  }
+
+  private getRuntimeMetadataCache(): Map<string, RuntimeMetadataEntry> {
+    if (!this.runtimeMetadataCache) {
+      this.runtimeMetadataCache = this.loadRuntimeMetadataCache();
+    }
+
+    return this.runtimeMetadataCache;
   }
 
   private loadAttendanceMetadataCache(): Map<string, AttendanceMetadataEntry> {
@@ -637,6 +698,83 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return metadata;
   }
 
+  private loadReminderDispatchMetadataCache(): Map<string, ReminderDispatchMetadataEntry> {
+    const rows = this.getPrivateSheetValuesOrEmpty(REMINDER_DISPATCH_METADATA_SHEET_NAME);
+    const metadata = new Map<string, ReminderDispatchMetadataEntry>();
+    if (rows.length === 0) {
+      return metadata;
+    }
+
+    const sessionIdIndex = this.getRequiredSheetColumnIndex(REMINDER_DISPATCH_METADATA_SHEET_NAME, rows[0] ?? [], 'SessionId');
+    const offsetMinutesIndex = this.getRequiredSheetColumnIndex(REMINDER_DISPATCH_METADATA_SHEET_NAME, rows[0] ?? [], 'OffsetMinuten');
+    const sentAtIndex = this.getRequiredSheetColumnIndex(REMINDER_DISPATCH_METADATA_SHEET_NAME, rows[0] ?? [], 'GesendetAm');
+
+    for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex];
+      if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
+        continue;
+      }
+
+      const sessionId = this.getCellValue(row, sessionIdIndex);
+      const offsetMinutes = this.getCellValue(row, offsetMinutesIndex);
+      const sentAt = this.getCellValue(row, sentAtIndex);
+      if (!sessionId || !offsetMinutes || !sentAt) {
+        throw new Error(`Sheet "${REMINDER_DISPATCH_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowIndex + 1}.`);
+      }
+
+      const numericOffsetMinutes = Number(offsetMinutes);
+      if (!Number.isInteger(numericOffsetMinutes) || numericOffsetMinutes < 0) {
+        throw new Error(`Sheet "${REMINDER_DISPATCH_METADATA_SHEET_NAME}" contains an invalid reminder offset at row ${rowIndex + 1}.`);
+      }
+
+      const key = this.createReminderDispatchMetadataKeyFromMinutes(sessionId, numericOffsetMinutes);
+      if (metadata.has(key)) {
+        throw new Error(`Sheet "${REMINDER_DISPATCH_METADATA_SHEET_NAME}" contains duplicate reminder metadata for sessionId "${sessionId}" and offset ${numericOffsetMinutes}.`);
+      }
+
+      metadata.set(key, {
+        rowIndex: rowIndex + 1,
+        sentAt,
+      });
+    }
+
+    return metadata;
+  }
+
+  private loadRuntimeMetadataCache(): Map<string, RuntimeMetadataEntry> {
+    const rows = this.getPrivateSheetValuesOrEmpty(RUNTIME_METADATA_SHEET_NAME);
+    const metadata = new Map<string, RuntimeMetadataEntry>();
+    if (rows.length === 0) {
+      return metadata;
+    }
+
+    const keyIndex = this.getRequiredSheetColumnIndex(RUNTIME_METADATA_SHEET_NAME, rows[0] ?? [], 'Schluessel');
+    const valueIndex = this.getRequiredSheetColumnIndex(RUNTIME_METADATA_SHEET_NAME, rows[0] ?? [], 'Wert');
+
+    for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex];
+      if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
+        continue;
+      }
+
+      const key = this.getCellValue(row, keyIndex);
+      const value = this.getCellValue(row, valueIndex);
+      if (!key || !value) {
+        throw new Error(`Sheet "${RUNTIME_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowIndex + 1}.`);
+      }
+      if (metadata.has(key)) {
+        throw new Error(`Sheet "${RUNTIME_METADATA_SHEET_NAME}" contains duplicate runtime metadata for key "${key}".`);
+      }
+
+      metadata.set(key, {
+        rowIndex: rowIndex + 1,
+        value,
+      });
+    }
+
+    return metadata;
+  }
+
   private upsertAttendanceMetadata(record: AttendanceRecord): void {
     this.gateway.ensureSheetHeaders(ATTENDANCE_METADATA_SHEET_NAME, ATTENDANCE_METADATA_HEADERS);
 
@@ -682,6 +820,48 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     });
   }
 
+  private upsertReminderDispatchMetadata(sessionId: string, offset: ReminderOffset, sentAt: string): void {
+    this.gateway.ensureSheetHeaders(REMINDER_DISPATCH_METADATA_SHEET_NAME, REMINDER_DISPATCH_METADATA_HEADERS);
+
+    const cache = this.getReminderDispatchMetadataCache();
+    const offsetMinutes = getReminderOffsetMinutes(offset);
+    const key = this.createReminderDispatchMetadataKeyFromMinutes(sessionId, offsetMinutes);
+    const values = [sessionId, offsetMinutes, sentAt];
+    const existing = cache.get(key);
+    if (existing) {
+      this.gateway.setRowValues(REMINDER_DISPATCH_METADATA_SHEET_NAME, existing.rowIndex, values);
+      existing.sentAt = sentAt;
+      return;
+    }
+
+    const rowIndex = this.getNextMetadataRowIndex(cache);
+    this.gateway.appendRow(REMINDER_DISPATCH_METADATA_SHEET_NAME, values);
+    cache.set(key, {
+      rowIndex,
+      sentAt,
+    });
+  }
+
+  private upsertRuntimeMetadata(key: string, value: string): void {
+    this.gateway.ensureSheetHeaders(RUNTIME_METADATA_SHEET_NAME, RUNTIME_METADATA_HEADERS);
+
+    const cache = this.getRuntimeMetadataCache();
+    const values = [key, value];
+    const existing = cache.get(key);
+    if (existing) {
+      this.gateway.setRowValues(RUNTIME_METADATA_SHEET_NAME, existing.rowIndex, values);
+      existing.value = value;
+      return;
+    }
+
+    const rowIndex = this.getNextMetadataRowIndex(cache);
+    this.gateway.appendRow(RUNTIME_METADATA_SHEET_NAME, values);
+    cache.set(key, {
+      rowIndex,
+      value,
+    });
+  }
+
   private getPrivateSheetValuesOrEmpty(sheetName: string): unknown[][] {
     try {
       return this.gateway.getSheetValues(sheetName);
@@ -708,6 +888,14 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
   private createAttendanceMetadataKey(sessionId: string, memberId: string): string {
     return `${sessionId}::${memberId}`;
+  }
+
+  private createReminderDispatchMetadataKey(sessionId: string, offset: ReminderOffset): string {
+    return this.createReminderDispatchMetadataKeyFromMinutes(sessionId, getReminderOffsetMinutes(offset));
+  }
+
+  private createReminderDispatchMetadataKeyFromMinutes(sessionId: string, offsetMinutes: number): string {
+    return `${sessionId}::${offsetMinutes}`;
   }
 
   private isAttendanceSource(value: string): value is AttendanceSyncMetadata['source'] {

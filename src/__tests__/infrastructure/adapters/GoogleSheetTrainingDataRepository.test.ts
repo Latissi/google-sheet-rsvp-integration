@@ -15,6 +15,10 @@ const ATTENDANCE_METADATA_SHEET_NAME = 'TeilnahmeMetadaten';
 const ATTENDANCE_METADATA_HEADERS = ['SessionId', 'MitgliedId', 'Quelle', 'AktualisiertAm'];
 const DISPATCH_METADATA_SHEET_NAME = 'VersandMetadaten';
 const DISPATCH_METADATA_HEADERS = ['SessionId', 'AbsageBenachrichtigungGesendetAm'];
+const REMINDER_DISPATCH_METADATA_SHEET_NAME = 'ErinnerungsVersandMetadaten';
+const REMINDER_DISPATCH_METADATA_HEADERS = ['SessionId', 'OffsetMinuten', 'GesendetAm'];
+const RUNTIME_METADATA_SHEET_NAME = 'LaufzeitMetadaten';
+const RUNTIME_METADATA_HEADERS = ['Schluessel', 'Wert'];
 
 class TestConfigurationProvider implements IConfigurationProvider {
   constructor(private readonly sources: PublicTrainingSource[]) {}
@@ -681,6 +685,57 @@ describe('GoogleSheetTrainingDataRepository', () => {
       ['single-gender__wed-single__2026-03-11__19:00', '2026-03-10T12:30:00.000Z'],
     ]);
     expect(repository.getCancellationNotificationSentAt('single-gender__wed-single__2026-03-11__19:00')).toBe('2026-03-10T12:30:00.000Z');
+  });
+
+  it('writes reminder dispatch metadata per session and offset', () => {
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'club-rsvp',
+      sheetName: 'RSVP Übersicht',
+      tableRange: 'A1:F20',
+      attendance: {
+        dateHeaderRow: 2,
+        firstMemberRow: 6,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'E',
+      },
+      trainings: [{
+        trainingId: 'wed-mixed',
+        day: 'Mittwoch',
+        title: 'Mittwoch Training',
+        startTime: '18:00',
+      }],
+    }];
+    const { gateway, repository } = createRepository(sources, {
+      'RSVP Übersicht': [
+        ['', '', '', '', 'Info', ''],
+        ['', '', '', '', 'Mi. 11. 3.', 'Mi. 18. 3.'],
+        ['Zusagen', '', '', '', 22, 5],
+        ['FMPs', '', '', '', 10, 4],
+        ['(x) und ?', '', '', '', 0, 0],
+        ['Alice', 'Example', 'w', '', 'x', ''],
+      ],
+    });
+
+    repository.markReminderNotificationSent('club-rsvp__wed-mixed__2026-03-18__18:00', { hours: 48, minutes: 0 }, '2026-03-16T18:05:00.000Z');
+
+    expect(gateway.getSheetValues(REMINDER_DISPATCH_METADATA_SHEET_NAME)).toEqual([
+      REMINDER_DISPATCH_METADATA_HEADERS,
+      ['club-rsvp__wed-mixed__2026-03-18__18:00', 2880, '2026-03-16T18:05:00.000Z'],
+    ]);
+    expect(repository.getReminderNotificationSentAt('club-rsvp__wed-mixed__2026-03-18__18:00', { hours: 48, minutes: 0 })).toBe('2026-03-16T18:05:00.000Z');
+  });
+
+  it('writes and reads the last successful reminder dispatch watermark', () => {
+    const { gateway, repository } = createRepository([], {});
+
+    repository.markLastSuccessfulReminderDispatchAt('2026-03-16T18:15:00.000Z');
+
+    expect(gateway.getSheetValues(RUNTIME_METADATA_SHEET_NAME)).toEqual([
+      RUNTIME_METADATA_HEADERS,
+      ['runReminderDispatch:lastSuccessfulRunAt', '2026-03-16T18:15:00.000Z'],
+    ]);
+    expect(repository.getLastSuccessfulReminderDispatchAt()).toBe('2026-03-16T18:15:00.000Z');
   });
 
   it('writes an explicit cancellation marker into the configured info row', () => {
