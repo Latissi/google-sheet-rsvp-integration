@@ -88,4 +88,34 @@ describe('RegisterMemberService', () => {
     expect(repository.getUserByMemberId('new::coach')?.gender).toBe('m');
     expect(repository.getUserByMemberId('new::coach')?.subscribedTrainingIds).toEqual([]);
   });
+
+  it('preserves an existing trainer role and subscriptions when re-registering through the public flow', () => {
+    const existingUser: UserRecord = {
+      memberId: 'coach::member',
+      name: 'Coach Member',
+      email: 'coach@example.com',
+      role: 'Trainer',
+      roleDefinition: getRoleDefinition('Trainer'),
+      personName: createPersonName('Coach', 'Member'),
+      subscriptions: [{ trainingId: 'wed-mixed', notificationChannel: 'email' }],
+      subscribedTrainingIds: ['wed-mixed'],
+      subscribedTrainings: ['Mittwoch'],
+    };
+    const repository = new InMemoryUserRepository([existingUser]);
+    const service = new RegisterMemberService(repository);
+
+    const result = service.execute({
+      memberId: 'coach::member',
+      email: 'coach@example.com',
+      role: 'Mitglied',
+      firstName: 'Coach',
+      lastName: 'Renamed',
+      gender: 'm',
+    });
+
+    expect(result.created).toBe(false);
+    expect(result.user.memberId).toBe('coach::member');
+    expect(result.user.role).toBe('Trainer');
+    expect(result.user.subscribedTrainingIds).toEqual(['wed-mixed']);
+  });
 });

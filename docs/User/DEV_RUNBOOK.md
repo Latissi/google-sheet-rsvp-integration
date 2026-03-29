@@ -136,19 +136,32 @@ Browser-Aufruf aus einem Trainer-Reminder oder manuell:
 
 Erwartung: Zuerst erscheint nur eine Bestätigungsseite. Nach der Bestätigung schreibt die Anwendung einen Absage-Marker in die konfigurierte `InfoZeile`, verschickt Absage-Mails und das Training akzeptiert danach keine RSVP-Aktionen mehr.
 
-### Test 4 – Registrierung über POST
-Die Registrierung akzeptiert nur diesen Vertrag:
+### Test 4 – Öffentliche Registrierung über die Web-App
+Für die öffentliche Registrierung verwenden Sie die deployte Web-App-URL aus `WEBAPP_ADRESSE` mit dem Parameter `action=join`:
+
+```text
+[IHRE_WEB_APP_URL]?action=join
+```
+
+Beispiel: Wenn in `Konfiguration` bei `WEBAPP_ADRESSE` die URL `https://script.google.com/macros/s/abc123/exec` steht, dann lautet die Registrierungs-URL `https://script.google.com/macros/s/abc123/exec?action=join`.
+
+Die Registrierungsseite selbst sendet ihre Daten anschliessend per POST an dieselbe Web-App-Basis-URL, also an `WEBAPP_ADRESSE`, mit `action=register` im Request.
+
+Die Registrierungsseite legt immer ein öffentliches Mitgliedskonto an. Eine Trainer-Rolle wird nicht über die öffentliche Registrierung vergeben, sondern später durch die Script-Administration gepflegt.
+
+Der dahinterliegende POST-Vertrag lautet:
 
 ```text
 action=register
 email=<mail>
-role=Mitglied|Trainer
 gender=m|w
 firstName=<vorname>
 lastName=<nachname>
 ```
 
 Alle Felder sind Pflicht.
+
+Nach erfolgreicher Registrierung zeigt die Web-App direkt die Auswahl der Trainings-Abonnements an.
 
 ### Test 5 – Benachrichtigungseinstellungen über POST
 Die Pflege der Trainings-Abonnements läuft getrennt von der Registrierung:
@@ -160,6 +173,11 @@ subscribedTrainingIds=wed-mixed,mon-late
 ```
 
 `subscribedTrainingIds` erwartet eine komma- oder semikolon-getrennte Liste von `TrainingsId`-Werten. Ein leerer Wert entfernt alle Abonnements.
+
+### Test 6 – Trainer manuell freischalten
+Wenn eine Person Trainerrechte erhalten soll, pflegt die Script-Administration dies direkt im privaten Tab `Mitglieder`, indem `Rolle` von `Mitglied` auf `Trainer` gesetzt wird.
+
+Erwartung: Erst danach erhält die Person Trainer-spezifische Fähigkeiten wie Trainingsabsage-Links und Beteiligungsreports.
 
 ## 7. Fehlerbehebung
 - Prüfen Sie bei Bootstrap-Fehlern, dass das Script container-gebunden an das richtige private Sheet ist.

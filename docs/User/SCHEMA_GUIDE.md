@@ -154,12 +154,11 @@ Pflichtparameter:
 
 - `action=register`
 - `email`
-- `role`
 - `gender`
 - `firstName`
 - `lastName`
 
-Registrierung legt Identität und Rolle an, verwaltet aber keine Trainings-Abonnements.
+Öffentliche Registrierung legt immer eine Identität mit der Rolle `Mitglied` an und verwaltet keine Trainings-Abonnements. Eine spätere Umstellung auf `Trainer` erfolgt ausschließlich durch die Script-Administration.
 
 ## 4. Benachrichtigungseinstellungen über die Web-App
 Pflichtparameter:

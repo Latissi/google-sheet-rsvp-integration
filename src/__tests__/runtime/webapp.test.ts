@@ -12,14 +12,21 @@ import {
   UserRecord,
 } from '../../domain/types';
 import {
-  handleRegistrationRequest,
+  buildOnboardingCompletionHtml,
+  buildPreferencesPageHtml,
+  buildRegistrationPageHtml,
+} from '../../runtime/htmlRendering';
+import {
   handleCancelTrainingConfirmationRequest,
   handleCancelTrainingRequest,
+  handleRegistrationRequest,
   handleRsvpRequest,
   handleSubscriptionPreferencesRequest,
+} from '../../runtime/requestHandlers';
+import {
   runReminderDispatchWithRuntime,
   runTrainerParticipationReportDispatchWithRuntime,
-} from '../../runtime/webapp';
+} from '../../runtime/dispatchRunners';
 
 class RecordingSubmitRsvpService {
   public readonly requests: SubmitRsvpRequest[] = [];
@@ -179,7 +186,6 @@ describe('webapp RSVP handler', () => {
     const result = handleRegistrationRequest({
       action: 'register',
       email: 'ada@example.com',
-      role: 'Mitglied',
       firstName: 'Ada',
       lastName: 'Lovelace',
       gender: 'w',
@@ -218,6 +224,22 @@ describe('webapp RSVP handler', () => {
     expect(service.requests).toEqual([]);
   });
 
+  it('requires gender during registration', () => {
+    const service = new RecordingRegisterMemberService();
+
+    const result = handleRegistrationRequest({
+      action: 'register',
+      email: 'ada@example.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    }, service, new EmptyUserLookup());
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'Incomplete registration request. Required parameters: email, firstName, lastName, gender.',
+    });
+  });
+
   it('maps preferences parameters to a dedicated update request', () => {
     const service = new RecordingUpdateSubscriptionPreferencesService();
 
@@ -251,6 +273,44 @@ describe('webapp RSVP handler', () => {
       memberId: 'ada::lovelace',
       subscribedTrainingIds: [],
     }]);
+  });
+
+  it('renders a public registration page html', () => {
+    const html = buildRegistrationPageHtml('Bitte korrigieren', {
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+      gender: 'w',
+    });
+
+    expect(html).toContain('name="action" value="register"');
+    expect(html).toContain('name="flow" value="onboarding"');
+    expect(html).toContain('Öffentliche Registrierung erstellt immer ein Mitgliedskonto');
+    expect(html).toContain('Bitte korrigieren');
+  });
+
+  it('renders a preferences page html with training options', () => {
+    const html = buildPreferencesPageHtml({
+      memberId: 'ada::lovelace',
+      selectedTrainingIds: ['wed-mixed'],
+      trainingDefinitions: [{
+        trainingId: 'wed-mixed',
+        title: 'Mittwoch Training',
+        day: 'Mittwoch',
+        startTime: '18:00',
+      }],
+    });
+
+    expect(html).toContain('name="memberId" value="ada::lovelace"');
+    expect(html).toContain('Mittwoch Training');
+    expect(html).toContain('subscribedTrainingIds');
+  });
+
+  it('renders an onboarding completion page html', () => {
+    const html = buildOnboardingCompletionHtml();
+
+    expect(html).toContain('Deine Registrierung ist abgeschlossen.');
+    expect(html).toContain('RSVP-Links');
   });
 
   it('builds a confirmation payload for trainer cancellation links', () => {

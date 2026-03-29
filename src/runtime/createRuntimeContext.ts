@@ -66,7 +66,10 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
   const notificationSender = mailNotificationSender;
   const syncAttendanceService = new SyncAttendanceService(trainingDataRepository);
   const registerMemberService = new RegisterMemberService(userRepository);
-  const updateSubscriptionPreferencesService = new UpdateSubscriptionPreferencesService(userRepository);
+  const updateSubscriptionPreferencesService = new UpdateSubscriptionPreferencesService(
+    userRepository,
+    trainingDataRepository,
+  );
   const submitRsvpService = new SubmitRsvpService(
     trainingDataRepository,
     userRepository,

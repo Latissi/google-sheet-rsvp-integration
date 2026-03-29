@@ -2,6 +2,14 @@ import { UpdateSubscriptionPreferencesService } from '../../application/preferen
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { UserRecord, createPersonName, getRoleDefinition } from '../../domain/types';
 
+class StaticTrainingDefinitionLookup {
+  constructor(private readonly trainingIds: string[]) {}
+
+  getTrainingDefinitions() {
+    return this.trainingIds.map(trainingId => ({ trainingId }));
+  }
+}
+
 class InMemoryUserRepository implements IUserRepository {
   constructor(private users: UserRecord[] = []) {}
 
@@ -46,7 +54,7 @@ describe('UpdateSubscriptionPreferencesService', () => {
       subscribedTrainingIds: [],
       subscribedTrainings: [],
     }]);
-    const service = new UpdateSubscriptionPreferencesService(repository);
+    const service = new UpdateSubscriptionPreferencesService(repository, new StaticTrainingDefinitionLookup(['wed-mixed', 'fri-outdoor']));
 
     const result = service.execute({
       memberId: 'alice::example',
@@ -73,7 +81,7 @@ describe('UpdateSubscriptionPreferencesService', () => {
       subscribedTrainingIds: ['mon-evening'],
       subscribedTrainings: ['Montag'],
     }]);
-    const service = new UpdateSubscriptionPreferencesService(repository);
+    const service = new UpdateSubscriptionPreferencesService(repository, new StaticTrainingDefinitionLookup(['wed-mixed', 'mon-evening']));
 
     const result = service.execute({
       memberId: 'alice::example',
@@ -81,5 +89,26 @@ describe('UpdateSubscriptionPreferencesService', () => {
     });
 
     expect(result.user.subscribedTrainings).toEqual(['Montag']);
+  });
+
+  it('rejects unknown training ids', () => {
+    const repository = new InMemoryUserRepository([{
+      memberId: 'alice::example',
+      name: 'Alice Example',
+      email: 'alice@example.com',
+      gender: 'w',
+      role: 'Mitglied',
+      roleDefinition: getRoleDefinition('Mitglied'),
+      personName: createPersonName('Alice', 'Example'),
+      subscriptions: [],
+      subscribedTrainingIds: [],
+      subscribedTrainings: [],
+    }]);
+    const service = new UpdateSubscriptionPreferencesService(repository, new StaticTrainingDefinitionLookup(['wed-mixed']));
+
+    expect(() => service.execute({
+      memberId: 'alice::example',
+      subscribedTrainingIds: ['unknown-training'],
+    })).toThrow('Unknown training ids: unknown-training');
   });
 });

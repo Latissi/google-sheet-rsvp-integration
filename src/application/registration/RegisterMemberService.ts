@@ -13,7 +13,7 @@ import {
 export interface RegisterMemberRequest {
   memberId?: string;
   email: string;
-  role: string;
+  role?: string;
   firstName: string;
   lastName: string;
   gender?: Gender | string;
@@ -40,8 +40,11 @@ export class RegisterMemberService implements IRegisterMemberService {
       throw new Error('Both firstName and lastName are required for the composite member key.');
     }
 
-    const memberId = createCompositeMemberIdFromPersonName(personName);
-    const role = parseRole(request.role);
+    const requestedMemberId = request.memberId?.trim() || undefined;
+    const memberId = requestedMemberId ?? createCompositeMemberIdFromPersonName(personName);
+    const existingUser = this.userRepository.getUserByMemberId(memberId);
+    const requestedRole = parseRole((request.role ?? 'Mitglied').trim());
+    const role = requestedMemberId && existingUser ? existingUser.role : requestedRole;
     const gender = request.gender === undefined ? undefined : parseGender(String(request.gender));
 
     const user: UserRecord = {
@@ -52,12 +55,11 @@ export class RegisterMemberService implements IRegisterMemberService {
       role,
       roleDefinition: getRoleDefinition(role),
       personName,
-      subscriptions: [],
-      subscribedTrainingIds: [],
-      subscribedTrainings: [],
+      subscriptions: existingUser?.subscriptions ?? [],
+      subscribedTrainingIds: existingUser?.subscribedTrainingIds ?? [],
+      subscribedTrainings: existingUser?.subscribedTrainings ?? [],
     };
 
-    const existingUser = this.userRepository.getUserByMemberId(memberId);
     this.userRepository.upsertUser(user);
 
     return {
