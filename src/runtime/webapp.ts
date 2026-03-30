@@ -20,6 +20,7 @@ import {
   renderPreferencesPage,
   renderRegistrationPage,
 } from './htmlRendering';
+export { runReminderDispatch, runTrainerParticipationReportDispatch } from './dispatchRunners';
 
 export function doGet(
   event?: GoogleAppsScript.Events.DoGet,
@@ -27,10 +28,6 @@ export function doGet(
   const parameters = event?.parameter ?? {};
   const logger = getRuntimeLogger();
   const action = (parameters.action ?? '').trim().toLowerCase();
-
-  if (action === 'join') {
-    return renderRegistrationPage();
-  }
 
   logger.info('doGet', 'start', {
     action,
@@ -40,11 +37,18 @@ export function doGet(
 
   try {
     const runtime = createRuntimeContext();
+    const webAppUrl = runtime.configurationProvider.getWebAppUrl();
+
+    if (action === 'join') {
+      return renderRegistrationPage(undefined, {}, webAppUrl);
+    }
+
     if (action === 'preferences') {
       return renderPreferencesPage({
         memberId: parameters.memberId?.trim() ?? '',
         trainingDefinitions: runtime.trainingDataRepository.getTrainingDefinitions(),
         selectedTrainingIds: runtime.userRepository.getUserByMemberId(parameters.memberId?.trim() ?? '')?.subscribedTrainingIds ?? [],
+        formAction: webAppUrl,
       });
     }
 
@@ -64,7 +68,7 @@ export function doGet(
         }, result.message);
       }
 
-      return renderCancelTrainingConfirmation(result, parameters.reason?.trim() || '');
+      return renderCancelTrainingConfirmation(result, parameters.reason?.trim() || '', webAppUrl);
     }
 
     const result = handleRsvpRequest(parameters, runtime.submitRsvpService);
@@ -107,7 +111,7 @@ export function doGet(
 export function doPost(
   event?: GoogleAppsScript.Events.DoPost,
 ): GoogleAppsScript.Content.TextOutput | GoogleAppsScript.HTML.HtmlOutput {
-  const parameters = event?.parameter ?? {};
+  const parameters = getDoPostParameters(event);
   const logger = getRuntimeLogger();
   const action = (parameters.action ?? '').trim().toLowerCase();
   const isOnboardingFlow = (parameters.flow ?? '').trim().toLowerCase() === 'onboarding';
@@ -120,6 +124,7 @@ export function doPost(
 
   try {
     const runtime = createRuntimeContext();
+    const webAppUrl = runtime.configurationProvider.getWebAppUrl();
     const result = action === 'rsvp'
       ? handleRsvpRequest(parameters, runtime.submitRsvpService)
       : action === 'cancel-training'
@@ -151,7 +156,7 @@ export function doPost(
         : '';
 
       if (!result.ok || !registeredMemberId) {
-        return renderRegistrationPage(result.message, parameters);
+        return renderRegistrationPage(result.message, parameters, webAppUrl);
       }
 
       return renderPreferencesPage({
@@ -159,6 +164,7 @@ export function doPost(
         trainingDefinitions: runtime.trainingDataRepository.getTrainingDefinitions(),
         selectedTrainingIds: runtime.userRepository.getUserByMemberId(registeredMemberId)?.subscribedTrainingIds ?? [],
         message: result.message,
+        formAction: webAppUrl,
       });
     }
 
@@ -169,6 +175,7 @@ export function doPost(
           trainingDefinitions: runtime.trainingDataRepository.getTrainingDefinitions(),
           selectedTrainingIds: parseListParameter(parameters.subscribedTrainingIds),
           message: result.message,
+          formAction: webAppUrl,
         });
       }
 
@@ -196,6 +203,46 @@ export function doPost(
     return ContentService
       .createTextOutput(fallbackMessage)
       .setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+export function getDoPostParameters(
+  event?: GoogleAppsScript.Events.DoPost,
+): Record<string, string> {
+  return {
+    ...(event?.parameter ?? {}),
+    ...parseFormUrlEncodedParameters(event?.postData?.contents),
+  };
+}
+
+function parseFormUrlEncodedParameters(contents?: string): Record<string, string> {
+  if (!contents) {
+    return {};
+  }
+
+  return contents.split('&').reduce<Record<string, string>>((parameters, part) => {
+    if (!part) {
+      return parameters;
+    }
+
+    const [rawKey, rawValue = ''] = part.split('=', 2);
+    const key = decodeFormUrlEncodedComponent(rawKey);
+    if (!key) {
+      return parameters;
+    }
+
+    parameters[key] = decodeFormUrlEncodedComponent(rawValue);
+    return parameters;
+  }, {});
+}
+
+function decodeFormUrlEncodedComponent(value: string): string {
+  const normalizedValue = value.replace(/\+/g, ' ');
+
+  try {
+    return decodeURIComponent(normalizedValue);
+  } catch {
+    return normalizedValue;
   }
 }
 

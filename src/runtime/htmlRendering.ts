@@ -17,6 +17,7 @@ export const PUBLIC_COMPLETION_TITLE = 'Anmeldung abgeschlossen';
 export function buildRegistrationPageHtml(
   message?: string,
   values: Pick<RegistrationRequestParameters, 'firstName' | 'lastName' | 'email' | 'gender'> = {},
+  formAction: string = '',
 ): string {
   const selectedGender = values.gender?.trim() ?? '';
 
@@ -25,7 +26,7 @@ export function buildRegistrationPageHtml(
     [
       `<p>Öffentliche Registrierung erstellt immer ein Mitgliedskonto. Trainer werden später durch die Script-Administration freigeschaltet.</p>`,
       message ? `<p class="notice">${escapeHtml(message)}</p>` : '',
-      '<form method="post">',
+      `<form method="post" action="${escapeHtml(formAction)}" target="_top">`,
       '<input type="hidden" name="action" value="register" />',
       '<input type="hidden" name="flow" value="onboarding" />',
       renderTextField('firstName', 'Vorname', values.firstName),
@@ -43,6 +44,7 @@ export function buildPreferencesPageHtml(options: {
   trainingDefinitions: TrainingDefinition[];
   selectedTrainingIds?: string[];
   message?: string;
+  formAction?: string;
 }): string {
   const selectedTrainingIds = new Set(options.selectedTrainingIds ?? []);
   const trainingCards = buildTrainingOptions(options.trainingDefinitions).map(training => {
@@ -57,7 +59,7 @@ export function buildPreferencesPageHtml(options: {
     [
       '<p>Wähle die Trainings, für die du Erinnerungen und RSVP-Links erhalten möchtest.</p>',
       options.message ? `<p class="notice">${escapeHtml(options.message)}</p>` : '',
-      '<form method="post" onsubmit="syncTrainingIds()">',
+      `<form method="post" action="${escapeHtml(options.formAction ?? '')}" target="_top" onsubmit="syncTrainingIds()">`,
       '<input type="hidden" name="action" value="preferences" />',
       '<input type="hidden" name="flow" value="onboarding" />',
       `<input type="hidden" name="memberId" value="${escapeHtml(options.memberId)}" />`,
@@ -92,8 +94,9 @@ export function buildOnboardingCompletionHtml(): string {
 export function renderRegistrationPage(
   message?: string,
   values: Pick<RegistrationRequestParameters, 'firstName' | 'lastName' | 'email' | 'gender'> = {},
+  formAction: string = '',
 ): GoogleAppsScript.HTML.HtmlOutput {
-  return HtmlService.createHtmlOutput(buildRegistrationPageHtml(message, values)).setTitle(PUBLIC_JOIN_TITLE);
+  return HtmlService.createHtmlOutput(buildRegistrationPageHtml(message, values, formAction)).setTitle(PUBLIC_JOIN_TITLE);
 }
 
 export function renderPreferencesPage(options: {
@@ -101,6 +104,7 @@ export function renderPreferencesPage(options: {
   trainingDefinitions: TrainingDefinition[];
   selectedTrainingIds?: string[];
   message?: string;
+  formAction?: string;
 }): GoogleAppsScript.HTML.HtmlOutput {
   return HtmlService.createHtmlOutput(buildPreferencesPageHtml(options)).setTitle(PUBLIC_PREFERENCES_TITLE);
 }
@@ -112,6 +116,7 @@ export function renderOnboardingCompletionPage(): GoogleAppsScript.HTML.HtmlOutp
 export function renderCancelTrainingConfirmation(
   result: CancelTrainingConfirmationPayload,
   reason: string,
+  formAction: string = '',
 ): GoogleAppsScript.HTML.HtmlOutput {
   const escapedMessage = escapeHtml(result.message);
   if (!result.ok || !result.requiresConfirmation || !result.memberId || !result.sessionId) {
@@ -139,7 +144,7 @@ export function renderCancelTrainingConfirmation(
       <h1>Training absagen</h1>
       <p>${escapedMessage}</p>
       <p>Diese Aktion informiert alle Abonnenten sofort und unterdrückt weitere RSVP-Erinnerungen für dieses Training.</p>
-      <form method="post">
+      <form method="post" action="${escapeHtml(formAction)}" target="_top">
         <input type="hidden" name="action" value="cancel-training" />
         <input type="hidden" name="memberId" value="${escapeHtml(result.memberId)}" />
         <input type="hidden" name="sessionId" value="${escapeHtml(result.sessionId)}" />

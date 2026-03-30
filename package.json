@@ -4,8 +4,8 @@
   "scripts": {
     "test": "jest --runInBand",
     "build": "rm -rf dist && node build.js && cp appsscript.json dist/",
-    "push:dev": "cp .clasp-dev.json .clasp.json && clasp push",
-    "push:prod": "cp .clasp-prod.json .clasp.json && clasp push"
+    "push:dev": "npm run build && cp .clasp-dev.json .clasp.json && clasp push",
+    "push:prod": "npm run build && cp .clasp-prod.json .clasp.json && clasp push"
   },
   "devDependencies": {
     "@types/google-apps-script": "^2.0.8",

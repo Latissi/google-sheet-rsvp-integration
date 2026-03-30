@@ -16,6 +16,7 @@ import {
   buildPreferencesPageHtml,
   buildRegistrationPageHtml,
 } from '../../runtime/htmlRendering';
+import { getDoPostParameters } from '../../runtime/webapp';
 import {
   handleCancelTrainingConfirmationRequest,
   handleCancelTrainingRequest,
@@ -276,15 +277,21 @@ describe('webapp RSVP handler', () => {
   });
 
   it('renders a public registration page html', () => {
-    const html = buildRegistrationPageHtml('Bitte korrigieren', {
-      firstName: 'Ada',
-      lastName: 'Lovelace',
-      email: 'ada@example.com',
-      gender: 'w',
-    });
+    const html = buildRegistrationPageHtml(
+      'Bitte korrigieren',
+      {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'ada@example.com',
+        gender: 'w',
+      },
+      'https://script.google.com/macros/s/test/exec',
+    );
 
     expect(html).toContain('name="action" value="register"');
     expect(html).toContain('name="flow" value="onboarding"');
+    expect(html).toContain('action="https://script.google.com/macros/s/test/exec"');
+    expect(html).toContain('target="_top"');
     expect(html).toContain('Öffentliche Registrierung erstellt immer ein Mitgliedskonto');
     expect(html).toContain('Bitte korrigieren');
   });
@@ -293,6 +300,7 @@ describe('webapp RSVP handler', () => {
     const html = buildPreferencesPageHtml({
       memberId: 'ada::lovelace',
       selectedTrainingIds: ['wed-mixed'],
+      formAction: 'https://script.google.com/macros/s/test/exec',
       trainingDefinitions: [{
         trainingId: 'wed-mixed',
         title: 'Mittwoch Training',
@@ -304,6 +312,43 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('name="memberId" value="ada::lovelace"');
     expect(html).toContain('Mittwoch Training');
     expect(html).toContain('subscribedTrainingIds');
+    expect(html).toContain('action="https://script.google.com/macros/s/test/exec"');
+    expect(html).toContain('target="_top"');
+  });
+
+  it('prefers form body parameters over query parameters in doPost parsing', () => {
+    const parameters = getDoPostParameters({
+      pathInfo: '',
+      contextPath: '',
+      contentLength: 72,
+      queryString: 'action=join&flow=wrong&memberId=query-id&sessionId=session-1',
+      parameter: {
+        action: 'join',
+        flow: 'wrong',
+        memberId: 'query-id',
+        sessionId: 'session-1',
+      },
+      parameters: {
+        action: ['join'],
+        flow: ['wrong'],
+        memberId: ['query-id'],
+        sessionId: ['session-1'],
+      },
+      postData: {
+        contents: 'action=register&flow=onboarding&memberId=body-id&firstName=Ada+Marie',
+        length: 72,
+        name: 'postData',
+        type: 'application/x-www-form-urlencoded',
+      },
+    } as unknown as GoogleAppsScript.Events.DoPost);
+
+    expect(parameters).toEqual({
+      action: 'register',
+      flow: 'onboarding',
+      memberId: 'body-id',
+      sessionId: 'session-1',
+      firstName: 'Ada Marie',
+    });
   });
 
   it('renders an onboarding completion page html', () => {
