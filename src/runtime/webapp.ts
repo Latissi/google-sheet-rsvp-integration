@@ -130,17 +130,6 @@ export function doPost(
     const runtime = createRuntimeContext();
     const webAppUrl = runtime.configurationProvider.getWebAppUrl();
 
-    if (isOnboardingFlow && action === 'preferences') {
-      const memberId = (parameters.memberId ?? '').trim();
-      if (!memberId || !runtime.userRepository.getUserByMemberId(memberId)) {
-        logger.warn('doPost', 'onboarding-step2-user-not-found', { memberId });
-        return renderRegistrationPage(
-          'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.',
-          {}, webAppUrl,
-        );
-      }
-    }
-
     const result = action === 'rsvp'
       ? handleRsvpRequest(parameters, runtime.submitRsvpService)
       : action === 'cancel-training'
