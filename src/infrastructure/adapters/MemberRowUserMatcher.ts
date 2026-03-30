@@ -1,5 +1,7 @@
 import { UserRecord } from '../../domain/types';
 
+export type MemberRowPersonMatchResult = 'full-name' | 'first-name-only' | 'none';
+
 export class MemberRowUserMatcher {
   findUser(firstName: unknown, lastName: unknown, users: UserRecord[]): UserRecord | null {
     const normalizedFirstName = this.normalizeText(firstName);
@@ -21,10 +23,48 @@ export class MemberRowUserMatcher {
     )) ?? null;
   }
 
+  matchPerson(
+    rowFirstName: unknown,
+    rowLastName: unknown,
+    personFirstName: unknown,
+    personLastName: unknown,
+  ): MemberRowPersonMatchResult {
+    const normalizedRowFirstName = this.normalizeText(rowFirstName);
+    const normalizedRowLastName = this.normalizeText(rowLastName);
+    const normalizedPersonFirstName = this.normalizeText(personFirstName);
+    const normalizedPersonLastName = this.normalizeText(personLastName);
+
+    if (!normalizedRowFirstName && !normalizedRowLastName) {
+      return 'none';
+    }
+
+    if (
+      normalizedRowFirstName
+      && normalizedRowFirstName === normalizedPersonFirstName
+      && !normalizedRowLastName
+    ) {
+      return 'first-name-only';
+    }
+
+    if (
+      normalizedRowFirstName
+      && normalizedRowLastName
+      && normalizedRowFirstName === normalizedPersonFirstName
+      && normalizedRowLastName === normalizedPersonLastName
+    ) {
+      return 'full-name';
+    }
+
+    return 'none';
+  }
+
   private normalizeText(value: unknown): string {
     return String(value ?? '')
       .trim()
       .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ß/g, 'ss')
       .replace(/\s+/g, '')
       .replace(/[^a-z0-9]/g, '');
   }

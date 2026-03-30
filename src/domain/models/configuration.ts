@@ -2,15 +2,31 @@ import {
   TrainingDay,
   TrainingEnvironment,
 } from './training';
-import { NotificationChannel } from './user';
+import { Gender, NotificationChannel } from './user';
 
 export interface AttendanceConfig {
   startColumn: string;
   infoRow?: number;
   firstNameColumn: string;
   lastNameColumn: string;
+  genderColumn?: string;
   dateHeaderRow: number;
   firstMemberRow: number;
+}
+
+export type PublicSourceRegistrationMatchStatus = 'matched' | 'not-found' | 'ambiguous' | 'gender-mismatch';
+
+export interface RegistrationMatchCriteria {
+  firstName: string;
+  lastName: string;
+  gender?: Gender;
+}
+
+export interface PublicSourceRegistrationMatch {
+  sourceId: string;
+  sheetName: string;
+  status: PublicSourceRegistrationMatchStatus;
+  matchedRowNumber?: number;
 }
 
 export interface ReminderOffset {

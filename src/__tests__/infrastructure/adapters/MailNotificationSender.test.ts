@@ -84,6 +84,7 @@ describe('MailNotificationSender', () => {
     expect(transport.sentMessages[0].subject).toContain('Erinnerung');
     expect(transport.sentMessages[0].body).toContain('response=Accepted');
     expect(transport.sentMessages[0].body).toContain('response=Declined');
+    expect(transport.sentMessages[0].body).toContain('action=preferences');
     expect(transport.sentMessages[0].body).toContain('Umgebung: Outdoor');
   });
 

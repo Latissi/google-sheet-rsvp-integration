@@ -1,4 +1,5 @@
 import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
+import { PublicSourceRegistrationMatchStatus, PublicTrainingSource, PublicSourceRegistrationMatch, UserRecord } from '../domain/types';
 import { createRuntimeContext } from './createRuntimeContext';
 import { getRuntimeLogger } from './logging';
 import {
@@ -44,11 +45,14 @@ export function doGet(
     }
 
     if (action === 'preferences') {
+      const memberId = parameters.memberId?.trim() ?? '';
       return renderPreferencesPage({
-        memberId: parameters.memberId?.trim() ?? '',
+        memberId,
         trainingDefinitions: runtime.trainingDataRepository.getTrainingDefinitions(),
-        selectedTrainingIds: runtime.userRepository.getUserByMemberId(parameters.memberId?.trim() ?? '')?.subscribedTrainingIds ?? [],
+        selectedTrainingIds: runtime.userRepository.getUserByMemberId(memberId)?.subscribedTrainingIds ?? [],
         formAction: webAppUrl,
+        trainingMatchStatusMap: getTrainingMatchStatusMapForMember(runtime, memberId),
+        mode: 'manage',
       });
     }
 
@@ -125,6 +129,18 @@ export function doPost(
   try {
     const runtime = createRuntimeContext();
     const webAppUrl = runtime.configurationProvider.getWebAppUrl();
+
+    if (isOnboardingFlow && action === 'preferences') {
+      const memberId = (parameters.memberId ?? '').trim();
+      if (!memberId || !runtime.userRepository.getUserByMemberId(memberId)) {
+        logger.warn('doPost', 'onboarding-step2-user-not-found', { memberId });
+        return renderRegistrationPage(
+          'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.',
+          {}, webAppUrl,
+        );
+      }
+    }
+
     const result = action === 'rsvp'
       ? handleRsvpRequest(parameters, runtime.submitRsvpService)
       : action === 'cancel-training'
@@ -163,8 +179,9 @@ export function doPost(
         memberId: registeredMemberId,
         trainingDefinitions: runtime.trainingDataRepository.getTrainingDefinitions(),
         selectedTrainingIds: runtime.userRepository.getUserByMemberId(registeredMemberId)?.subscribedTrainingIds ?? [],
-        message: result.message,
         formAction: webAppUrl,
+        trainingMatchStatusMap: getTrainingMatchStatusMapFromParameters(runtime, parameters),
+        mode: 'onboarding',
       });
     }
 
@@ -176,10 +193,26 @@ export function doPost(
           selectedTrainingIds: parseListParameter(parameters.subscribedTrainingIds),
           message: result.message,
           formAction: webAppUrl,
+          trainingMatchStatusMap: getTrainingMatchStatusMapForMember(runtime, parameters.memberId?.trim() ?? ''),
+          mode: 'onboarding',
         });
       }
 
       return renderOnboardingCompletionPage();
+    }
+
+    if (action === 'preferences') {
+      const memberId = parameters.memberId?.trim() ?? '';
+
+      return renderPreferencesPage({
+        memberId,
+        trainingDefinitions: runtime.trainingDataRepository.getTrainingDefinitions(),
+        selectedTrainingIds: runtime.userRepository.getUserByMemberId(memberId)?.subscribedTrainingIds ?? parseListParameter(parameters.subscribedTrainingIds),
+        message: result.message,
+        formAction: webAppUrl,
+        trainingMatchStatusMap: getTrainingMatchStatusMapForMember(runtime, memberId),
+        mode: 'manage',
+      });
     }
 
     return ContentService
@@ -204,6 +237,65 @@ export function doPost(
       .createTextOutput(fallbackMessage)
       .setMimeType(ContentService.MimeType.TEXT);
   }
+}
+
+function computeTrainingMatchStatusMap(
+  publicSources: PublicTrainingSource[],
+  matches: PublicSourceRegistrationMatch[],
+): Map<string, PublicSourceRegistrationMatchStatus> {
+  const matchBySourceId = new Map(matches.map(m => [m.sourceId, m.status]));
+  const result = new Map<string, PublicSourceRegistrationMatchStatus>();
+  for (const source of publicSources) {
+    const status = matchBySourceId.get(source.sourceId);
+    if (status !== undefined) {
+      for (const training of source.trainings) {
+        result.set(training.trainingId, status);
+      }
+    }
+  }
+  return result;
+}
+
+function getTrainingMatchStatusMapFromParameters(
+  runtime: ReturnType<typeof createRuntimeContext>,
+  parameters: Record<string, string>,
+): Map<string, PublicSourceRegistrationMatchStatus> {
+  const firstName = parameters.firstName?.trim() ?? '';
+  const lastName = parameters.lastName?.trim() ?? '';
+  if (!firstName || !lastName) {
+    return new Map();
+  }
+
+  const matches = runtime.previewPublicSourceRegistrationMatchesService.execute({
+    firstName,
+    lastName,
+    gender: parameters.gender === 'm' || parameters.gender === 'w' ? parameters.gender : undefined,
+  }).matches;
+  return computeTrainingMatchStatusMap(runtime.configurationProvider.getPublicTrainingSources(), matches);
+}
+
+function getTrainingMatchStatusMapForMember(
+  runtime: ReturnType<typeof createRuntimeContext>,
+  memberId: string,
+): Map<string, PublicSourceRegistrationMatchStatus> {
+  const user = runtime.userRepository.getUserByMemberId(memberId);
+  if (!user) {
+    return new Map();
+  }
+
+  return getTrainingMatchStatusMapForUser(runtime, user);
+}
+
+function getTrainingMatchStatusMapForUser(
+  runtime: ReturnType<typeof createRuntimeContext>,
+  user: UserRecord,
+): Map<string, PublicSourceRegistrationMatchStatus> {
+  const matches = runtime.previewPublicSourceRegistrationMatchesService.execute({
+    firstName: user.personName.firstName,
+    lastName: user.personName.lastName,
+    gender: user.gender,
+  }).matches;
+  return computeTrainingMatchStatusMap(runtime.configurationProvider.getPublicTrainingSources(), matches);
 }
 
 export function getDoPostParameters(

@@ -21,6 +21,7 @@ interface PublicTrainingSourceSheetSchema {
   firstMemberRow: number;
   firstNameColumn?: number;
   lastNameColumn?: number;
+  genderColumn?: number;
   startColumn: number;
 }
 
@@ -179,6 +180,7 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
       infoRow,
       firstNameColumn: candidate.firstNameColumn,
       lastNameColumn: candidate.lastNameColumn,
+      genderColumn: typeof candidate.genderColumn === 'string' && candidate.genderColumn ? candidate.genderColumn : undefined,
       dateHeaderRow,
       firstMemberRow,
     };
@@ -299,6 +301,7 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
       firstMemberRow: getRequiredColumnIndex(headers, ['MitgliederStartZeile']),
       firstNameColumn: getRequiredColumnIndex(headers, ['VornameSpalte']),
       lastNameColumn: getRequiredColumnIndex(headers, ['NachnameSpalte']),
+      genderColumn: getColumnIndex(headers, ['GeschlechtSpalte']),
       startColumn: getRequiredColumnIndex(headers, ['StartSpalte']),
     };
   }
@@ -400,6 +403,7 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
         firstMemberRow: getCellValue(row, sourceSchema.firstMemberRow),
         firstNameColumn: getCellValue(row, sourceSchema.firstNameColumn) || undefined,
         lastNameColumn: getCellValue(row, sourceSchema.lastNameColumn) || undefined,
+        genderColumn: getCellValue(row, sourceSchema.genderColumn) || undefined,
         startColumn: getCellValue(row, sourceSchema.startColumn),
       }, sourceId);
       const trainings = definitionsBySource.get(sourceId) ?? [];

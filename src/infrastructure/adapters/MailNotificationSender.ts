@@ -72,6 +72,10 @@ export class MailNotificationSender implements INotificationSender {
       sessionId: notification.session.sessionId,
       response: 'Declined',
     });
+    const preferencesUrl = this.buildUrl(notification.webAppUrl, {
+      action: 'preferences',
+      memberId: notification.recipient.memberId,
+    });
     const cancelUrl = notification.recipient.roleDefinition.capabilities.canCancelTraining
       ? this.buildUrl(notification.webAppUrl, {
         action: 'cancel-training',
@@ -89,6 +93,7 @@ export class MailNotificationSender implements INotificationSender {
       '',
       `Zusagen: ${acceptUrl}`,
       `Absagen: ${declineUrl}`,
+      `Benachrichtigungen anpassen: ${preferencesUrl}`,
       ...(cancelUrl ? [`Training absagen: ${cancelUrl}`] : []),
     ].join('\n');
     const htmlBody = [
@@ -99,6 +104,7 @@ export class MailNotificationSender implements INotificationSender {
       '</ul>',
       `<p><a href="${escapeHtml(acceptUrl)}">Teilnahme zusagen</a></p>`,
       `<p><a href="${escapeHtml(declineUrl)}">Teilnahme absagen</a></p>`,
+      `<p><a href="${escapeHtml(preferencesUrl)}">Benachrichtigungen anpassen</a></p>`,
       ...(cancelUrl ? [`<p><a href="${escapeHtml(cancelUrl)}">Training absagen</a></p>`] : []),
     ].join('');
 

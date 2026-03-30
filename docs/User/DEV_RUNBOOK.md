@@ -44,13 +44,14 @@ ERINNERUNGS_OFFSETS | [48,24]
 ### Tab `Trainingsquellen`
 
 ```text
-QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | InfoZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte
-club-rsvp | RSVP Übersicht | A1:AZ200 | 2 | 1 | 6 | A | B | E
+QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | InfoZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | GeschlechtSpalte | StartSpalte
+club-rsvp | RSVP Übersicht | A1:AZ200 | 2 | 1 | 6 | A | B | C | E
 ```
 
 `QuellenId` ist eine interne Kennung fuer die Quelle, nicht der Tabname. Sie verbindet `Trainingsquellen` mit `Trainingsdefinitionen` und taucht in erzeugten Session-IDs auf. `TabellenName` meint den sichtbaren Tabnamen des Arbeitsblatts innerhalb des ueber `OEFFENTLICHES_SHEET_ID` referenzierten oeffentlichen Spreadsheets. Das oeffentliche Spreadsheet selbst kommt immer aus `OEFFENTLICHES_SHEET_ID` im Tab `Konfiguration`.
 
 `DatumsKopfZeile`, `InfoZeile` und `MitgliederStartZeile` sind absolute Zeilennummern im oeffentlichen Blatt. Damit kann die App auch Tabs mit Zusatzzeilen, Summenzeilen oder mehrzeiligen Headern verarbeiten, ohne das Public Sheet selbst zu aendern.
+`GeschlechtSpalte` ist optional. Wenn sie gesetzt ist, validiert die Registrierungs-Web-App einen Treffer im oeffentlichen Blatt nur dann als passend, wenn auch das Geschlecht übereinstimmt.
 Wenn `InfoZeile` gesetzt ist, liest die App dort pro Datumsspalte zusaetzliche Session-Information. Enthält der Text `entfällt` oder `gesperrt`, behandelt die App die Session als abgesagt.
 
 ### Tab `Trainingsdefinitionen`
@@ -162,6 +163,7 @@ lastName=<nachname>
 Alle Felder sind Pflicht.
 
 Nach erfolgreicher Registrierung zeigt die Web-App direkt die Auswahl der Trainings-Abonnements an.
+Zusätzlich zeigt sie pro konfiguriertem Trainings-Tab an, ob der Name dort bereits gefunden wurde. Zeilen mit nur einem Vornamen werden als mehrdeutig markiert und müssen manuell geprüft werden.
 
 ### Test 5 – Benachrichtigungseinstellungen über POST
 Die Pflege der Trainings-Abonnements läuft getrennt von der Registrierung:
@@ -174,6 +176,8 @@ subscribedTrainingIds=wed-mixed,mon-late
 
 `subscribedTrainingIds` erwartet eine komma- oder semikolon-getrennte Liste von `TrainingsId`-Werten. Ein leerer Wert entfernt alle Abonnements.
 
+Dieselbe Seite wird sowohl im zweiten Registrierungsschritt als auch ueber spaetere E-Mail-Links zur Aenderung der Benachrichtigungen verwendet.
+
 ### Test 6 – Trainer manuell freischalten
 Wenn eine Person Trainerrechte erhalten soll, pflegt die Script-Administration dies direkt im privaten Tab `Mitglieder`, indem `Rolle` von `Mitglied` auf `Trainer` gesetzt wird.
 
@@ -182,7 +186,7 @@ Erwartung: Erst danach erhält die Person Trainer-spezifische Fähigkeiten wie T
 ## 7. Fehlerbehebung
 - Prüfen Sie bei Bootstrap-Fehlern, dass das Script container-gebunden an das richtige private Sheet ist.
 - Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_OFFSETS` gesetzt sind.
-- Prüfen Sie in `Trainingsquellen`, dass `DatumsKopfZeile`, `MitgliederStartZeile`, Vorname-, Nachname- und Startspalte gepflegt sind.
+- Prüfen Sie in `Trainingsquellen`, dass `DatumsKopfZeile`, `MitgliederStartZeile`, Vorname-, Nachname-, optionale Geschlechts- und Startspalte gepflegt sind.
 - Prüfen Sie in `Mitglieder`, dass Vorname, Nachname, EMail und Rolle vorhanden sind.
 - Prüfen Sie bei Metadaten-Problemen die privaten Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` auf unvollständige oder doppelte Zeilen.
 - Prüfen Sie die `Executions`-Ansicht und den privaten Tab `Systemprotokoll` auf Laufzeitfehler.

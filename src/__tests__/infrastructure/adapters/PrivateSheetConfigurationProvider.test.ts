@@ -10,8 +10,8 @@ describe('PrivateSheetConfigurationProvider', () => {
       ['ERINNERUNGS_OFFSETS', JSON.stringify([48, 24])],
     ],
     Trainingsquellen: [
-      ['QuellenId', 'TabellenName', 'TabellenBereich', 'DatumsKopfZeile', 'InfoZeile', 'MitgliederStartZeile', 'VornameSpalte', 'NachnameSpalte', 'StartSpalte'],
-      ['club-rsvp', 'RSVP Übersicht', 'A1:F50', '2', '1', '3', 'A', 'B', 'C'],
+      ['QuellenId', 'TabellenName', 'TabellenBereich', 'DatumsKopfZeile', 'InfoZeile', 'MitgliederStartZeile', 'VornameSpalte', 'NachnameSpalte', 'GeschlechtSpalte', 'StartSpalte'],
+      ['club-rsvp', 'RSVP Übersicht', 'A1:F50', '2', '1', '3', 'A', 'B', 'C', 'D'],
     ],
     Trainingsdefinitionen: [
       ['QuellenId', 'TrainingsId', 'Titel', 'Wochentag', 'Startzeit', 'Ort', 'Umgebung'],
@@ -43,7 +43,8 @@ describe('PrivateSheetConfigurationProvider', () => {
           firstMemberRow: 3,
           firstNameColumn: 'A',
           lastNameColumn: 'B',
-          startColumn: 'C',
+          genderColumn: 'C',
+          startColumn: 'D',
         },
         trainings: [
           {
@@ -51,6 +52,7 @@ describe('PrivateSheetConfigurationProvider', () => {
             title: 'Mittwoch Training',
             day: 'Mittwoch',
             startTime: '18:00',
+            endTime: undefined,
             location: 'Sporthalle',
             environment: 'Indoor',
           },
@@ -86,7 +88,8 @@ describe('PrivateSheetConfigurationProvider', () => {
           firstMemberRow: 3,
           firstNameColumn: 'A',
           lastNameColumn: 'B',
-          startColumn: 'C',
+          genderColumn: 'C',
+          startColumn: 'D',
         },
         trainings: [
           {

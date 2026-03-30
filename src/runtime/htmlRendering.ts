@@ -1,4 +1,4 @@
-import { TrainingDefinition } from '../domain/types';
+import { PublicSourceRegistrationMatchStatus, TrainingDefinition } from '../domain/types';
 import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
 import {
   buildVerbosePublicErrorMessage,
@@ -45,27 +45,35 @@ export function buildPreferencesPageHtml(options: {
   selectedTrainingIds?: string[];
   message?: string;
   formAction?: string;
+  trainingMatchStatusMap?: Map<string, PublicSourceRegistrationMatchStatus>;
+  mode?: 'onboarding' | 'manage';
 }): string {
+  const isOnboarding = options.mode !== 'manage';
   const selectedTrainingIds = new Set(options.selectedTrainingIds ?? []);
+  const matchMap = options.trainingMatchStatusMap ?? new Map<string, PublicSourceRegistrationMatchStatus>();
   const trainingCards = buildTrainingOptions(options.trainingDefinitions).map(training => {
     const checked = selectedTrainingIds.has(training.trainingId) ? ' checked' : '';
+    const matchStatus = matchMap.get(training.trainingId);
+    const badge = matchStatus ? renderMatchBadge(matchStatus) : '';
 
     return `<label class="option"><input type="checkbox" value="${escapeHtml(training.trainingId)}"${checked} />` +
-      `<span><strong>${escapeHtml(training.title)}</strong><small>${escapeHtml(training.description)}</small></span></label>`;
+      `<span><strong>${escapeHtml(training.title)}</strong>${badge}<small>${escapeHtml(training.description)}</small></span></label>`;
   }).join('');
 
   return renderPublicPage(
     PUBLIC_PREFERENCES_TITLE,
     [
-      '<p>Wähle die Trainings, für die du Erinnerungen und RSVP-Links erhalten möchtest.</p>',
+      isOnboarding
+        ? '<p>Wähle die Trainings, für die du Erinnerungen und RSVP-Links erhalten möchtest.</p>'
+        : '<p>Aktualisiere hier deine Trainings, für die du Erinnerungen und RSVP-Links erhalten möchtest.</p>',
       options.message ? `<p class="notice">${escapeHtml(options.message)}</p>` : '',
       `<form method="post" action="${escapeHtml(options.formAction ?? '')}" target="_top" onsubmit="syncTrainingIds()">`,
       '<input type="hidden" name="action" value="preferences" />',
-      '<input type="hidden" name="flow" value="onboarding" />',
+      isOnboarding ? '<input type="hidden" name="flow" value="onboarding" />' : '',
       `<input type="hidden" name="memberId" value="${escapeHtml(options.memberId)}" />`,
       '<input type="hidden" id="subscribedTrainingIds" name="subscribedTrainingIds" value="" />',
       `<div class="options">${trainingCards || '<p>Derzeit sind keine Trainings definiert.</p>'}</div>`,
-      '<button type="submit">Anmeldung abschließen</button>',
+      `<button type="submit">${isOnboarding ? 'Anmeldung abschließen' : 'Einstellungen speichern'}</button>`,
       '</form>',
       '<script>',
       'function syncTrainingIds(){',
@@ -105,6 +113,8 @@ export function renderPreferencesPage(options: {
   selectedTrainingIds?: string[];
   message?: string;
   formAction?: string;
+  trainingMatchStatusMap?: Map<string, PublicSourceRegistrationMatchStatus>;
+  mode?: 'onboarding' | 'manage';
 }): GoogleAppsScript.HTML.HtmlOutput {
   return HtmlService.createHtmlOutput(buildPreferencesPageHtml(options)).setTitle(PUBLIC_PREFERENCES_TITLE);
 }
@@ -178,6 +188,21 @@ function renderPublicPage(title: string, body: string): string {
       input, select { border: 1px solid #cdbba7; border-radius: 12px; padding: 0.85rem 1rem; background: #fffdf9; }
       button { border: 0; border-radius: 999px; padding: 0.95rem 1.4rem; background: #91522b; color: #fff; cursor: pointer; }
       .notice { background: #fff3df; border: 1px solid #e8c896; border-radius: 12px; padding: 0.85rem 1rem; }
+      .match-summary { margin: 1.2rem 0 1.5rem; display: grid; gap: 0.75rem; }
+      .match-summary h2 { margin: 0; font-size: 1.15rem; }
+      .match-list { display: grid; gap: 0.75rem; }
+      .match-card { border-radius: 14px; padding: 0.9rem 1rem; border: 1px solid #e7d5bf; background: #fffaf2; }
+      .match-card strong { display: block; margin-bottom: 0.25rem; }
+      .match-card small { color: #6b7280; }
+      .match-card.status-matched { background: #eef8ef; border-color: #9ac69d; }
+      .match-card.status-not-found { background: #fffaf2; border-color: #e7d5bf; }
+      .match-card.status-ambiguous { background: #fff4dd; border-color: #e1b86c; }
+      .match-card.status-gender-mismatch { background: #fdeeee; border-color: #df9d9d; }
+      .match-badge { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; margin: 0.2rem 0 0.15rem; vertical-align: middle; }
+      .match-badge.status-matched { background: #d1fae5; color: #064e3b; }
+      .match-badge.status-not-found { background: #fef3c7; color: #78350f; }
+      .match-badge.status-ambiguous { background: #fef3c7; color: #78350f; }
+      .match-badge.status-gender-mismatch { background: #fee2e2; color: #7f1d1d; }
       .options { display: grid; gap: 0.85rem; }
       .option { display: flex; gap: 0.85rem; align-items: flex-start; border: 1px solid #e7d5bf; border-radius: 14px; padding: 0.9rem 1rem; background: #fffaf2; }
       .option input { margin-top: 0.25rem; }
@@ -201,6 +226,16 @@ function renderTextField(name: string, label: string, value?: string): string {
 
 function renderEmailField(name: string, label: string, value?: string): string {
   return `<label><span>${escapeHtml(label)}</span><input type="email" name="${escapeHtml(name)}" value="${escapeHtml(value ?? '')}" required /></label>`;
+}
+
+function renderMatchBadge(status: PublicSourceRegistrationMatchStatus): string {
+  const labels: Record<PublicSourceRegistrationMatchStatus, string> = {
+    'matched': '✓ Bereits eingetragen',
+    'not-found': '⚠ Noch nicht im Tab',
+    'ambiguous': '⚠ Vorname unklar',
+    'gender-mismatch': '⚠ Geschlecht stimmt nicht',
+  };
+  return `<span class="match-badge status-${escapeHtml(status)}">${escapeHtml(labels[status])}</span>`;
 }
 
 function buildTrainingOptions(trainingDefinitions: TrainingDefinition[]): Array<{

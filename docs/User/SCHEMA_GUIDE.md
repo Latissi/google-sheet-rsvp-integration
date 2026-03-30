@@ -35,9 +35,9 @@ Erforderliche Schlüssel:
 
 ### Tab `Trainingsquellen`
 
-| QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | InfoZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | StartSpalte |
-|-----------|--------------|-----------------|-----------------|-----------|----------------------|---------------|----------------|-------------|
-| `club-rsvp` | `RSVP Übersicht` | `A1:AZ200` | `2` | `1` | `6` | `A` | `B` | `E` |
+| QuellenId | TabellenName | TabellenBereich | DatumsKopfZeile | InfoZeile | MitgliederStartZeile | VornameSpalte | NachnameSpalte | GeschlechtSpalte | StartSpalte |
+|-----------|--------------|-----------------|-----------------|-----------|----------------------|---------------|----------------|------------------|-------------|
+| `club-rsvp` | `RSVP Übersicht` | `A1:AZ200` | `2` | `1` | `6` | `A` | `B` | `C` | `E` |
 
 Regeln:
 - `QuellenId` ist eine stabile interne Kennung fuer diese Trainingsquelle.
@@ -47,6 +47,7 @@ Regeln:
 - `DatumsKopfZeile` ist die absolute Zeilennummer im oeffentlichen Blatt, in der die eigentlichen Datums-Header stehen.
 - `InfoZeile` ist optional. Wenn gesetzt, wird in dieser absoluten Zeile pro Datumsspalte zusaetzliche Session-Information gelesen.
 - `MitgliederStartZeile` ist die absolute Zeilennummer im oeffentlichen Blatt, in der die erste echte Mitgliederzeile beginnt.
+- `GeschlechtSpalte` ist optional. Wenn sie gesetzt ist, berücksichtigt die Web-App beim Registrierungs-Abgleich auch das Geschlecht.
 - `InfoZeile` muss vor `MitgliederStartZeile` liegen.
 - Das oeffentliche Spreadsheet wird immer ueber `OEFFENTLICHES_SHEET_ID` aus `Konfiguration` bestimmt. Eine separate `DateiId` pro Quelle gibt es nicht.
 
@@ -141,6 +142,7 @@ Regeln:
 - Nicht-Mitgliederzeilen oberhalb von `MitgliederStartZeile` werden ignoriert.
 - Die eigentliche Datumszeile wird ueber `DatumsKopfZeile` konfiguriert und muss nicht die erste Zeile des Bereichs sein.
 - Die App gleicht jede Zeile ab `MitgliederStartZeile` gegen `Mitglieder` ab.
+- Fuer den Registrierungs-Abgleich gilt: Vorname und Nachname muessen eindeutig passen. Zeilen mit nur einem Vornamen werden als mehrdeutig markiert und nie automatisch als Treffer gewertet.
 - Jede `Trainingsdefinitionen`-Zeile einer Quelle muss im oeffentlichen Blatt mindestens einer Datums-Spalte mit passendem Wochentag zugeordnet werden koennen.
 - Eine Quelle kann im oeffentlichen Blatt zusaetzliche Datums-Spalten fuer nicht konfigurierte Wochentage enthalten. Diese Spalten werden mit einer Warnung uebersprungen.
 - Die Zuordnung zur passenden `TrainingsId` erfolgt ueber `Trainingsdefinitionen.Wochentag`.
@@ -160,6 +162,8 @@ Pflichtparameter:
 
 Öffentliche Registrierung legt immer eine Identität mit der Rolle `Mitglied` an und verwaltet keine Trainings-Abonnements. Eine spätere Umstellung auf `Trainer` erfolgt ausschließlich durch die Script-Administration.
 
+Nach dem ersten Registrierungsschritt zeigt die Web-App pro konfiguriertem Trainings-Tab an, ob die Person dort bereits mit passendem Vor- und Nachnamen und, falls konfiguriert, passendem Geschlecht gefunden wurde. Wenn nur ein Vorname gefunden wird, wird der Tab als mehrdeutig markiert und muss manuell geprüft werden.
+
 ## 4. Benachrichtigungseinstellungen über die Web-App
 Pflichtparameter:
 
@@ -168,6 +172,8 @@ Pflichtparameter:
 - `subscribedTrainingIds`
 
 `subscribedTrainingIds` ist eine komma- oder semikolon-getrennte Liste von `TrainingsId`-Werten aus `Trainingsdefinitionen`. Ein leerer Wert leert die Abonnements der Person.
+
+Dieselbe Preferences-Seite wird sowohl im zweiten Schritt der Registrierung als auch fuer spaetere Aenderungen der Benachrichtigungseinstellungen verwendet.
 
 ## 5. Validierung
 Typische Fehler sind fehlende Konfigurationsschlüssel, fehlende Spalten im Tab `Mitglieder` oder unvollständige Trainingsdefinitionen.

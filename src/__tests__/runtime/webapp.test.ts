@@ -301,10 +301,19 @@ describe('webapp RSVP handler', () => {
       memberId: 'ada::lovelace',
       selectedTrainingIds: ['wed-mixed'],
       formAction: 'https://script.google.com/macros/s/test/exec',
+      trainingMatchStatusMap: new Map([
+        ['wed-mixed', 'matched'],
+        ['fri-group', 'ambiguous'],
+      ]),
       trainingDefinitions: [{
         trainingId: 'wed-mixed',
         title: 'Mittwoch Training',
         day: 'Mittwoch',
+        startTime: '18:00',
+      }, {
+        trainingId: 'fri-group',
+        title: 'Freitag Training',
+        day: 'Freitag',
         startTime: '18:00',
       }],
     });
@@ -314,6 +323,26 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('subscribedTrainingIds');
     expect(html).toContain('action="https://script.google.com/macros/s/test/exec"');
     expect(html).toContain('target="_top"');
+    expect(html).toContain('\u2713 Bereits eingetragen');
+    expect(html).toContain('\u26a0 Vorname unklar');
+    expect(html).not.toContain('Abgleich mit den Trainings-Tabs');
+  });
+
+  it('renders a reusable manage-preferences page without onboarding flow state', () => {
+    const html = buildPreferencesPageHtml({
+      memberId: 'ada::lovelace',
+      mode: 'manage',
+      formAction: 'https://script.google.com/macros/s/test/exec',
+      trainingDefinitions: [{
+        trainingId: 'wed-mixed',
+        title: 'Mittwoch Training',
+        day: 'Mittwoch',
+        startTime: '18:00',
+      }],
+    });
+
+    expect(html).toContain('Einstellungen speichern');
+    expect(html).not.toContain('name="flow" value="onboarding"');
   });
 
   it('prefers form body parameters over query parameters in doPost parsing', () => {

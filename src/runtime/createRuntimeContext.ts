@@ -16,10 +16,16 @@ import {
   SyncAttendanceService,
   UpdateSubscriptionPreferencesService,
 } from '../application';
+import {
+  IPreviewPublicSourceRegistrationMatchesService,
+  PreviewPublicSourceRegistrationMatchesService,
+} from '../application/registration/PreviewPublicSourceRegistrationMatchesService';
 import { IConfigurationProvider } from '../domain/ports/IConfigurationProvider';
 import { INotificationSender } from '../domain/ports/INotificationSender';
+import { IPublicSourceRepository } from '../domain/ports/IPublicSourceRepository';
 import { ITrainingDataRepository } from '../domain/ports/ITrainingDataRepository';
 import { IUserRepository } from '../domain/ports/IUserRepository';
+import { GoogleSheetPublicSourceRepository } from '../infrastructure/adapters/GoogleSheetPublicSourceRepository';
 import { GoogleSheetTrainingDataRepository } from '../infrastructure/adapters/GoogleSheetTrainingDataRepository';
 import { MailAppTransport, MailNotificationSender } from '../infrastructure/adapters/MailNotificationSender';
 import { PrivateSheetConfigurationProvider } from '../infrastructure/adapters/PrivateSheetConfigurationProvider';
@@ -32,7 +38,9 @@ export interface RuntimeContext {
   configurationProvider: IConfigurationProvider;
   userRepository: IUserRepository;
   trainingDataRepository: ITrainingDataRepository;
+  publicSourceRepository: IPublicSourceRepository;
   notificationSender: INotificationSender;
+  previewPublicSourceRegistrationMatchesService: IPreviewPublicSourceRegistrationMatchesService;
   registerMemberService: IRegisterMemberService;
   updateSubscriptionPreferencesService: IUpdateSubscriptionPreferencesService;
   submitRsvpService: ISubmitRsvpService;
@@ -65,6 +73,8 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
   );
   const notificationSender = mailNotificationSender;
   const syncAttendanceService = new SyncAttendanceService(trainingDataRepository);
+  const publicSourceRepository = new GoogleSheetPublicSourceRepository(sheetGateway, configurationProvider);
+  const previewPublicSourceRegistrationMatchesService = new PreviewPublicSourceRegistrationMatchesService(publicSourceRepository);
   const registerMemberService = new RegisterMemberService(userRepository);
   const updateSubscriptionPreferencesService = new UpdateSubscriptionPreferencesService(
     userRepository,
@@ -101,7 +111,9 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     configurationProvider,
     userRepository,
     trainingDataRepository,
+    publicSourceRepository,
     notificationSender,
+    previewPublicSourceRegistrationMatchesService,
     registerMemberService,
     updateSubscriptionPreferencesService,
     submitRsvpService,

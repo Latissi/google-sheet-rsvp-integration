@@ -3,6 +3,7 @@ export * from './notifications/SendCancellationNotificationService';
 export * from './notifications/SendTrainerParticipationReportService';
 export * from './notifications/SendTrainingReminderService';
 export * from './preferences/UpdateSubscriptionPreferencesService';
+export * from './registration/PreviewPublicSourceRegistrationMatchesService';
 export * from './registration/RegisterMemberService';
 export * from './rsvp/SubmitRsvpService';
 export * from './rsvp/SyncAttendanceService';
