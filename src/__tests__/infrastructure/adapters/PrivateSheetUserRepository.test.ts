@@ -1,20 +1,13 @@
 import { PrivateSheetUserRepository } from '../../../infrastructure/adapters/PrivateSheetUserRepository';
 import { MockSheetGateway } from '../../mocks/MockSheetGateway';
-import {
-  createCompositeMemberId,
-  createPersonName,
-  getRoleDefinition,
-  Role,
-  TrainingDay,
-  UserRecord,
-} from '../../../domain/types';
+import { createCompositeMemberId, createPersonName, getRoleDefinition, Role, TrainingDay, UserRecord } from '../../../domain/types';
 
 describe('PrivateSheetUserRepository', () => {
   const mitgliederSheet = [
-    ['Vorname', 'Nachname', 'EMail', 'Geschlecht', 'Rolle', 'AbonnierteTrainings', 'AbonnierteTrainingsIds'],
-    ['Alice', 'Example', 'alice@test.com', 'w', 'Mitglied', 'Montag, Mittwoch', 'mon-evening, wed-mixed'],
-    ['Bob', 'Example', '', 'm', 'Mitglied', 'Montag', 'mon-evening'],
-    ['Charlie', 'Coach', 'charlie@test.com', 'm', 'Trainer', 'Montag, Freitag', 'mon-evening, fri-outdoor'],
+    ['Vorname', 'Nachname', 'EMail', 'Geschlecht', 'Rolle', 'AbonnierteTrainings', 'AbonnierteTrainingsIds', 'MitgliedId'],
+    ['Alice', 'Example', 'alice@test.com', 'w', 'Mitglied', 'Montag, Mittwoch', 'mon-evening, wed-mixed', 'alice::example'],
+    ['Bob', 'Example', '', 'm', 'Mitglied', 'Montag', 'mon-evening', 'bob::example'],
+    ['Charlie', 'Coach', 'charlie@test.com', 'm', 'Trainer', 'Montag, Freitag', 'mon-evening, fri-outdoor', 'charlie::coach'],
   ];
 
   let gateway: MockSheetGateway;
@@ -51,8 +44,8 @@ describe('PrivateSheetUserRepository', () => {
   it('removes symbols from stored first and last names', () => {
     const symbolGateway = new MockSheetGateway({
       Mitglieder: [
-        ['Vorname', 'Nachname', 'EMail', 'Geschlecht', 'Rolle', 'AbonnierteTrainingsIds'],
-        ['Carla 🌞', 'Sommer✨', 'carla@test.com', 'w', 'Mitglied', 'wed-mixed'],
+        ['Vorname', 'Nachname', 'EMail', 'Geschlecht', 'Rolle', 'AbonnierteTrainingsIds', 'MitgliedId'],
+        ['Carla 🌞', 'Sommer✨', 'carla@test.com', 'w', 'Mitglied', 'wed-mixed', 'carla::sommer'],
       ],
     });
     const symbolRepo = new PrivateSheetUserRepository(symbolGateway);
@@ -71,6 +64,45 @@ describe('PrivateSheetUserRepository', () => {
         subscribedTrainings: [],
       },
     ]);
+  });
+
+  it('throws when a stored MitgliedId does not match the canonical first and last name', () => {
+    const mismatchGateway = new MockSheetGateway({
+      Mitglieder: [
+        ['Vorname', 'Nachname', 'EMail', 'Geschlecht', 'Rolle', 'AbonnierteTrainingsIds', 'MitgliedId'],
+        ['Alice', 'Example', 'alice@test.com', 'w', 'Mitglied', 'wed-mixed', 'alice::example::legacy'],
+      ],
+    });
+    const mismatchRepo = new PrivateSheetUserRepository(mismatchGateway);
+
+    expect(() => mismatchRepo.getAllUsers()).toThrow(
+      'User row 2 has MitgliedId "alice::example::legacy" but expected "alice::example".',
+    );
+  });
+
+  it('throws when duplicate MitgliedId rows exist in Mitglieder', () => {
+    const duplicateGateway = new MockSheetGateway({
+      Mitglieder: [
+        ['Vorname', 'Nachname', 'EMail', 'Geschlecht', 'Rolle', 'AbonnierteTrainingsIds', 'MitgliedId'],
+        ['Alice', 'Example', 'alice.one@test.com', 'w', 'Mitglied', 'wed-mixed', 'alice::example'],
+        ['Alice', 'Example', 'alice.two@test.com', 'w', 'Mitglied', 'fri-group', 'alice::example'],
+      ],
+    });
+    const duplicateRepo = new PrivateSheetUserRepository(duplicateGateway);
+
+    expect(() => duplicateRepo.getAllUsers()).toThrow('Mitglieder contains duplicate MitgliedId "alice::example".');
+  });
+
+  it('throws when an existing row has no stored MitgliedId', () => {
+    const noIdGateway = new MockSheetGateway({
+      Mitglieder: [
+        ['Vorname', 'Nachname', 'EMail', 'Geschlecht', 'Rolle', 'AbonnierteTrainingsIds', 'MitgliedId'],
+        ['Alice', 'Example', 'alice.one@test.com', 'w', 'Mitglied', 'wed-mixed', ''],
+      ],
+    });
+    const noIdRepo = new PrivateSheetUserRepository(noIdGateway);
+
+    expect(() => noIdRepo.getAllUsers()).toThrow('User row 2 must define MitgliedId.');
   });
 
   it('upsertUser appends a new row in Mitglieder', () => {
@@ -99,14 +131,49 @@ describe('PrivateSheetUserRepository', () => {
       'Mitglied',
       'Mittwoch',
       'wed-beginners',
+      'dave::newbie',
     ]);
   });
 
-  it('upsertUser updates an existing row by composite member key', () => {
+  it('upsertUser writes all columns correctly when AbonnierteTrainings column is absent', () => {
+    const minimalGateway = new MockSheetGateway({
+      Mitglieder: [
+        ['Vorname', 'Nachname', 'Geschlecht', 'EMail', 'Rolle', 'AbonnierteTrainingsIds', 'MitgliedId'],
+      ],
+    });
+    const minimalRepo = new PrivateSheetUserRepository(minimalGateway);
+    const user: UserRecord = {
+      memberId: 'dave::newbie',
+      name: 'Dave Newbie',
+      email: 'dave@test.com',
+      gender: 'm',
+      role: 'Mitglied' as Role,
+      roleDefinition: getRoleDefinition('Mitglied'),
+      personName: createPersonName('Dave', 'Newbie'),
+      subscriptions: [{ trainingId: 'wed-mixed', notificationChannel: 'email' }],
+      subscribedTrainingIds: ['wed-mixed'],
+      subscribedTrainings: ['Mittwoch' as TrainingDay],
+    };
+
+    minimalRepo.upsertUser(user);
+
+    expect(minimalGateway.getAppendsCount()).toBe(1);
+    expect(Array.from(minimalGateway.appendedRows[0].values)).toEqual([
+      'Dave',
+      'Newbie',
+      'm',
+      'dave@test.com',
+      'Mitglied',
+      'wed-mixed',
+      'dave::newbie',
+    ]);
+  });
+
+  it('upsertUser updates an existing row by memberId even when the email changes', () => {
     const updatedCharlie: UserRecord = {
       memberId: createCompositeMemberId('Charlie', 'Coach'),
       name: 'Charlie Coach',
-      email: 'charlie2@test.com',
+      email: 'shared@test.com',
       gender: 'm',
       role: 'Trainer' as Role,
       roleDefinition: getRoleDefinition('Trainer'),
@@ -127,11 +194,42 @@ describe('PrivateSheetUserRepository', () => {
     expect(Array.from(gateway.updatedRows[0].values)).toEqual([
       'Charlie',
       'Coach',
-      'charlie2@test.com',
+      'shared@test.com',
       'm',
       'Trainer',
       'Montag, Mittwoch',
       'mon-evening, wed-performance',
+      'charlie::coach',
+    ]);
+  });
+
+  it('upsertUser appends a new row when the email already exists on another member', () => {
+    const duplicateEmailUser: UserRecord = {
+      memberId: 'dora::duplicate',
+      name: 'Dora Duplicate',
+      email: 'alice@test.com',
+      gender: 'w',
+      role: 'Mitglied' as Role,
+      roleDefinition: getRoleDefinition('Mitglied'),
+      personName: createPersonName('Dora', 'Duplicate'),
+      subscriptions: [{ trainingId: 'wed-mixed', notificationChannel: 'email' }],
+      subscribedTrainingIds: ['wed-mixed'],
+      subscribedTrainings: ['Mittwoch' as TrainingDay],
+    };
+
+    repo.upsertUser(duplicateEmailUser);
+
+    expect(gateway.getUpdatesCount()).toBe(0);
+    expect(gateway.getAppendsCount()).toBe(1);
+    expect(Array.from(gateway.appendedRows[0].values)).toEqual([
+      'Dora',
+      'Duplicate',
+      'alice@test.com',
+      'w',
+      'Mitglied',
+      'Mittwoch',
+      'wed-mixed',
+      'dora::duplicate',
     ]);
   });
 });

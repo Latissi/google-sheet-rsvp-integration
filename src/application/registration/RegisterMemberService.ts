@@ -40,15 +40,21 @@ export class RegisterMemberService implements IRegisterMemberService {
       throw new Error('Both firstName and lastName are required for the composite member key.');
     }
 
+    const canonicalMemberId = createCompositeMemberIdFromPersonName(personName);
     const requestedMemberId = request.memberId?.trim() || undefined;
-    const memberId = requestedMemberId ?? createCompositeMemberIdFromPersonName(personName);
-    const existingUser = this.userRepository.getUserByMemberId(memberId);
+    if (requestedMemberId && requestedMemberId !== canonicalMemberId) {
+      throw new Error(`Provided memberId "${requestedMemberId}" does not match firstName and lastName.`);
+    }
+
+    const existingUser = this.userRepository.getUserByMemberId(canonicalMemberId);
     const requestedRole = parseRole((request.role ?? 'Mitglied').trim());
-    const role = requestedMemberId && existingUser ? existingUser.role : requestedRole;
-    const gender = request.gender === undefined ? undefined : parseGender(String(request.gender));
+    const role = existingUser?.role ?? requestedRole;
+    const gender = request.gender === undefined
+      ? existingUser?.gender
+      : parseGender(String(request.gender));
 
     const user: UserRecord = {
-      memberId,
+      memberId: canonicalMemberId,
       name: personName.fullName,
       email,
       gender,

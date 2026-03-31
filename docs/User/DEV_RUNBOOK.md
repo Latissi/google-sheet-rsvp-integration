@@ -69,15 +69,18 @@ Innerhalb einer Quelle muss jeder `Wochentag` eindeutig sein.
 ### Tab `Mitglieder`
 
 ```text
-Vorname | Nachname | Geschlecht | EMail | Rolle | AbonnierteTrainingsIds
-Max | Mustermann | m | max.mustermann@email.com | Mitglied | wed-mixed
-Anna | Admin | w | anna@email.com | Trainer | wed-mixed
+Vorname | Nachname | Geschlecht | EMail | Rolle | AbonnierteTrainingsIds | MitgliedId
+Max | Mustermann | m | max.mustermann@email.com | Mitglied | wed-mixed | max::mustermann
+Anna | Admin | w | anna@email.com | Trainer | wed-mixed | anna::admin
 ```
 
 Regeln:
 - `Vorname` und `Nachname` sind Pflicht.
 - `Rolle` muss `Mitglied` oder `Trainer` sein.
 - `EMail` ist für Benachrichtigungen erforderlich.
+- `MitgliedId` wird bei der ersten Registrierung automatisch als normalisierte Form von `Vorname::Nachname` geschrieben und darf danach nicht mehr geändert werden.
+- Zwei Mitglieder mit identischem `Vorname` und `Nachname` sind nicht unterstützt. Solche Dubletten müssen vor dem Betrieb im Tab `Mitglieder` bereinigt werden.
+- `EMail` wird für Benachrichtigungen verwendet, ist aber nicht der Identitätsschlüssel.
 
 ## 5. Automatisierung einrichten
 Das System stellt folgende Zeit- oder Editor-Einstiegspunkte bereit:
@@ -165,6 +168,10 @@ Alle Felder sind Pflicht.
 Nach erfolgreicher Registrierung zeigt die Web-App direkt die Auswahl der Trainings-Abonnements an.
 Zusätzlich zeigt sie pro konfiguriertem Trainings-Tab an, ob der Name dort bereits gefunden wurde. Zeilen mit nur einem Vornamen werden als mehrdeutig markiert und müssen manuell geprüft werden.
 
+Wenn `Vorname` und `Nachname` bereits in `Mitglieder` existieren, behandelt die Web-App den ersten Schritt als Aktualisierung dieses bestehenden Mitglieds. Im zweiten Schritt werden die bereits gespeicherten Trainings-Abonnements vorausgewählt, und die Seite zeigt einen Hinweis mit der aktuell registrierten E-Mail-Adresse.
+
+Nach dem Abschicken des zweiten Schritts speichert die Anwendung die gewählten Abonnements im privaten Tab `Mitglieder`. Für ausgewählte Trainingsquellen mit Status `Noch nicht im Tab` legt sie zusätzlich eine neue Mitgliederzeile im entsprechenden öffentlichen Trainings-Tab an. Bei `Bereits eingetragen`, `Vorname unklar` oder `Geschlecht stimmt nicht` erfolgt bewusst kein automatischer Eintrag.
+
 ### Test 5 – Benachrichtigungseinstellungen über POST
 Die Pflege der Trainings-Abonnements läuft getrennt von der Registrierung:
 
@@ -176,7 +183,7 @@ subscribedTrainingIds=wed-mixed,mon-late
 
 `subscribedTrainingIds` erwartet eine komma- oder semikolon-getrennte Liste von `TrainingsId`-Werten. Ein leerer Wert entfernt alle Abonnements.
 
-Dieselbe Seite wird sowohl im zweiten Registrierungsschritt als auch ueber spaetere E-Mail-Links zur Aenderung der Benachrichtigungen verwendet.
+Dieselbe Seite wird sowohl im zweiten Registrierungsschritt als auch ueber den Reminder-Mail-Link `Benachrichtigungseinstellungen aktualisieren` zur Aenderung der Benachrichtigungen verwendet.
 
 ### Test 6 – Trainer manuell freischalten
 Wenn eine Person Trainerrechte erhalten soll, pflegt die Script-Administration dies direkt im privaten Tab `Mitglieder`, indem `Rolle` von `Mitglied` auf `Trainer` gesetzt wird.
@@ -187,7 +194,7 @@ Erwartung: Erst danach erhält die Person Trainer-spezifische Fähigkeiten wie T
 - Prüfen Sie bei Bootstrap-Fehlern, dass das Script container-gebunden an das richtige private Sheet ist.
 - Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_OFFSETS` gesetzt sind.
 - Prüfen Sie in `Trainingsquellen`, dass `DatumsKopfZeile`, `MitgliederStartZeile`, Vorname-, Nachname-, optionale Geschlechts- und Startspalte gepflegt sind.
-- Prüfen Sie in `Mitglieder`, dass Vorname, Nachname, EMail und Rolle vorhanden sind.
+- Prüfen Sie in `Mitglieder`, dass Vorname, Nachname, EMail, Rolle und MitgliedId vorhanden sind und dass keine doppelten Namen existieren.
 - Prüfen Sie bei Metadaten-Problemen die privaten Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` auf unvollständige oder doppelte Zeilen.
 - Prüfen Sie die `Executions`-Ansicht und den privaten Tab `Systemprotokoll` auf Laufzeitfehler.
 

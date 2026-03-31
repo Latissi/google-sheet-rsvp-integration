@@ -68,13 +68,15 @@ Regeln:
 
 ### Tab `Mitglieder`
 
-| Vorname | Nachname | Geschlecht | EMail | Rolle | AbonnierteTrainingsIds |
-|---------|----------|------------|-------|-------|------------------------|
-| `Max` | `Mustermann` | `m` | `max.mustermann@email.com` | `Mitglied` | `wed-mixed` |
-| `Anna` | `Admin` | `w` | `anna@email.com` | `Trainer` | `wed-mixed` |
+| Vorname | Nachname | Geschlecht | EMail | Rolle | AbonnierteTrainingsIds | MitgliedId |
+|---------|----------|------------|-------|-------|------------------------|------------|
+| `Max` | `Mustermann` | `m` | `max.mustermann@email.com` | `Mitglied` | `wed-mixed` | `max::mustermann` |
+| `Anna` | `Admin` | `w` | `anna@email.com` | `Trainer` | `wed-mixed` | `anna::admin` |
 
 Regeln:
-- `Vorname` und `Nachname` bilden gemeinsam die interne `memberId`.
+- Die `MitgliedId` wird beim ersten Schreiben automatisch als normalisierte Form von `Vorname::Nachname` berechnet und stabil im Tab gespeichert. Sie darf danach nicht mehr geändert werden.
+- Doppelte Kombinationen aus `Vorname` und `Nachname` sind nicht erlaubt. Solche Zeilen muessen vor dem Betrieb bereinigt werden.
+- `EMail` dient nur dem Versand von Benachrichtigungen und ist kein Identitaetsschluessel.
 - `Rolle` darf nur `Mitglied` oder `Trainer` sein.
 - Alle Personen, die RSVP oder Benachrichtigungen nutzen, müssen in diesem Tab vorhanden sein.
 - E-Mail-Empfänger fuer Erinnerungen, Absagen und Trainerberichte werden direkt aus diesem Tab gelesen.
@@ -164,6 +166,10 @@ Pflichtparameter:
 
 Nach dem ersten Registrierungsschritt zeigt die Web-App pro konfiguriertem Trainings-Tab an, ob die Person dort bereits mit passendem Vor- und Nachnamen und, falls konfiguriert, passendem Geschlecht gefunden wurde. Wenn nur ein Vorname gefunden wird, wird der Tab als mehrdeutig markiert und muss manuell geprüft werden.
 
+Existiert fuer `Vorname` und `Nachname` bereits ein Mitglied, behandelt die Web-App diesen Schritt als Aktualisierung des bestehenden Mitglieds. Im zweiten Schritt werden die aktuellen Abonnements vorausgewählt, und die Seite zeigt die derzeit registrierte E-Mail-Adresse an.
+
+Nach dem zweiten Registrierungsschritt schreibt die Web-App die gewählten Trainings-Abonnements in den privaten Tab `Mitglieder`. Falls eine ausgewählte Trainingsquelle im öffentlichen Blatt den Status `not-found` hat, fügt die Anwendung zusätzlich eine neue Mitgliederzeile am Ende des konfigurierten Mitgliederbereichs dieses Tabs ein. Quellen mit `matched`, `ambiguous` oder `gender-mismatch` werden nicht automatisch ergänzt.
+
 ## 4. Benachrichtigungseinstellungen über die Web-App
 Pflichtparameter:
 
@@ -173,7 +179,7 @@ Pflichtparameter:
 
 `subscribedTrainingIds` ist eine komma- oder semikolon-getrennte Liste von `TrainingsId`-Werten aus `Trainingsdefinitionen`. Ein leerer Wert leert die Abonnements der Person.
 
-Dieselbe Preferences-Seite wird sowohl im zweiten Schritt der Registrierung als auch fuer spaetere Aenderungen der Benachrichtigungseinstellungen verwendet.
+Dieselbe Preferences-Seite wird sowohl im zweiten Schritt der Registrierung als auch ueber den Reminder-Mail-Link `Benachrichtigungseinstellungen aktualisieren` fuer spaetere Aenderungen der Benachrichtigungseinstellungen verwendet.
 
 ## 5. Validierung
 Typische Fehler sind fehlende Konfigurationsschlüssel, fehlende Spalten im Tab `Mitglieder` oder unvollständige Trainingsdefinitionen.

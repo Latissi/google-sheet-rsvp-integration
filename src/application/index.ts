@@ -5,6 +5,7 @@ export * from './notifications/SendTrainingReminderService';
 export * from './preferences/UpdateSubscriptionPreferencesService';
 export * from './registration/PreviewPublicSourceRegistrationMatchesService';
 export * from './registration/RegisterMemberService';
+export * from './registration/SyncPublicSourceMembersOnOnboardingService';
 export * from './rsvp/SubmitRsvpService';
 export * from './rsvp/SyncAttendanceService';
 export * from './training/CancelTrainingSessionService';

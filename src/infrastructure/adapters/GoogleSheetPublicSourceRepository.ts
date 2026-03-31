@@ -5,6 +5,7 @@ import {
   PublicSourceRegistrationMatch,
   PublicTrainingSource,
   RegistrationMatchCriteria,
+  UserRecord,
 } from '../../domain/types';
 import { MemberRowUserMatcher } from './MemberRowUserMatcher';
 import { ISheetGateway } from '../gateway/ISheetGateway';
@@ -29,6 +30,38 @@ export class GoogleSheetPublicSourceRepository implements IPublicSourceRepositor
     return this.configurationProvider
       .getPublicTrainingSources()
       .map(source => this.getPublicSourceRegistrationMatch(source, criteria));
+  }
+
+  appendMemberToPublicSource(source: PublicTrainingSource, user: UserRecord): void {
+    const bounds = this.getTableBounds(source.tableRange);
+    const rawTable = this.getSourceTable(source);
+    const memberStartRowIndex = this.getMemberStartRowIndex(source, bounds, rawTable.length);
+    const firstNameIndex = this.getMemberRowsFirstNameIndex(source, bounds);
+    const lastNameIndex = this.getMemberRowsLastNameIndex(source, bounds);
+    const genderIndex = this.getMemberRowsGenderIndex(source, bounds);
+    const targetRowIndex = this.findFirstEmptyMemberRowIndex(rawTable, memberStartRowIndex);
+    const rowWidth = Math.max(
+      firstNameIndex + 1,
+      lastNameIndex + 1,
+      (genderIndex ?? -1) + 1,
+      ...rawTable.map(row => row.length),
+    );
+    const rowValues = new Array(Math.max(rowWidth, 0)).fill('');
+
+    rowValues[firstNameIndex] = user.personName.firstName;
+    rowValues[lastNameIndex] = user.personName.lastName;
+    if (genderIndex !== null) {
+      rowValues[genderIndex] = user.gender ?? '';
+    }
+
+    const writeOptions = { spreadsheetId: this.configurationProvider.getPublicSheetId() };
+    if (targetRowIndex !== null) {
+      this.gateway.setRowValues(source.sheetName, bounds.startRow + targetRowIndex, rowValues, writeOptions);
+    } else {
+      this.gateway.appendRow(source.sheetName, rowValues, writeOptions);
+    }
+
+    this.invalidateSourceCache(source);
   }
 
   private getPublicSourceRegistrationMatch(
@@ -111,7 +144,7 @@ export class GoogleSheetPublicSourceRepository implements IPublicSourceRepositor
   }
 
   private getSourceTable(source: PublicTrainingSource): unknown[][] {
-    const cacheKey = `${source.sheetName}::${source.tableRange ?? ''}`;
+    const cacheKey = this.getSourceTableCacheKey(source);
     const cached = this.sourceTableCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -124,6 +157,25 @@ export class GoogleSheetPublicSourceRepository implements IPublicSourceRepositor
     });
     this.sourceTableCache.set(cacheKey, rawTable);
     return rawTable;
+  }
+
+  private getSourceTableCacheKey(source: PublicTrainingSource): string {
+    return `${source.sheetName}::${source.tableRange ?? ''}`;
+  }
+
+  private invalidateSourceCache(source: PublicTrainingSource): void {
+    this.sourceTableCache.delete(this.getSourceTableCacheKey(source));
+  }
+
+  private findFirstEmptyMemberRowIndex(rawTable: unknown[][], memberStartRowIndex: number): number | null {
+    for (let rowIndex = memberStartRowIndex; rowIndex < rawTable.length; rowIndex += 1) {
+      const rowValues = rawTable[rowIndex] ?? [];
+      if (rowValues.every(cell => String(cell ?? '').trim() === '')) {
+        return rowIndex;
+      }
+    }
+
+    return null;
   }
 
   private getMemberStartRowIndex(source: PublicTrainingSource, bounds: TableBounds, tableHeight: number): number {

@@ -4,19 +4,13 @@ import {
   SubmitRsvpRequest,
   UpdateSubscriptionPreferencesRequest,
 } from '../application';
+import { createCompositeMemberId } from '../domain/types';
 import { TrainingSession, UserRecord } from '../domain/types';
 import { getRuntimeLogger, sanitizeLogMessage } from './logging';
 
 // ── Local type aliases ────────────────────────────────────────────────────────
 
 type RsvpResponse = Exclude<SubmitRsvpRequest['rsvpStatus'], 'Pending'>;
-
-// ── Internal lookup interfaces ────────────────────────────────────────────────
-
-interface RegistrationUserLookup {
-  getUserByEmail(email: string): UserRecord | null;
-  getUserByName(name: string): UserRecord | null;
-}
 
 interface CancellationUserLookup {
   getUserByMemberId(memberId: string): UserRecord | null;
@@ -73,6 +67,8 @@ export interface RsvpResponsePayload {
 export interface RegistrationResponsePayload extends RsvpResponsePayload {
   memberId?: string;
   created?: boolean;
+  registeredEmail?: string;
+  selectedTrainingIds?: string[];
 }
 
 export interface CancelTrainingConfirmationPayload extends RsvpResponsePayload {
@@ -168,7 +164,6 @@ export function handleRsvpRequest(
 export function handleRegistrationRequest(
   parameters: RegistrationRequestParameters,
   registerMemberService: RegisterMemberExecutor,
-  userLookup: RegistrationUserLookup,
   now: string = new Date().toISOString(),
 ): RegistrationResponsePayload {
   const action = (parameters.action ?? '').trim().toLowerCase();
@@ -191,11 +186,8 @@ export function handleRegistrationRequest(
     };
   }
 
-  const existingUser = userLookup.getUserByEmail(email)
-    ?? userLookup.getUserByName(`${firstName} ${lastName}`);
-  const memberId = existingUser?.memberId;
-
   try {
+    const memberId = createCompositeMemberId(firstName, lastName);
     const result = registerMemberService.execute({
       memberId,
       email,
@@ -212,9 +204,11 @@ export function handleRegistrationRequest(
         : 'Danke, deine Registrierung wurde aktualisiert.',
       memberId: result.user.memberId,
       created: result.created,
+      registeredEmail: result.user.email,
+      selectedTrainingIds: result.user.subscribedTrainingIds,
     };
   } catch (error) {
-    logPublicRequestError('register', error, { email, memberId });
+    logPublicRequestError('register', error, { email, memberId: createCompositeMemberId(firstName, lastName) });
     return {
       ok: false,
       message: buildVerbosePublicErrorMessage(PUBLIC_REGISTRATION_ERROR_MESSAGE, error),
@@ -241,7 +235,6 @@ export function handleSubscriptionPreferencesRequest(
       message: 'Incomplete preferences request. Required parameters: memberId, subscribedTrainingIds.',
     };
   }
-
   try {
     updateSubscriptionPreferencesService.execute({
       memberId,

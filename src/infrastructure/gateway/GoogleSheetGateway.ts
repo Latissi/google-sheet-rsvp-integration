@@ -50,16 +50,19 @@ export class GoogleSheetGateway implements ISheetGateway {
   setRowValues(sheetName: string, rowIndex: number, values: unknown[], options?: SheetWriteOptions): void {
     const sheet = this.getSheet(sheetName, options);
     sheet.getRange(rowIndex, 1, 1, values.length).setValues([values]);
+    SpreadsheetApp.flush();
   }
 
   setCellValue(sheetName: string, rowIndex: number, columnIndex: number, value: unknown, options?: SheetWriteOptions): void {
     const sheet = this.getSheet(sheetName, options);
     sheet.getRange(rowIndex, columnIndex, 1, 1).setValue(value);
+    SpreadsheetApp.flush();
   }
 
   appendRow(sheetName: string, values: unknown[], options?: SheetWriteOptions): void {
     const sheet = this.getSheet(sheetName, options);
     sheet.appendRow(values);
+    SpreadsheetApp.flush();
   }
 
   ensureSheetHeaders(sheetName: string, headers: string[], options?: SheetWriteOptions): void {

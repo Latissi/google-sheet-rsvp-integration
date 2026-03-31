@@ -2,6 +2,9 @@ import { IConfigurationProvider } from '../../../domain/ports/IConfigurationProv
 import {
   PublicTrainingSource,
   ReminderPolicy,
+  createPersonName,
+  getRoleDefinition,
+  UserRecord,
 } from '../../../domain/types';
 import { GoogleSheetPublicSourceRepository } from '../../../infrastructure/adapters/GoogleSheetPublicSourceRepository';
 import { MockSheetGateway } from '../../mocks/MockSheetGateway';
@@ -149,5 +152,36 @@ describe('GoogleSheetPublicSourceRepository', () => {
     expect(matches).toHaveLength(2);
     expect(matches[0]).toMatchObject({ sourceId: 'club-rsvp', status: 'matched' });
     expect(matches[1]).toMatchObject({ sourceId: 'late-group', status: 'not-found' });
+  });
+
+  it('writes a new member row into the first empty member slot of a public source', () => {
+    const { gateway, repository } = createRepository([SOURCE_WITH_GENDER], {
+      'RSVP Übersicht': [
+        ['Vorname', 'Nachname', 'Geschlecht', new Date('2026-03-11T00:00:00.000Z')],
+        ['Alice', 'Example', 'w', 'x'],
+        ['', '', '', ''],
+      ],
+    });
+    const user: UserRecord = {
+      memberId: 'bob::example',
+      name: 'Bob Example',
+      email: 'bob@example.com',
+      gender: 'm',
+      role: 'Mitglied',
+      roleDefinition: getRoleDefinition('Mitglied'),
+      personName: createPersonName('Bob', 'Example'),
+      subscriptions: [],
+      subscribedTrainingIds: ['wed-mixed'],
+      subscribedTrainings: [],
+    };
+
+    repository.appendMemberToPublicSource(SOURCE_WITH_GENDER, user);
+
+    expect(gateway.getUpdatesCount()).toBe(1);
+    expect(gateway.updatedRows[0]).toEqual({
+      sheetName: 'RSVP Übersicht',
+      rowIndex: 3,
+      values: ['Bob', 'Example', 'm', ''],
+    });
   });
 });

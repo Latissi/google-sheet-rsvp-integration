@@ -93,7 +93,7 @@ export class MailNotificationSender implements INotificationSender {
       '',
       `Zusagen: ${acceptUrl}`,
       `Absagen: ${declineUrl}`,
-      `Benachrichtigungen anpassen: ${preferencesUrl}`,
+      `Benachrichtigungseinstellungen aktualisieren: ${preferencesUrl}`,
       ...(cancelUrl ? [`Training absagen: ${cancelUrl}`] : []),
     ].join('\n');
     const htmlBody = [
@@ -104,7 +104,7 @@ export class MailNotificationSender implements INotificationSender {
       '</ul>',
       `<p><a href="${escapeHtml(acceptUrl)}">Teilnahme zusagen</a></p>`,
       `<p><a href="${escapeHtml(declineUrl)}">Teilnahme absagen</a></p>`,
-      `<p><a href="${escapeHtml(preferencesUrl)}">Benachrichtigungen anpassen</a></p>`,
+      `<p><a href="${escapeHtml(preferencesUrl)}">Benachrichtigungseinstellungen aktualisieren</a></p>`,
       ...(cancelUrl ? [`<p><a href="${escapeHtml(cancelUrl)}">Training absagen</a></p>`] : []),
     ].join('');
 

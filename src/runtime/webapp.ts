@@ -7,6 +7,7 @@ import {
   handleCancelTrainingConfirmationRequest,
   handleCancelTrainingRequest,
   handleRegistrationRequest,
+  RegistrationResponsePayload,
   handleRsvpRequest,
   handleSubscriptionPreferencesRequest,
   parseListParameter,
@@ -137,15 +138,18 @@ export function doPost(
       : action === 'preferences'
         ? handleSubscriptionPreferencesRequest(parameters, runtime.updateSubscriptionPreferencesService)
       : action === 'register'
-        ? handleRegistrationRequest(parameters, runtime.registerMemberService, runtime.userRepository)
+        ? handleRegistrationRequest(parameters, runtime.registerMemberService)
         : { ok: false, message: 'Invalid action.' };
 
     if (result.ok) {
+      const successfulRegistration = action === 'register'
+        ? result as RegistrationResponsePayload
+        : undefined;
       logger.info('doPost', 'completed', {
         action,
         memberId: parameters.memberId,
         sessionId: parameters.sessionId,
-        created: 'created' in result ? result.created : undefined,
+        created: successfulRegistration?.created,
       });
     } else {
       logger.warn('doPost', 'completed-with-warning', {
@@ -156,6 +160,7 @@ export function doPost(
     }
 
     if (isOnboardingFlow && action === 'register') {
+      const registrationResult = result as RegistrationResponsePayload;
       const registeredMemberId = 'memberId' in result && typeof result.memberId === 'string'
         ? result.memberId
         : '';
@@ -167,7 +172,10 @@ export function doPost(
       return renderPreferencesPage({
         memberId: registeredMemberId,
         trainingDefinitions: runtime.trainingDataRepository.getTrainingDefinitions(),
-        selectedTrainingIds: runtime.userRepository.getUserByMemberId(registeredMemberId)?.subscribedTrainingIds ?? [],
+        selectedTrainingIds: registrationResult.selectedTrainingIds ?? [],
+        existingRegistrationEmail: registrationResult.created === false
+          ? registrationResult.registeredEmail
+          : undefined,
         formAction: webAppUrl,
         trainingMatchStatusMap: getTrainingMatchStatusMapFromParameters(runtime, parameters),
         mode: 'onboarding',
@@ -186,6 +194,29 @@ export function doPost(
           mode: 'onboarding',
         });
       }
+
+      const memberId = parameters.memberId?.trim() ?? '';
+      const selectedTrainingIds = parseListParameter(parameters.subscribedTrainingIds);
+      const user = runtime.userRepository.getUserByMemberId(memberId);
+      if (!user) {
+        return renderPreferencesPage({
+          memberId,
+          trainingDefinitions: runtime.trainingDataRepository.getTrainingDefinitions(),
+          selectedTrainingIds,
+          message: buildVerbosePublicErrorMessage(
+            PUBLIC_PREFERENCES_ERROR_MESSAGE,
+            new Error(`User with memberId "${memberId}" not found.`),
+          ),
+          formAction: webAppUrl,
+          trainingMatchStatusMap: new Map(),
+          mode: 'onboarding',
+        });
+      }
+
+      runtime.syncPublicSourceMembersOnOnboardingService.execute({
+        user,
+        selectedTrainingIds,
+      });
 
       return renderOnboardingCompletionPage();
     }

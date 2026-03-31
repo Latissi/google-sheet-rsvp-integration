@@ -111,4 +111,25 @@ describe('UpdateSubscriptionPreferencesService', () => {
       subscribedTrainingIds: ['unknown-training'],
     })).toThrow('Unknown training ids: unknown-training');
   });
+
+  it('rejects stale member ids even when the email matches another user', () => {
+    const repository = new InMemoryUserRepository([{
+      memberId: 'alice::example',
+      name: 'Alice Example',
+      email: 'alice@example.com',
+      gender: 'w',
+      role: 'Mitglied',
+      roleDefinition: getRoleDefinition('Mitglied'),
+      personName: createPersonName('Alice', 'Example'),
+      subscriptions: [],
+      subscribedTrainingIds: [],
+      subscribedTrainings: [],
+    }]);
+    const service = new UpdateSubscriptionPreferencesService(repository, new StaticTrainingDefinitionLookup(['wed-mixed']));
+
+    expect(() => service.execute({
+      memberId: 'stale::memberid',
+      subscribedTrainingIds: ['wed-mixed'],
+    })).toThrow('User with memberId "stale::memberid" not found.');
+  });
 });

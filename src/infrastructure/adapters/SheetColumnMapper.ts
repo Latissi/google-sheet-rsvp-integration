@@ -7,12 +7,13 @@ export function normalizeHeader(value: unknown): string {
 
 export function getColumnIndex(headers: unknown[], candidates: string[]): number | undefined {
   const normalizedCandidates = new Set(candidates.map(candidate => normalizeHeader(candidate)));
-  return headers.findIndex(header => normalizedCandidates.has(normalizeHeader(header)));
+  const index = headers.findIndex(header => normalizedCandidates.has(normalizeHeader(header)));
+  return index === -1 ? undefined : index;
 }
 
 export function getRequiredColumnIndex(headers: unknown[], candidates: string[]): number {
   const index = getColumnIndex(headers, candidates);
-  if (index === -1 || index === undefined) {
+  if (index === undefined) {
     throw new Error(`Missing required user sheet column: ${candidates[0]}`);
   }
   return index;

@@ -41,6 +41,7 @@ export function buildRegistrationPageHtml(
 
 export function buildPreferencesPageHtml(options: {
   memberId: string;
+  existingRegistrationEmail?: string;
   trainingDefinitions: TrainingDefinition[];
   selectedTrainingIds?: string[];
   message?: string;
@@ -51,6 +52,9 @@ export function buildPreferencesPageHtml(options: {
   const isOnboarding = options.mode !== 'manage';
   const selectedTrainingIds = new Set(options.selectedTrainingIds ?? []);
   const matchMap = options.trainingMatchStatusMap ?? new Map<string, PublicSourceRegistrationMatchStatus>();
+  const existingRegistrationNotice = isOnboarding && options.existingRegistrationEmail
+    ? `<p class="notice">Du bist bereits fuer E-Mail-Benachrichtigungen mit ${escapeHtml(options.existingRegistrationEmail)} registriert. Du kannst deine Trainings-Erinnerungen hier aktualisieren.</p>`
+    : '';
   const trainingCards = buildTrainingOptions(options.trainingDefinitions).map(training => {
     const checked = selectedTrainingIds.has(training.trainingId) ? ' checked' : '';
     const matchStatus = matchMap.get(training.trainingId);
@@ -66,6 +70,7 @@ export function buildPreferencesPageHtml(options: {
       isOnboarding
         ? '<p>Wähle die Trainings, für die du Erinnerungen und RSVP-Links erhalten möchtest.</p>'
         : '<p>Aktualisiere hier deine Trainings, für die du Erinnerungen und RSVP-Links erhalten möchtest.</p>',
+      existingRegistrationNotice,
       options.message ? `<p class="notice">${escapeHtml(options.message)}</p>` : '',
       `<form method="post" action="${escapeHtml(options.formAction ?? '')}" target="_top" onsubmit="syncTrainingIds()">`,
       '<input type="hidden" name="action" value="preferences" />',
@@ -109,6 +114,7 @@ export function renderRegistrationPage(
 
 export function renderPreferencesPage(options: {
   memberId: string;
+  existingRegistrationEmail?: string;
   trainingDefinitions: TrainingDefinition[];
   selectedTrainingIds?: string[];
   message?: string;

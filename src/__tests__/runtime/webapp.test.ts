@@ -190,22 +190,63 @@ describe('webapp RSVP handler', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       gender: 'w',
-    }, service, new EmptyUserLookup(), '2026-03-09T12:00:00.000Z');
+    }, service, '2026-03-09T12:00:00.000Z');
 
     expect(result).toEqual({
       ok: true,
       message: 'Danke, deine Registrierung wurde gespeichert.',
       memberId: 'ada::lovelace',
       created: true,
+      registeredEmail: 'ada@example.com',
+      selectedTrainingIds: [],
     });
     expect(service.requests).toEqual([{
-      memberId: undefined,
+      memberId: 'ada::lovelace',
       email: 'ada@example.com',
       role: 'Mitglied',
       firstName: 'Ada',
       lastName: 'Lovelace',
       gender: 'w',
     }]);
+  });
+
+  it('returns existing-member registration metadata for the onboarding preferences page', () => {
+    const service = {
+      execute(request: RegisterMemberRequest): { user: UserRecord; created: boolean } {
+        return {
+          user: {
+            memberId: request.memberId ?? 'ada::lovelace',
+            name: 'Ada Lovelace',
+            email: 'ada@example.com',
+            gender: 'w',
+            role: getRoleDefinition('Mitglied').roleId,
+            roleDefinition: getRoleDefinition('Mitglied'),
+            personName: createPersonName('Ada', 'Lovelace'),
+            subscriptions: [{ trainingId: 'wed-mixed', notificationChannel: 'email' }],
+            subscribedTrainingIds: ['wed-mixed'],
+            subscribedTrainings: ['Mittwoch'],
+          },
+          created: false,
+        };
+      },
+    };
+
+    const result = handleRegistrationRequest({
+      action: 'register',
+      email: 'ada@example.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      gender: 'w',
+    }, service, '2026-03-09T12:00:00.000Z');
+
+    expect(result).toEqual({
+      ok: true,
+      message: 'Danke, deine Registrierung wurde aktualisiert.',
+      memberId: 'ada::lovelace',
+      created: false,
+      registeredEmail: 'ada@example.com',
+      selectedTrainingIds: ['wed-mixed'],
+    });
   });
 
   it('rejects registration requests without action register', () => {
@@ -216,7 +257,7 @@ describe('webapp RSVP handler', () => {
       role: 'Mitglied',
       firstName: 'Ada',
       lastName: 'Lovelace',
-    }, service, new EmptyUserLookup());
+    }, service);
 
     expect(result).toEqual({
       ok: false,
@@ -233,7 +274,7 @@ describe('webapp RSVP handler', () => {
       email: 'ada@example.com',
       firstName: 'Ada',
       lastName: 'Lovelace',
-    }, service, new EmptyUserLookup());
+    }, service);
 
     expect(result).toEqual({
       ok: false,
@@ -328,6 +369,19 @@ describe('webapp RSVP handler', () => {
     expect(html).not.toContain('Abgleich mit den Trainings-Tabs');
   });
 
+  it('renders an onboarding preferences page with an existing-member notice', () => {
+    const html = buildPreferencesPageHtml({
+      memberId: 'ada::lovelace',
+      existingRegistrationEmail: 'ada@example.com',
+      mode: 'onboarding',
+      formAction: 'https://script.google.com/macros/s/test/exec',
+      trainingDefinitions: [],
+    });
+
+    expect(html).toContain('Du bist bereits fuer E-Mail-Benachrichtigungen mit ada@example.com registriert.');
+    expect(html).toContain('Du kannst deine Trainings-Erinnerungen hier aktualisieren.');
+  });
+
   it('renders a reusable manage-preferences page without onboarding flow state', () => {
     const html = buildPreferencesPageHtml({
       memberId: 'ada::lovelace',
@@ -343,6 +397,18 @@ describe('webapp RSVP handler', () => {
 
     expect(html).toContain('Einstellungen speichern');
     expect(html).not.toContain('name="flow" value="onboarding"');
+  });
+
+  it('does not render the existing-member notice in manage mode', () => {
+    const html = buildPreferencesPageHtml({
+      memberId: 'ada::lovelace',
+      existingRegistrationEmail: 'ada@example.com',
+      mode: 'manage',
+      formAction: 'https://script.google.com/macros/s/test/exec',
+      trainingDefinitions: [],
+    });
+
+    expect(html).not.toContain('bereits fuer E-Mail-Benachrichtigungen');
   });
 
   it('prefers form body parameters over query parameters in doPost parsing', () => {

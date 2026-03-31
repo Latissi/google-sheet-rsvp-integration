@@ -14,6 +14,7 @@ import { ISheetGateway } from '../gateway/ISheetGateway';
 import { getCellValue, getColumnIndex, getRequiredColumnIndex, parseDelimitedList } from './SheetColumnMapper';
 
 interface UserSheetSchema {
+  memberId: number;
   firstName: number;
   lastName: number;
   email: number;
@@ -34,6 +35,7 @@ export class PrivateSheetUserRepository implements IUserRepository {
   private getUserSheetSchema(rawData: unknown[][]): UserSheetSchema {
     const headers = rawData[0] ?? [];
     return {
+      memberId: getRequiredColumnIndex(headers, ['MitgliedId']),
       firstName: getRequiredColumnIndex(headers, ['Vorname']),
       lastName: getRequiredColumnIndex(headers, ['Nachname']),
       email: getRequiredColumnIndex(headers, ['EMail']),
@@ -63,11 +65,12 @@ export class PrivateSheetUserRepository implements IUserRepository {
     return parseGender(rawGender);
   }
 
+  private getRowEmail(row: unknown[], schema: UserSheetSchema): string {
+    return getCellValue(row, schema.email).trim();
+  }
+
   private getRowMemberId(row: unknown[], schema: UserSheetSchema): string {
-    const firstName = getCellValue(row, schema.firstName);
-    const lastName = getCellValue(row, schema.lastName);
-    const personName = createPersonName(firstName, lastName);
-    return createCompositeMemberIdFromPersonName(personName);
+    return getCellValue(row, schema.memberId).trim();
   }
 
   private parseTrainingDays(value: string): TrainingDay[] {
@@ -78,6 +81,7 @@ export class PrivateSheetUserRepository implements IUserRepository {
   private buildUserRow(user: UserRecord, schema: UserSheetSchema, currentWidth: number): unknown[] {
     const highestIndex = Math.max(
       currentWidth - 1,
+      schema.memberId,
       schema.email,
       schema.gender ?? -1,
       schema.role,
@@ -87,6 +91,7 @@ export class PrivateSheetUserRepository implements IUserRepository {
       schema.subscribedTrainingIds ?? -1,
     );
     const row = new Array(Math.max(highestIndex + 1, 0)).fill('');
+    row[schema.memberId] = user.memberId;
     row[schema.firstName] = user.personName.firstName;
     row[schema.lastName] = user.personName.lastName;
     row[schema.email] = user.email;
@@ -110,6 +115,7 @@ export class PrivateSheetUserRepository implements IUserRepository {
 
     const schema = this.getUserSheetSchema(rawData);
     const users: UserRecord[] = [];
+    const assignedMemberIds = new Set<string>();
 
     for (let i = 1; i < rawData.length; i++) {
       const row = rawData[i];
@@ -121,16 +127,30 @@ export class PrivateSheetUserRepository implements IUserRepository {
       if (!personName.firstName || !personName.lastName) {
         throw new Error(`User row ${i + 1} must define both firstName and lastName for the composite member key.`);
       }
-      const memberId = createCompositeMemberIdFromPersonName(personName);
       const name = personName.fullName;
-      const email = getCellValue(row, schema.email);
+      const email = this.getRowEmail(row, schema);
       const gender = this.getGender(row, schema);
       const role = parseRole(getCellValue(row, schema.role));
       const subRaw = getCellValue(row, schema.subscribedTrainings);
       const subscribedTrainingIdsRaw = getCellValue(row, schema.subscribedTrainingIds);
 
-      if (!memberId || !email) {
-        console.warn(`User with memberId "${memberId}" has no email.`);
+      const memberId = this.getRowMemberId(row, schema);
+      if (!memberId) {
+        throw new Error(`User row ${i + 1} must define MitgliedId.`);
+      }
+
+      const expectedMemberId = createCompositeMemberIdFromPersonName(personName);
+      if (memberId !== expectedMemberId) {
+        throw new Error(`User row ${i + 1} has MitgliedId "${memberId}" but expected "${expectedMemberId}".`);
+      }
+
+      if (assignedMemberIds.has(memberId)) {
+        throw new Error(`Mitglieder contains duplicate MitgliedId "${memberId}".`);
+      }
+      assignedMemberIds.add(memberId);
+
+      if (!email) {
+        console.warn(`User row ${i + 1} has no email and will be skipped.`);
         continue;
       }
 
