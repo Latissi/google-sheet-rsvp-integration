@@ -69,7 +69,7 @@ describe('GoogleSheetPublicSourceRepository', () => {
     }]);
   });
 
-  it('reports first-name-only rows as ambiguous', () => {
+  it('ignores first-name-only rows and reports not-found', () => {
     const { repository } = createRepository([SOURCE_WITH_GENDER], {
       'RSVP Übersicht': [
         ['Vorname', 'Nachname', 'Geschlecht', new Date('2026-03-11T00:00:00.000Z')],
@@ -84,7 +84,7 @@ describe('GoogleSheetPublicSourceRepository', () => {
     })).toEqual([{
       sourceId: 'club-rsvp',
       sheetName: 'RSVP Übersicht',
-      status: 'ambiguous',
+      status: 'not-found',
     }]);
   });
 

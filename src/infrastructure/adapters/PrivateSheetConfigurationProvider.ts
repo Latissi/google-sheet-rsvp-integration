@@ -38,6 +38,7 @@ interface TrainingDefinitionSheetSchema {
 
 export class PrivateSheetConfigurationProvider implements IConfigurationProvider {
   private configCache: Map<string, string> | null = null;
+  private publicTrainingSourcesCache: PublicTrainingSource[] | null = null;
 
   private readonly CONFIG_SHEET = 'Konfiguration';
   private readonly PUBLIC_TRAINING_SOURCE_SHEET = 'Trainingsquellen';
@@ -429,7 +430,10 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
   }
 
   getPublicTrainingSources(): PublicTrainingSource[] {
-    return this.parseStructuredPublicTrainingSources();
+    if (!this.publicTrainingSourcesCache) {
+      this.publicTrainingSourcesCache = this.parseStructuredPublicTrainingSources();
+    }
+    return this.publicTrainingSourcesCache;
   }
 
   getReminderPolicy(): ReminderPolicy {

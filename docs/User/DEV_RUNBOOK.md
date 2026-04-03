@@ -166,11 +166,11 @@ lastName=<nachname>
 Alle Felder sind Pflicht.
 
 Nach erfolgreicher Registrierung zeigt die Web-App direkt die Auswahl der Trainings-Abonnements an.
-Zusätzlich zeigt sie pro konfiguriertem Trainings-Tab an, ob der Name dort bereits gefunden wurde. Zeilen mit nur einem Vornamen werden als mehrdeutig markiert und müssen manuell geprüft werden.
+Zusätzlich zeigt sie pro konfiguriertem Trainings-Tab an, ob der Name dort bereits gefunden wurde. Zeilen mit passendem Vornamen, aber leerem Nachnamen werden bei diesem Abgleich ignoriert.
 
 Wenn `Vorname` und `Nachname` bereits in `Mitglieder` existieren, behandelt die Web-App den ersten Schritt als Aktualisierung dieses bestehenden Mitglieds. Im zweiten Schritt werden die bereits gespeicherten Trainings-Abonnements vorausgewählt, und die Seite zeigt einen Hinweis mit der aktuell registrierten E-Mail-Adresse.
 
-Nach dem Abschicken des zweiten Schritts speichert die Anwendung die gewählten Abonnements im privaten Tab `Mitglieder`. Für ausgewählte Trainingsquellen mit Status `Noch nicht im Tab` legt sie zusätzlich eine neue Mitgliederzeile im entsprechenden öffentlichen Trainings-Tab an. Bei `Bereits eingetragen`, `Vorname unklar` oder `Geschlecht stimmt nicht` erfolgt bewusst kein automatischer Eintrag.
+Nach dem Abschicken des zweiten Schritts speichert die Anwendung die gewählten Abonnements im privaten Tab `Mitglieder`. Für ausgewählte Trainingsquellen mit Status `Noch nicht im Tab` legt sie zusätzlich eine neue Mitgliederzeile im entsprechenden öffentlichen Trainings-Tab an. Bei `Bereits eingetragen` oder `Geschlecht stimmt nicht` erfolgt bewusst kein automatischer Eintrag. Zeilen mit passendem Vornamen, aber leerem Nachnamen gelten auch hier als `Noch nicht im Tab`.
 
 ### Test 5 – Benachrichtigungseinstellungen über POST
 Die Pflege der Trainings-Abonnements läuft getrennt von der Registrierung:

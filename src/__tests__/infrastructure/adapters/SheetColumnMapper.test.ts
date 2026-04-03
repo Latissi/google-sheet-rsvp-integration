@@ -54,6 +54,11 @@ describe('SheetColumnMapper', () => {
     it('returns empty string for undefined index', () => {
       expect(getCellValue(['a', 'b'], undefined)).toBe('');
     });
+
+    it('serializes a Date value to an ISO date string (YYYY-MM-DD)', () => {
+      const d = new Date('2026-03-11T18:00:00.000Z');
+      expect(getCellValue([d], 0)).toBe('2026-03-11');
+    });
   });
 
   describe('normalizeHeader', () => {

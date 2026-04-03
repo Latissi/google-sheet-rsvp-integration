@@ -1,5 +1,5 @@
 import { TrainingSession } from '../domain/types';
-import { getSessionStartDate } from '../application/notifications/notificationUtils';
+import { assertValidDate, getSessionStartDate } from '../application/notifications/notificationUtils';
 import { createRuntimeContext } from './createRuntimeContext';
 import { getRuntimeLogger } from './logging';
 
@@ -70,9 +70,7 @@ export function runReminderDispatchWithRuntime(
   dispatchAt: string,
 ) {
   const dispatchDate = new Date(dispatchAt);
-  if (Number.isNaN(dispatchDate.getTime())) {
-    throw new Error('dispatchAt must be a valid ISO timestamp.');
-  }
+  assertValidDate(dispatchDate, 'dispatchAt');
 
   const result = runtime.sendTrainingReminderService.execute({ dispatchAt });
   runtime.trainingDataRepository.markLastSuccessfulReminderDispatchAt(dispatchAt);
@@ -139,9 +137,7 @@ export function runTrainerParticipationReportDispatchWithRuntime(
   windowHours: number = DEFAULT_TRAINER_REPORT_WINDOW_HOURS,
 ): TrainerParticipationDispatchResult {
   const dispatchDate = new Date(dispatchAt);
-  if (Number.isNaN(dispatchDate.getTime())) {
-    throw new Error('dispatchAt must be a valid ISO timestamp.');
-  }
+  assertValidDate(dispatchDate, 'dispatchAt');
   if (!Number.isFinite(windowHours) || windowHours <= 0) {
     throw new Error('windowHours must be a positive number.');
   }

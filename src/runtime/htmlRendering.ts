@@ -146,13 +146,14 @@ export function renderCancelTrainingConfirmation(
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      body { font-family: Arial, sans-serif; margin: 0; background: #f6f2eb; color: #1f2937; }
-      main { max-width: 32rem; margin: 3rem auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12); }
+      body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #F7F7F7; color: #1A1A2E; }
+      main { max-width: 32rem; margin: 3rem auto; background: #FFFFFF; border-radius: 12px; border-top: 4px solid #C41230; padding: 2rem; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
       h1 { margin-top: 0; font-size: 1.5rem; }
       p { line-height: 1.5; }
       form { margin-top: 1.5rem; }
-      button { background: #b42318; color: #fff; border: 0; border-radius: 999px; padding: 0.85rem 1.2rem; cursor: pointer; font-size: 1rem; }
-      a { color: #1d4ed8; }
+      button { background: #C41230; color: #fff; border: 0; border-radius: 999px; padding: 0.85rem 1.2rem; cursor: pointer; font-size: 1rem; transition: background 0.15s; }
+      button:hover { background: #9B0E24; }
+      a { color: #C41230; }
     </style>
   </head>
   <body>
@@ -183,25 +184,27 @@ function renderPublicPage(title: string, body: string): string {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       :root { color-scheme: light; }
-      body { margin: 0; background: linear-gradient(180deg, #f4efe7 0%, #efe4d2 100%); color: #1f2937; font-family: Georgia, "Times New Roman", serif; }
-      main { max-width: 42rem; margin: 2rem auto; background: rgba(255,255,255,0.94); border-radius: 18px; padding: 2rem; box-shadow: 0 18px 44px rgba(90, 58, 27, 0.14); }
+      body { margin: 0; background: #F7F7F7; color: #1A1A2E; font-family: Arial, Helvetica, sans-serif; }
+      main { max-width: 42rem; margin: 2rem auto; background: #FFFFFF; border-radius: 12px; border-top: 4px solid #C41230; padding: 2rem; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
       h1 { margin-top: 0; font-size: 2rem; }
       p { line-height: 1.6; }
       form { display: grid; gap: 1rem; margin-top: 1.5rem; }
       label { display: grid; gap: 0.35rem; font-weight: 600; }
       label span { font-size: 0.95rem; }
       input, select, button { font: inherit; }
-      input, select { border: 1px solid #cdbba7; border-radius: 12px; padding: 0.85rem 1rem; background: #fffdf9; }
-      button { border: 0; border-radius: 999px; padding: 0.95rem 1.4rem; background: #91522b; color: #fff; cursor: pointer; }
-      .notice { background: #fff3df; border: 1px solid #e8c896; border-radius: 12px; padding: 0.85rem 1rem; }
+      input, select { border: 1px solid #CCCCCC; border-radius: 8px; padding: 0.85rem 1rem; background: #FAFAFA; }
+      input:focus, select:focus { border-color: #C41230; outline: none; box-shadow: 0 0 0 3px rgba(196,18,48,0.12); }
+      button { border: 0; border-radius: 999px; padding: 0.95rem 1.4rem; background: #C41230; color: #fff; cursor: pointer; transition: background 0.15s; }
+      button:hover { background: #9B0E24; }
+      .notice { background: #FFF4F4; border: 1px solid #F0A0A0; border-radius: 8px; padding: 0.85rem 1rem; }
       .match-summary { margin: 1.2rem 0 1.5rem; display: grid; gap: 0.75rem; }
       .match-summary h2 { margin: 0; font-size: 1.15rem; }
       .match-list { display: grid; gap: 0.75rem; }
-      .match-card { border-radius: 14px; padding: 0.9rem 1rem; border: 1px solid #e7d5bf; background: #fffaf2; }
+      .match-card { border-radius: 8px; padding: 0.9rem 1rem; border: 1px solid #E5E5E5; background: #FAFAFA; }
       .match-card strong { display: block; margin-bottom: 0.25rem; }
       .match-card small { color: #6b7280; }
       .match-card.status-matched { background: #eef8ef; border-color: #9ac69d; }
-      .match-card.status-not-found { background: #fffaf2; border-color: #e7d5bf; }
+      .match-card.status-not-found { background: #FAFAFA; border-color: #E5E5E5; }
       .match-card.status-ambiguous { background: #fff4dd; border-color: #e1b86c; }
       .match-card.status-gender-mismatch { background: #fdeeee; border-color: #df9d9d; }
       .match-badge { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; margin: 0.2rem 0 0.15rem; vertical-align: middle; }
@@ -210,8 +213,8 @@ function renderPublicPage(title: string, body: string): string {
       .match-badge.status-ambiguous { background: #fef3c7; color: #78350f; }
       .match-badge.status-gender-mismatch { background: #fee2e2; color: #7f1d1d; }
       .options { display: grid; gap: 0.85rem; }
-      .option { display: flex; gap: 0.85rem; align-items: flex-start; border: 1px solid #e7d5bf; border-radius: 14px; padding: 0.9rem 1rem; background: #fffaf2; }
-      .option input { margin-top: 0.25rem; }
+      .option { display: flex; gap: 0.85rem; align-items: flex-start; border: 1px solid #E5E5E5; border-radius: 8px; padding: 0.9rem 1rem; background: #FAFAFA; }
+      .option input { margin-top: 0.25rem; accent-color: #C41230; }
       .option span { display: grid; gap: 0.2rem; }
       .option small { color: #6b7280; font-size: 0.92rem; }
       @media (max-width: 640px) { main { margin: 0; min-height: 100vh; border-radius: 0; } }

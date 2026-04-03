@@ -3,6 +3,7 @@ import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataReposit
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { AttendanceRecord, AttendanceSource, RsvpStatus } from '../../domain/types';
 import { ISyncAttendanceService } from './SyncAttendanceService';
+import { assertValidIsoTimestamp } from '../notifications/notificationUtils';
 
 export interface SubmitRsvpRequest {
   memberId: string;
@@ -26,7 +27,7 @@ export class SubmitRsvpService implements ISubmitRsvpService {
   ) {}
 
   execute(request: SubmitRsvpRequest): SubmitRsvpResult {
-    this.assertValidTimestamp(request.respondedAt, 'respondedAt');
+    assertValidIsoTimestamp(request.respondedAt, 'respondedAt');
 
     const user = this.userRepository.getUserByMemberId(request.memberId);
     if (!user) {
@@ -57,11 +58,5 @@ export class SubmitRsvpService implements ISubmitRsvpService {
     this.syncAttendanceService.execute({ record: attendance });
 
     return { attendance };
-  }
-
-  private assertValidTimestamp(value: string, label: string): void {
-    if (Number.isNaN(new Date(value).getTime())) {
-      throw new Error(`${label} must be a valid ISO timestamp.`);
-    }
   }
 }

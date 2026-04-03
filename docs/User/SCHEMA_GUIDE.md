@@ -164,11 +164,11 @@ Pflichtparameter:
 
 Öffentliche Registrierung legt immer eine Identität mit der Rolle `Mitglied` an und verwaltet keine Trainings-Abonnements. Eine spätere Umstellung auf `Trainer` erfolgt ausschließlich durch die Script-Administration.
 
-Nach dem ersten Registrierungsschritt zeigt die Web-App pro konfiguriertem Trainings-Tab an, ob die Person dort bereits mit passendem Vor- und Nachnamen und, falls konfiguriert, passendem Geschlecht gefunden wurde. Wenn nur ein Vorname gefunden wird, wird der Tab als mehrdeutig markiert und muss manuell geprüft werden.
+Nach dem ersten Registrierungsschritt zeigt die Web-App pro konfiguriertem Trainings-Tab an, ob die Person dort bereits mit passendem Vor- und Nachnamen und, falls konfiguriert, passendem Geschlecht gefunden wurde. Zeilen mit passendem Vornamen, aber leerem Nachnamen werden bei diesem Abgleich ignoriert.
 
 Existiert fuer `Vorname` und `Nachname` bereits ein Mitglied, behandelt die Web-App diesen Schritt als Aktualisierung des bestehenden Mitglieds. Im zweiten Schritt werden die aktuellen Abonnements vorausgewählt, und die Seite zeigt die derzeit registrierte E-Mail-Adresse an.
 
-Nach dem zweiten Registrierungsschritt schreibt die Web-App die gewählten Trainings-Abonnements in den privaten Tab `Mitglieder`. Falls eine ausgewählte Trainingsquelle im öffentlichen Blatt den Status `not-found` hat, fügt die Anwendung zusätzlich eine neue Mitgliederzeile am Ende des konfigurierten Mitgliederbereichs dieses Tabs ein. Quellen mit `matched`, `ambiguous` oder `gender-mismatch` werden nicht automatisch ergänzt.
+Nach dem zweiten Registrierungsschritt schreibt die Web-App die gewählten Trainings-Abonnements in den privaten Tab `Mitglieder`. Falls eine ausgewählte Trainingsquelle im öffentlichen Blatt den Status `not-found` hat, fügt die Anwendung zusätzlich eine neue Mitgliederzeile am Ende des konfigurierten Mitgliederbereichs dieses Tabs ein. Quellen mit `matched` oder `gender-mismatch` werden nicht automatisch ergänzt. Zeilen mit passendem Vornamen, aber leerem Nachnamen gelten in diesem Schritt ebenfalls als `not-found`.
 
 ## 4. Benachrichtigungseinstellungen über die Web-App
 Pflichtparameter:

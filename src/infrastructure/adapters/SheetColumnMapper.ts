@@ -23,7 +23,11 @@ export function getCellValue(row: unknown[], index?: number): string {
   if (index === undefined || index < 0 || index >= row.length) {
     return '';
   }
-  return String(row[index] ?? '').trim();
+  const value = row[index];
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  return String(value ?? '').trim();
 }
 
 export function parseDelimitedList(value: string): string[] {

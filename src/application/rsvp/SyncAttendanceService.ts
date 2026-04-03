@@ -1,6 +1,7 @@
 import { IApplicationService } from '../IApplicationService';
 import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
 import { AttendanceRecord, AttendanceSource } from '../../domain/types';
+import { assertValidIsoTimestamp } from '../notifications/notificationUtils';
 
 export interface SyncAttendanceRequest {
   record: AttendanceRecord;
@@ -25,7 +26,7 @@ export class SyncAttendanceService implements ISyncAttendanceService {
   constructor(private readonly trainingDataRepository: ITrainingDataRepository) {}
 
   execute(request: SyncAttendanceRequest): SyncAttendanceResult {
-    this.assertValidTimestamp(request.record.metadata.updatedAt, 'record.metadata.updatedAt');
+    assertValidIsoTimestamp(request.record.metadata.updatedAt, 'record.metadata.updatedAt');
 
     const existingRecord = this.trainingDataRepository
       .getAttendanceForSession(request.record.sessionId)
@@ -60,11 +61,5 @@ export class SyncAttendanceService implements ISyncAttendanceService {
 
     this.trainingDataRepository.saveAttendance(request.record);
     return { applied: true, reason: 'saved', existingRecord };
-  }
-
-  private assertValidTimestamp(value: string, label: string): void {
-    if (Number.isNaN(new Date(value).getTime())) {
-      throw new Error(`${label} must be a valid ISO timestamp.`);
-    }
   }
 }

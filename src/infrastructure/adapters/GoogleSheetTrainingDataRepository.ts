@@ -16,11 +16,16 @@ import {
 import { MemberRowUserMatcher } from './MemberRowUserMatcher';
 import { TrainingSessionDateParser } from './TrainingSessionDateParser';
 import { ISheetGateway } from '../gateway/ISheetGateway';
-
-interface TableBounds {
-  startRow: number;
-  startColumn: number;
-}
+import { getCellValue, normalizeHeader } from './SheetColumnMapper';
+import {
+  TableBounds,
+  getTableBounds,
+  getRelativeColumnIndex,
+  getMemberStartRowIndex,
+  getMemberRowsFirstNameIndex,
+  getMemberRowsLastNameIndex,
+  normalizeSheetText,
+} from './SheetTableUtils';
 
 interface SessionReferenceBase {
   source: PublicTrainingSource;
@@ -210,7 +215,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   }
 
   private readMemberRowsSource(source: PublicTrainingSource): SessionColumnReference[] {
-    const bounds = this.getTableBounds(source.tableRange);
+    const bounds = getTableBounds(source.tableRange);
     const rawTable = this.getSourceTable(source);
     if (rawTable.length === 0) {
       return [];
@@ -281,9 +286,9 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   private getAttendanceForMemberRowsSession(reference: SessionColumnReference): AttendanceRecord[] {
     const rawTable = this.getSourceTable(reference.source);
     const users = this.userRepository.getAllUsers();
-    const memberStartRowIndex = this.getMemberStartRowIndex(reference.source, reference.bounds, rawTable.length);
-    const firstNameIndex = this.getMemberRowsFirstNameIndex(reference.source, reference.bounds);
-    const lastNameIndex = this.getMemberRowsLastNameIndex(reference.source, reference.bounds);
+    const memberStartRowIndex = getMemberStartRowIndex(reference.source, reference.bounds, rawTable.length);
+    const firstNameIndex = getMemberRowsFirstNameIndex(reference.source, reference.bounds);
+    const lastNameIndex = getMemberRowsLastNameIndex(reference.source, reference.bounds);
     const columnIndex = reference.columnIndex;
 
     return rawTable
@@ -329,9 +334,9 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     }
 
     const rawTable = this.getSourceTable(reference.source);
-    const memberStartRowIndex = this.getMemberStartRowIndex(reference.source, reference.bounds, rawTable.length);
-    const firstNameIndex = this.getMemberRowsFirstNameIndex(reference.source, reference.bounds);
-    const lastNameIndex = this.getMemberRowsLastNameIndex(reference.source, reference.bounds);
+    const memberStartRowIndex = getMemberStartRowIndex(reference.source, reference.bounds, rawTable.length);
+    const firstNameIndex = getMemberRowsFirstNameIndex(reference.source, reference.bounds);
+    const lastNameIndex = getMemberRowsLastNameIndex(reference.source, reference.bounds);
 
     let absoluteRowIndex: number | null = null;
     for (let rowOffset = memberStartRowIndex; rowOffset < rawTable.length; rowOffset += 1) {
@@ -433,7 +438,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   }
 
   private getAttendanceStartIndex(source: PublicTrainingSource, bounds: TableBounds): number {
-    return this.getRelativeColumnIndex(source.attendance.startColumn, bounds);
+    return getRelativeColumnIndex(source.attendance.startColumn, bounds);
   }
 
   private getSourceTable(source: PublicTrainingSource): unknown[][] {
@@ -468,29 +473,10 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return relativeIndex;
   }
 
-  private getMemberStartRowIndex(source: PublicTrainingSource, bounds: TableBounds, tableHeight: number): number {
-    const relativeIndex = source.attendance.firstMemberRow - bounds.startRow;
-    if (!Number.isInteger(relativeIndex) || relativeIndex < 0) {
-      throw new Error(`Public training source "${source.sourceId}" defines firstMemberRow outside of tableRange.`);
-    }
-    return Math.min(relativeIndex, tableHeight);
-  }
 
-  private getMemberRowsFirstNameIndex(source: PublicTrainingSource, bounds: TableBounds): number {
-    return this.getRelativeColumnIndex(source.attendance.firstNameColumn, bounds);
-  }
-
-  private getMemberRowsLastNameIndex(source: PublicTrainingSource, bounds: TableBounds): number {
-    return this.getRelativeColumnIndex(source.attendance.lastNameColumn, bounds);
-  }
-
-  private getRelativeColumnIndex(columnA1: string, bounds: TableBounds): number {
-    const absoluteColumnIndex = this.columnToIndex(columnA1.replace(/[^A-Za-z]/g, ''));
-    return absoluteColumnIndex - bounds.startColumn;
-  }
 
   private parseAttendanceCell(value: unknown): RsvpStatus | null {
-    const normalized = this.normalizeText(value);
+    const normalized = normalizeSheetText(value);
     const raw = String(value ?? '').trim();
     if (!normalized && raw !== '-') {
       return null;
@@ -536,7 +522,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       throw new Error(`Public training source "${source.sourceId}" defines infoRow outside of tableRange.`);
     }
 
-    return this.getCellValue(rawTable[infoRowIndex] ?? [], columnIndex);
+    return getCellValue(rawTable[infoRowIndex] ?? [], columnIndex);
   }
 
   private isCancelledByAdditionalInfo(additionalInfo: string): boolean {
@@ -634,10 +620,10 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
         continue;
       }
 
-      const sessionId = this.getCellValue(row, sessionIdIndex);
-      const memberId = this.getCellValue(row, memberIdIndex);
-      const source = this.getCellValue(row, sourceIndex);
-      const updatedAt = this.getCellValue(row, updatedAtIndex);
+      const sessionId = getCellValue(row, sessionIdIndex);
+      const memberId = getCellValue(row, memberIdIndex);
+      const source = getCellValue(row, sourceIndex);
+      const updatedAt = getCellValue(row, updatedAtIndex);
       if (!sessionId || !memberId || !source || !updatedAt) {
         throw new Error(`Sheet "${ATTENDANCE_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowIndex + 1}.`);
       }
@@ -678,8 +664,8 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
         continue;
       }
 
-      const sessionId = this.getCellValue(row, sessionIdIndex);
-      const cancellationNotificationSentAt = this.getCellValue(row, sentAtIndex);
+      const sessionId = getCellValue(row, sessionIdIndex);
+      const cancellationNotificationSentAt = getCellValue(row, sentAtIndex);
       if (!sessionId || !cancellationNotificationSentAt) {
         throw new Error(`Sheet "${DISPATCH_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowIndex + 1}.`);
       }
@@ -715,9 +701,9 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
         continue;
       }
 
-      const sessionId = this.getCellValue(row, sessionIdIndex);
-      const offsetMinutes = this.getCellValue(row, offsetMinutesIndex);
-      const sentAt = this.getCellValue(row, sentAtIndex);
+      const sessionId = getCellValue(row, sessionIdIndex);
+      const offsetMinutes = getCellValue(row, offsetMinutesIndex);
+      const sentAt = getCellValue(row, sentAtIndex);
       if (!sessionId || !offsetMinutes || !sentAt) {
         throw new Error(`Sheet "${REMINDER_DISPATCH_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowIndex + 1}.`);
       }
@@ -757,8 +743,8 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
         continue;
       }
 
-      const key = this.getCellValue(row, keyIndex);
-      const value = this.getCellValue(row, valueIndex);
+      const key = getCellValue(row, keyIndex);
+      const value = getCellValue(row, valueIndex);
       if (!key || !value) {
         throw new Error(`Sheet "${RUNTIME_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowIndex + 1}.`);
       }
@@ -874,8 +860,8 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   }
 
   private getRequiredSheetColumnIndex(sheetName: string, headers: unknown[], requiredHeader: string): number {
-    const normalizedRequiredHeader = this.normalizeHeader(requiredHeader);
-    const index = headers.findIndex(header => this.normalizeHeader(header) === normalizedRequiredHeader);
+    const normalizedRequiredHeader = normalizeHeader(requiredHeader);
+    const index = headers.findIndex(header => normalizeHeader(header) === normalizedRequiredHeader);
     if (index === -1) {
       throw new Error(`Sheet "${sheetName}" is missing required column "${requiredHeader}".`);
     }
@@ -913,57 +899,4 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return [sourceId, trainingId, sessionDate, startTime].map(part => part.trim()).join('__');
   }
 
-  private getTableBounds(rangeA1?: string): TableBounds {
-    if (!rangeA1) {
-      return { startRow: 1, startColumn: 0 };
-    }
-
-    const startCell = rangeA1.split(':')[0];
-    const match = startCell.match(/^([A-Za-z]+)?(\d+)?$/);
-    if (!match) {
-      return { startRow: 1, startColumn: 0 };
-    }
-
-    const columnLabel = match[1] ?? 'A';
-    const rowLabel = match[2] ?? '1';
-    return {
-      startRow: parseInt(rowLabel, 10),
-      startColumn: this.columnToIndex(columnLabel),
-    };
-  }
-
-  private columnToIndex(column: string): number {
-    return column
-      .toUpperCase()
-      .split('')
-      .reduce((total, character) => (total * 26) + character.charCodeAt(0) - 64, 0) - 1;
-  }
-
-  private getCellValue(row: unknown[], index?: number): string {
-    if (index === undefined || index < 0 || index >= row.length) {
-      return '';
-    }
-
-    const value = row[index];
-    if (value instanceof Date) {
-      return value.toISOString().slice(0, 10);
-    }
-
-    return String(value ?? '').trim();
-  }
-
-  private normalizeText(value: unknown): string {
-    return String(value ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, '')
-      .replace(/[^a-z0-9]/g, '');
-  }
-
-  private normalizeHeader(value: unknown): string {
-    return String(value ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
-  }
 }

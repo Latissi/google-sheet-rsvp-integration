@@ -47,3 +47,9 @@ export function assertValidDate(value: Date, label: string): void {
     throw new Error(`${label} must be a valid timestamp.`);
   }
 }
+
+export function assertValidIsoTimestamp(value: string, label: string): void {
+  if (Number.isNaN(new Date(value).getTime())) {
+    throw new Error(`${label} must be a valid ISO timestamp.`);
+  }
+}
