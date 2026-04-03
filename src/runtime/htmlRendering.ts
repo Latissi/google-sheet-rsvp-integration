@@ -8,7 +8,7 @@ import {
 
 // ── Page title constants ──────────────────────────────────────────────────────
 
-export const PUBLIC_JOIN_TITLE = 'Mitglied werden';
+export const PUBLIC_JOIN_TITLE = 'Anmeldung Trainings-Mailerinnerungen';
 export const PUBLIC_PREFERENCES_TITLE = 'Trainingsauswahl';
 export const PUBLIC_COMPLETION_TITLE = 'Anmeldung abgeschlossen';
 
@@ -24,7 +24,7 @@ export function buildRegistrationPageHtml(
   return renderPublicPage(
     PUBLIC_JOIN_TITLE,
     [
-      `<p>Öffentliche Registrierung erstellt immer ein Mitgliedskonto. Trainer werden später durch die Script-Administration freigeschaltet.</p>`,
+      `<p>Mit der Anmeldung werden vorab Erinnerungen an deine Mail gesendet, wenn du noch keine Teilnahme Rückmeldung im Google Sheet gegeben hast. Die Auswahl der Trainingstermine erfolgt im nächsten Schritt.</p>`,
       message ? `<p class="notice">${escapeHtml(message)}</p>` : '',
       `<form method="post" action="${escapeHtml(formAction)}" target="_top">`,
       '<input type="hidden" name="action" value="register" />',
@@ -68,8 +68,8 @@ export function buildPreferencesPageHtml(options: {
     PUBLIC_PREFERENCES_TITLE,
     [
       isOnboarding
-        ? '<p>Wähle die Trainings, für die du Erinnerungen und RSVP-Links erhalten möchtest.</p>'
-        : '<p>Aktualisiere hier deine Trainings, für die du Erinnerungen und RSVP-Links erhalten möchtest.</p>',
+        ? '<p>Wähle die Trainingstermine, für die du die Mail-Erinnerungen erhalten möchtest.</p>'
+        : '<p>Aktualisiere hier deine Trainingstermine, für die du Mail-Erinnerungen erhalten möchtest.</p>',
       existingRegistrationNotice,
       options.message ? `<p class="notice">${escapeHtml(options.message)}</p>` : '',
       `<form method="post" action="${escapeHtml(options.formAction ?? '')}" target="_top" onsubmit="syncTrainingIds()">`,
