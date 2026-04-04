@@ -58,6 +58,11 @@ export class MemberRowUserMatcher {
     return 'none';
   }
 
+  /**
+   * Intentionally more robust than sheetUtils.normalizeSheetString:
+   * includes Unicode NFKD decomposition, diacritic removal, and ß→ss
+   * substitution so that German names with umlauts match correctly.
+   */
   private normalizeText(value: unknown): string {
     return String(value ?? '')
       .trim()

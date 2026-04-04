@@ -52,10 +52,8 @@ export function getMemberRowsLastNameIndex(source: PublicTrainingSource, bounds:
   return getRelativeColumnIndex(source.attendance.lastNameColumn, bounds);
 }
 
+import { normalizeSheetString } from './sheetUtils';
+
 export function normalizeSheetText(value: unknown): string {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/[^a-z0-9]/g, '');
+  return normalizeSheetString(value);
 }

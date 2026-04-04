@@ -1,7 +1,7 @@
 import { IApplicationService } from '../IApplicationService';
 import { ISendCancellationNotificationService } from '../notifications/SendCancellationNotificationService';
-import { assertValidDate } from '../notifications/notificationUtils';
-import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
+import { assertValidDate } from '../../domain/validation';
+import { ITrainingDefinitionRepository } from '../../domain/ports/ITrainingDefinitionRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { TrainingCancellation } from '../../domain/types';
 
@@ -21,7 +21,7 @@ export interface ICancelTrainingSessionService extends IApplicationService<Cance
 
 export class CancelTrainingSessionService implements ICancelTrainingSessionService {
   constructor(
-    private readonly trainingDataRepository: ITrainingDataRepository,
+    private readonly trainingDataRepository: ITrainingDefinitionRepository,
     private readonly userRepository: IUserRepository,
     private readonly sendCancellationNotificationService: ISendCancellationNotificationService,
   ) {}

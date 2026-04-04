@@ -2,25 +2,15 @@ import {
   ISyncPublicSourceMembersOnOnboardingService,
   SyncPublicSourceMembersOnOnboardingService,
 } from '../../application';
-import { IConfigurationProvider } from '../../domain/ports/IConfigurationProvider';
 import { IPublicSourceRepository } from '../../domain/ports/IPublicSourceRepository';
 import {
   PublicSourceRegistrationMatch,
   PublicTrainingSource,
-  ReminderPolicy,
   UserRecord,
   createPersonName,
   getRoleDefinition,
 } from '../../domain/types';
-
-class TestConfigurationProvider implements IConfigurationProvider {
-  constructor(private readonly sources: PublicTrainingSource[]) {}
-
-  getPublicSheetId(): string { return 'public-sheet'; }
-  getPublicTrainingSources(): PublicTrainingSource[] { return this.sources; }
-  getReminderPolicy(): ReminderPolicy { return { offsets: [], channels: ['email'] }; }
-  getWebAppUrl(): string { return 'https://example.test/webapp'; }
-}
+import { TestConfigurationProvider } from '../mocks/TestConfigurationProvider';
 
 class RecordingPublicSourceRepository implements IPublicSourceRepository {
   public appended: Array<{ source: PublicTrainingSource; user: UserRecord }> = [];

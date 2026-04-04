@@ -550,7 +550,11 @@ describe('webapp RSVP handler', () => {
         execute: ({ dispatchAt }: { dispatchAt: string }) => ({
           sessionsProcessed: dispatchAt === '2026-03-09T18:15:00.000Z' ? 1 : 0,
           sentCount: 2,
+          pendingCancellations: [] as Array<{ sessionId: string; cancelledByMemberId: string; cancelledAt: string; reason?: string }>,
         }),
+      },
+      sendCancellationNotificationService: {
+        execute: () => ({ sentCount: 0 }),
       },
     };
 
@@ -573,6 +577,9 @@ describe('webapp RSVP handler', () => {
         execute: () => {
           throw new Error('mail failed');
         },
+      },
+      sendCancellationNotificationService: {
+        execute: () => ({ sentCount: 0 }),
       },
     };
 

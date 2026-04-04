@@ -1,8 +1,7 @@
+import { normalizeSheetString } from './sheetUtils';
+
 export function normalizeHeader(value: unknown): string {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
+  return normalizeSheetString(value);
 }
 
 export function getColumnIndex(headers: unknown[], candidates: string[]): number | undefined {

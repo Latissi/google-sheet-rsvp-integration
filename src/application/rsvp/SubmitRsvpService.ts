@@ -1,9 +1,9 @@
 import { IApplicationService } from '../IApplicationService';
-import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
+import { ITrainingDefinitionRepository } from '../../domain/ports/ITrainingDefinitionRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { AttendanceRecord, AttendanceSource, RsvpStatus } from '../../domain/types';
 import { ISyncAttendanceService } from './SyncAttendanceService';
-import { assertValidIsoTimestamp } from '../notifications/notificationUtils';
+import { assertValidIsoTimestamp } from '../../domain/validation';
 
 export interface SubmitRsvpRequest {
   memberId: string;
@@ -21,7 +21,7 @@ export interface ISubmitRsvpService extends IApplicationService<SubmitRsvpReques
 
 export class SubmitRsvpService implements ISubmitRsvpService {
   constructor(
-    private readonly trainingDataRepository: ITrainingDataRepository,
+    private readonly trainingDataRepository: ITrainingDefinitionRepository,
     private readonly userRepository: IUserRepository,
     private readonly syncAttendanceService: ISyncAttendanceService,
   ) {}

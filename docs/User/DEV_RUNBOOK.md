@@ -199,3 +199,26 @@ Erwartung: Erst danach erhält die Person Trainer-spezifische Fähigkeiten wie T
 - Prüfen Sie die `Executions`-Ansicht und den privaten Tab `Systemprotokoll` auf Laufzeitfehler.
 
 Dieses Runbook beschreibt absichtlich keinen Migrationspfad. Wenn ein bestehendes Sheet nicht in dieses Schema passt, muss das Sheet angepasst werden.
+
+## 8. Fehlerbehandlungsvertrag
+
+Dieser Abschnitt legt fest, wie Fehler pro Schicht behandelt werden.
+
+### Domain-Schicht (`src/domain/`)
+- Wirf `Error` für ungültige Eingaben (z. B. fehlendes Pflichtfeld, unbekannter Status).
+- Kein Abfangen von Fehlern – ungeprüfte Zustände zeigen Programmierfehler an.
+
+### Application-Schicht (`src/application/`)
+- Services geben immer ein Ergebnisobjekt zurück: `{ ok: true, ... }` bei Erfolg oder `{ ok: false, message: string }` bei erwarteten Fehlern.
+- Wirf nur dann einen Fehler, wenn ein nicht wiederherstellbarer Zustand vorliegt (z. B. Integritätsverletzung).
+- Fange keine Fehler aus Ports ab – Infrastructure-Fehler propagieren nach oben.
+
+### Infrastructure-Schicht (`src/infrastructure/`)
+- Adapter werfen `Error` bei ungültigen Sheet-Daten (z. B. unvollständige Zeilen, doppelte Schlüssel, ungültige Enum-Werte).
+- Sheet-Spaltenschlüssel dürfen in zusammengesetzten Schlüsseln nie den jeweiligen Separator enthalten: `__` für Session-IDs, `::` für Member-IDs.
+- Keine stille Fehlerbehandlung mit Fallback-Werten – Datenprobleme sollen frühzeitig sichtbar werden.
+
+### Runtime-Schicht (`src/runtime/`)
+- `doGet` und `doPost` fangen alle Fehler ab und geben immer eine HTTP-Antwort zurück.
+- Unerwartete Fehler werden geloggt und als generische öffentliche Fehlermeldung zurückgegeben (kein Stack-Trace an den Client).
+- Timer-basierte Dispatcher (`runReminderDispatch`, `runTrainerParticipationReportDispatch`) lassen Fehler propagieren, damit die Apps-Script-Executions-Ansicht den Fehler anzeigt.

@@ -1,15 +1,16 @@
-import { IConfigurationProvider } from '../../../domain/ports/IConfigurationProvider';
-import { IUserRepository } from '../../../domain/ports/IUserRepository';
 import {
   PublicTrainingSource,
-  ReminderPolicy,
-  UserRecord,
   createCompositeMemberId,
-  createPersonName,
-  getRoleDefinition,
 } from '../../../domain/types';
+import { createUser } from '../../mocks/testUserFactory';
 import { GoogleSheetTrainingDataRepository } from '../../../infrastructure/adapters/GoogleSheetTrainingDataRepository';
 import { MockSheetGateway } from '../../mocks/MockSheetGateway';
+import { TestConfigurationProvider } from '../../mocks/TestConfigurationProvider';
+import { InMemoryUserRepository } from '../../mocks/InMemoryUserRepository';
+
+interface TestLogger {
+  warn: jest.Mock<void, [string, string, Record<string, unknown> | undefined, string | undefined]>;
+}
 
 const ATTENDANCE_METADATA_SHEET_NAME = 'TeilnahmeMetadaten';
 const ATTENDANCE_METADATA_HEADERS = ['SessionId', 'MitgliedId', 'Quelle', 'AktualisiertAm'];
@@ -20,62 +21,13 @@ const REMINDER_DISPATCH_METADATA_HEADERS = ['SessionId', 'OffsetMinuten', 'Gesen
 const RUNTIME_METADATA_SHEET_NAME = 'LaufzeitMetadaten';
 const RUNTIME_METADATA_HEADERS = ['Schluessel', 'Wert'];
 
-class TestConfigurationProvider implements IConfigurationProvider {
-  constructor(private readonly sources: PublicTrainingSource[]) {}
-
-  getPublicSheetId(): string {
-    return 'public-sheet';
-  }
-
-  getPublicTrainingSources(): PublicTrainingSource[] {
-    return this.sources;
-  }
-
-  getReminderPolicy(): ReminderPolicy {
-    return { offsets: [], channels: ['email'] };
-  }
-
-  getWebAppUrl(): string {
-    return 'https://example.test/webapp';
-  }
-}
-
-class TestUserRepository implements IUserRepository {
-  constructor(private readonly users: UserRecord[]) {}
-
-  getAllUsers(): UserRecord[] { return [...this.users]; }
-  getUserByMemberId(id: string): UserRecord | null { return this.users.find(user => user.memberId === id) ?? null; }
-  getUserByEmail(email: string): UserRecord | null { return this.users.find(user => user.email === email) ?? null; }
-  getUserByName(name: string): UserRecord | null { return this.users.find(user => user.name === name) ?? null; }
-  upsertUser(): void { throw new Error('Not needed in this test.'); }
-}
-
-interface TestLogger {
-  warn: jest.Mock<void, [string, string, Record<string, unknown> | undefined, string | undefined]>;
-}
-
-function createUser(memberId: string, name: string, role: 'Mitglied' | 'Trainer' = 'Mitglied'): UserRecord {
-  const [firstName, ...rest] = name.split(' ');
-  return {
-    memberId,
-    name,
-    email: `${memberId.toLowerCase()}@example.com`,
-    role,
-    roleDefinition: getRoleDefinition(role),
-    personName: createPersonName(firstName ?? '', rest.join(' ')),
-    subscriptions: [],
-    subscribedTrainingIds: [],
-    subscribedTrainings: [],
-  };
-}
-
 describe('GoogleSheetTrainingDataRepository', () => {
   const fixedNow = () => new Date('2026-03-15T00:00:00.000Z');
   const users = [
-    createUser(createCompositeMemberId('Alice', 'Example'), 'Alice Example'),
-    createUser(createCompositeMemberId('Bob', 'Example'), 'Bob Example'),
-    createUser(createCompositeMemberId('Charlie', 'Coach'), 'Charlie Coach', 'Trainer'),
-    createUser(createCompositeMemberId('Anna', 'Ananas'), 'Anna Ananas'),
+    createUser({ memberId: createCompositeMemberId('Alice', 'Example'), name: 'Alice Example' }),
+    createUser({ memberId: createCompositeMemberId('Bob', 'Example'), name: 'Bob Example' }),
+    createUser({ memberId: createCompositeMemberId('Charlie', 'Coach'), name: 'Charlie Coach', role: 'Trainer' }),
+    createUser({ memberId: createCompositeMemberId('Anna', 'Ananas'), name: 'Anna Ananas' }),
   ];
 
   function createRepository(
@@ -87,7 +39,7 @@ describe('GoogleSheetTrainingDataRepository', () => {
     const repository = new GoogleSheetTrainingDataRepository(
       gateway,
       new TestConfigurationProvider(sources),
-      new TestUserRepository(users),
+      new InMemoryUserRepository(users),
       fixedNow,
       logger,
     );

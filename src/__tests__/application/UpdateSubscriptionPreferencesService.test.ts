@@ -1,42 +1,12 @@
 import { UpdateSubscriptionPreferencesService } from '../../application/preferences/UpdateSubscriptionPreferencesService';
-import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { UserRecord, createPersonName, getRoleDefinition } from '../../domain/types';
+import { InMemoryUserRepository } from '../mocks/InMemoryUserRepository';
 
 class StaticTrainingDefinitionLookup {
   constructor(private readonly trainingIds: string[]) {}
 
   getTrainingDefinitions() {
     return this.trainingIds.map(trainingId => ({ trainingId }));
-  }
-}
-
-class InMemoryUserRepository implements IUserRepository {
-  constructor(private users: UserRecord[] = []) {}
-
-  getAllUsers(): UserRecord[] {
-    return [...this.users];
-  }
-
-  getUserByMemberId(id: string): UserRecord | null {
-    return this.users.find(user => user.memberId === id) ?? null;
-  }
-
-  getUserByEmail(email: string): UserRecord | null {
-    return this.users.find(user => user.email === email) ?? null;
-  }
-
-  getUserByName(name: string): UserRecord | null {
-    return this.users.find(user => user.name === name) ?? null;
-  }
-
-  upsertUser(user: UserRecord): void {
-    const index = this.users.findIndex(existing => existing.memberId === user.memberId);
-    if (index >= 0) {
-      this.users[index] = user;
-      return;
-    }
-
-    this.users.push(user);
   }
 }
 

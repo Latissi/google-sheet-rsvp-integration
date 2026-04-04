@@ -1,6 +1,5 @@
 import { IApplicationService } from '../IApplicationService';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
-import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
 import { NotificationChannel, TrainingDay, TRAINING_DAYS, UserRecord } from '../../domain/types';
 
 interface TrainingDefinitionLookup {

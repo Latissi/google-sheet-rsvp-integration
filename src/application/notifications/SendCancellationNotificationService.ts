@@ -1,5 +1,6 @@
 import { IApplicationService } from '../IApplicationService';
-import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
+import { ITrainingDefinitionRepository } from '../../domain/ports/ITrainingDefinitionRepository';
+import { INotificationStateRepository } from '../../domain/ports/INotificationStateRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { INotificationSender } from '../../domain/ports/INotificationSender';
 import { TrainingCancellation } from '../../domain/types';
@@ -17,7 +18,7 @@ export interface ISendCancellationNotificationService extends IApplicationServic
 
 export class SendCancellationNotificationService implements ISendCancellationNotificationService {
   constructor(
-    private readonly trainingDataRepository: ITrainingDataRepository,
+    private readonly trainingDataRepository: ITrainingDefinitionRepository & INotificationStateRepository,
     private readonly userRepository: IUserRepository,
     private readonly notificationSender: INotificationSender,
   ) {}

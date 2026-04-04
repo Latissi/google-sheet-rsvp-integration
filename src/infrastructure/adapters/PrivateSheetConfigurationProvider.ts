@@ -11,6 +11,7 @@ import {
 } from '../../domain/types';
 import { ISheetGateway } from '../gateway/ISheetGateway';
 import { getCellValue, getColumnIndex, getRequiredColumnIndex } from './SheetColumnMapper';
+import { isEmptyRow } from './sheetUtils';
 
 interface PublicTrainingSourceSheetSchema {
   sourceId: number;
@@ -346,7 +347,7 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
     for (let rowIndex = 1; rowIndex < definitionSheet.rows.length; rowIndex += 1) {
       const row = definitionSheet.rows[rowIndex];
       const displayRow = definitionSheet.displayRows[rowIndex] ?? [];
-      if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
+      if (isEmptyRow(row)) {
         continue;
       }
 
@@ -381,7 +382,7 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
 
     for (let rowIndex = 1; rowIndex < sourceSheet.rows.length; rowIndex += 1) {
       const row = sourceSheet.rows[rowIndex];
-      if (!row || row.every(cell => String(cell ?? '').trim() === '')) {
+      if (isEmptyRow(row)) {
         continue;
       }
 

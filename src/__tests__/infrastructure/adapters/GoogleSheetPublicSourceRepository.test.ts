@@ -1,22 +1,12 @@
-import { IConfigurationProvider } from '../../../domain/ports/IConfigurationProvider';
 import {
   PublicTrainingSource,
-  ReminderPolicy,
+  UserRecord,
   createPersonName,
   getRoleDefinition,
-  UserRecord,
 } from '../../../domain/types';
 import { GoogleSheetPublicSourceRepository } from '../../../infrastructure/adapters/GoogleSheetPublicSourceRepository';
 import { MockSheetGateway } from '../../mocks/MockSheetGateway';
-
-class TestConfigurationProvider implements IConfigurationProvider {
-  constructor(private readonly sources: PublicTrainingSource[]) {}
-
-  getPublicSheetId(): string { return 'public-sheet'; }
-  getPublicTrainingSources(): PublicTrainingSource[] { return this.sources; }
-  getReminderPolicy(): ReminderPolicy { return { offsets: [], channels: ['email'] }; }
-  getWebAppUrl(): string { return 'https://example.test/webapp'; }
-}
+import { TestConfigurationProvider } from '../../mocks/TestConfigurationProvider';
 
 function createRepository(sources: PublicTrainingSource[], sheets: Record<string, unknown[][]>) {
   const gateway = new MockSheetGateway(sheets);

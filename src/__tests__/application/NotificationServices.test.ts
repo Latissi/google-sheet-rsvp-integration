@@ -2,141 +2,13 @@ import { CancelTrainingSessionService } from '../../application/training/CancelT
 import { SendCancellationNotificationService } from '../../application/notifications/SendCancellationNotificationService';
 import { SendTrainerParticipationReportService } from '../../application/notifications/SendTrainerParticipationReportService';
 import { SendTrainingReminderService } from '../../application/notifications/SendTrainingReminderService';
-import { IConfigurationProvider } from '../../domain/ports/IConfigurationProvider';
-import { INotificationSender } from '../../domain/ports/INotificationSender';
-import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
-import { IUserRepository } from '../../domain/ports/IUserRepository';
-import {
-  AttendanceRecord,
-  PublicTrainingSource,
-  ReminderOffset,
-  ReminderPolicy,
-  TrainingCancellation,
-  TrainingDefinition,
-  TrainingSession,
-  UserRecord,
-  createPersonName,
-  getRoleDefinition,
-  getReminderOffsetMinutes,
-} from '../../domain/types';
+import { TrainingDefinition, TrainingSession, UserRecord } from '../../domain/types';
+import { InMemoryUserRepository } from '../mocks/InMemoryUserRepository';
+import { InMemoryTrainingRepository } from '../mocks/InMemoryTrainingRepository';
+import { RecordingNotificationSender } from '../mocks/RecordingNotificationSender';
+import { TestConfigurationProvider } from '../mocks/TestConfigurationProvider';
+import { createUser } from '../mocks/testUserFactory';
 
-class TestConfigurationProvider implements IConfigurationProvider {
-  constructor(private readonly reminderPolicy: ReminderPolicy) {}
-
-  getPublicSheetId(): string { return 'public-sheet'; }
-  getPublicTrainingSources(): PublicTrainingSource[] { return []; }
-  getReminderPolicy(): ReminderPolicy { return this.reminderPolicy; }
-  getWebAppUrl(): string { return 'https://example.test/webapp'; }
-}
-
-class InMemoryUserRepository implements IUserRepository {
-  constructor(private readonly users: UserRecord[]) {}
-
-  getAllUsers(): UserRecord[] { return [...this.users]; }
-  getUserByMemberId(id: string): UserRecord | null { return this.users.find(user => user.memberId === id) ?? null; }
-  getUserByEmail(email: string): UserRecord | null { return this.users.find(user => user.email === email) ?? null; }
-  getUserByName(name: string): UserRecord | null { return this.users.find(user => user.name === name) ?? null; }
-  upsertUser(): void { throw new Error('Not needed in this test.'); }
-}
-
-class InMemoryTrainingRepository implements ITrainingDataRepository {
-  private readonly cancellationNotificationSentAt = new Map<string, string>();
-  private readonly reminderNotificationSentAt = new Map<string, string>();
-  private lastSuccessfulReminderDispatchAt: string | null = null;
-
-  constructor(
-    private readonly definitions: TrainingDefinition[],
-    private readonly sessions: TrainingSession[],
-    private readonly attendance: AttendanceRecord[] = [],
-  ) {}
-
-  getTrainingDefinitions(): TrainingDefinition[] { return [...this.definitions]; }
-  getUpcomingTrainingSessions(): TrainingSession[] { return [...this.sessions]; }
-  getTrainingSessionById(sessionId: string): TrainingSession | null {
-    return this.sessions.find(session => session.sessionId === sessionId) ?? null;
-  }
-  getAttendanceForSession(sessionId: string): AttendanceRecord[] { return this.attendance.filter(record => record.sessionId === sessionId); }
-  getCancellationNotificationSentAt(sessionId: string): string | null {
-    return this.cancellationNotificationSentAt.get(sessionId) ?? null;
-  }
-  getReminderNotificationSentAt(sessionId: string, offset: ReminderOffset): string | null {
-    return this.reminderNotificationSentAt.get(`${sessionId}::${getReminderOffsetMinutes(offset)}`) ?? null;
-  }
-  getLastSuccessfulReminderDispatchAt(): string | null {
-    return this.lastSuccessfulReminderDispatchAt;
-  }
-  cancelTrainingSession(cancellation: TrainingCancellation): void {
-    const session = this.sessions.find(candidate => candidate.sessionId === cancellation.sessionId);
-    if (!session) {
-      throw new Error(`Training session "${cancellation.sessionId}" not found.`);
-    }
-
-    session.status = 'Cancelled';
-    session.additionalInfo = cancellation.reason ? `Training entfällt: ${cancellation.reason}` : 'Training entfällt';
-  }
-  saveAttendance(): void { throw new Error('Not needed in this test.'); }
-  markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void {
-    this.cancellationNotificationSentAt.set(cancellation.sessionId, notifiedAt);
-  }
-  markReminderNotificationSent(sessionId: string, offset: ReminderOffset, notifiedAt: string): void {
-    this.reminderNotificationSentAt.set(`${sessionId}::${getReminderOffsetMinutes(offset)}`, notifiedAt);
-  }
-  markLastSuccessfulReminderDispatchAt(completedAt: string): void {
-    this.lastSuccessfulReminderDispatchAt = completedAt;
-  }
-}
-
-class RecordingNotificationSender implements INotificationSender {
-  public reminders: Array<{ recipientId: string; sessionId: string }> = [];
-  public cancellations: Array<{ recipientId: string; sessionId: string }> = [];
-  public reports: Array<{ recipientId: string; sessionId: string; attendanceCount: number }> = [];
-  public events: Array<{ type: 'reminder' | 'cancellation' | 'report'; recipientId: string; sessionId: string }> = [];
-
-  sendTrainingReminder(notification: { recipient: UserRecord; session: TrainingSession }): void {
-    this.reminders.push({ recipientId: notification.recipient.memberId, sessionId: notification.session.sessionId });
-    this.events.push({
-      type: 'reminder',
-      recipientId: notification.recipient.memberId,
-      sessionId: notification.session.sessionId,
-    });
-  }
-
-  sendTrainingCancellation(notification: { recipient: UserRecord; session: TrainingSession }): void {
-    this.cancellations.push({ recipientId: notification.recipient.memberId, sessionId: notification.session.sessionId });
-    this.events.push({
-      type: 'cancellation',
-      recipientId: notification.recipient.memberId,
-      sessionId: notification.session.sessionId,
-    });
-  }
-
-  sendTrainerParticipationReport(notification: { recipient: UserRecord; session: TrainingSession; attendance: AttendanceRecord[] }): void {
-    this.reports.push({
-      recipientId: notification.recipient.memberId,
-      sessionId: notification.session.sessionId,
-      attendanceCount: notification.attendance.length,
-    });
-    this.events.push({
-      type: 'report',
-      recipientId: notification.recipient.memberId,
-      sessionId: notification.session.sessionId,
-    });
-  }
-}
-
-function createUser(memberId: string, role: 'Mitglied' | 'Trainer', trainingIds: string[]): UserRecord {
-  return {
-    memberId,
-    name: `${memberId} User`,
-    email: `${memberId.toLowerCase()}@example.com`,
-    role,
-    roleDefinition: getRoleDefinition(role),
-    personName: createPersonName(memberId, 'User'),
-    subscriptions: trainingIds.map(trainingId => ({ trainingId, notificationChannel: 'email' })),
-    subscribedTrainingIds: trainingIds,
-    subscribedTrainings: ['Mittwoch'],
-  };
-}
 
 describe('Notification application services', () => {
   const definitions: TrainingDefinition[] = [{
@@ -165,11 +37,11 @@ describe('Notification application services', () => {
       },
     }]);
     const userRepository = new InMemoryUserRepository([
-      createUser('M001', 'Mitglied', ['wed-mixed']),
-      createUser('M002', 'Mitglied', ['wed-mixed']),
-      createUser('M003', 'Mitglied', ['fri-outdoor']),
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'M002', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'M003', role: 'Mitglied', trainingIds: ['fri-outdoor'] }),
     ]);
-    const configProvider = new TestConfigurationProvider({
+    const configProvider = new TestConfigurationProvider([], {
       offsets: [{ hours: 48, minutes: 0 }],
       channels: ['email'],
     });
@@ -189,9 +61,9 @@ describe('Notification application services', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
     trainingRepository.markLastSuccessfulReminderDispatchAt('2026-03-09T17:59:00.000Z');
     const userRepository = new InMemoryUserRepository([
-      createUser('M001', 'Mitglied', ['wed-mixed']),
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
     ]);
-    const configProvider = new TestConfigurationProvider({
+    const configProvider = new TestConfigurationProvider([], {
       offsets: [{ hours: 48, minutes: 0 }],
       channels: ['email'],
     });
@@ -205,6 +77,7 @@ describe('Notification application services', () => {
     expect(result).toEqual({
       sessionsProcessed: 1,
       sentCount: 1,
+      pendingCancellations: [],
     });
     expect(sender.reminders).toEqual([{ recipientId: 'M001', sessionId: 'session-1' }]);
   });
@@ -212,9 +85,9 @@ describe('Notification application services', () => {
   it('does not resend the same reminder offset on repeated runs', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
     const userRepository = new InMemoryUserRepository([
-      createUser('M001', 'Mitglied', ['wed-mixed']),
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
     ]);
-    const configProvider = new TestConfigurationProvider({
+    const configProvider = new TestConfigurationProvider([], {
       offsets: [{ hours: 48, minutes: 0 }],
       channels: ['email'],
     });
@@ -232,10 +105,12 @@ describe('Notification application services', () => {
     expect(first).toEqual({
       sessionsProcessed: 1,
       sentCount: 1,
+      pendingCancellations: [],
     });
     expect(second).toEqual({
       sessionsProcessed: 0,
       sentCount: 0,
+      pendingCancellations: [],
     });
     expect(sender.reminders).toEqual([{ recipientId: 'M001', sessionId: 'session-1' }]);
   });
@@ -243,9 +118,9 @@ describe('Notification application services', () => {
   it('sends cancellation notifications to subscribed users', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
     const userRepository = new InMemoryUserRepository([
-      createUser('M001', 'Mitglied', ['wed-mixed']),
-      createUser('M002', 'Mitglied', ['fri-outdoor']),
-      createUser('T001', 'Trainer', ['wed-mixed']),
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'M002', role: 'Mitglied', trainingIds: ['fri-outdoor'] }),
+      createUser({ memberId: 'T001', role: 'Trainer', trainingIds: ['wed-mixed'] }),
     ]);
     const sender = new RecordingNotificationSender();
     const service = new SendCancellationNotificationService(trainingRepository, userRepository, sender);
@@ -276,8 +151,8 @@ describe('Notification application services', () => {
   it('cancels a training immediately when triggered by a trainer', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, [{ ...sessions[0] }]);
     const userRepository = new InMemoryUserRepository([
-      createUser('T001', 'Trainer', ['wed-mixed']),
-      createUser('M001', 'Mitglied', ['wed-mixed']),
+      createUser({ memberId: 'T001', role: 'Trainer', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
     ]);
     const sender = new RecordingNotificationSender();
     const notificationService = new SendCancellationNotificationService(trainingRepository, userRepository, sender);
@@ -300,46 +175,46 @@ describe('Notification application services', () => {
     ]);
   });
 
-  it('sends one cancellation mail batch instead of reminders for cancelled sessions', () => {
+  it('returns pending cancellations instead of sending them inline', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, [{
       ...sessions[0],
       status: 'Cancelled',
       additionalInfo: 'Halle gesperrt',
     }]);
     const userRepository = new InMemoryUserRepository([
-      createUser('M001', 'Mitglied', ['wed-mixed']),
-      createUser('M002', 'Mitglied', ['wed-mixed']),
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'M002', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
     ]);
-    const configProvider = new TestConfigurationProvider({
+    const configProvider = new TestConfigurationProvider([], {
       offsets: [{ hours: 48, minutes: 0 }],
       channels: ['email'],
     });
     const sender = new RecordingNotificationSender();
-    const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+    const reminderService = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+    const cancellationService = new SendCancellationNotificationService(trainingRepository, userRepository, sender);
 
-    const first = service.execute({
-      dispatchAt: '2026-03-09T18:00:00.000Z',
-    });
-    const second = service.execute({
-      dispatchAt: '2026-03-09T18:05:00.000Z',
-    });
+    const firstResult = reminderService.execute({ dispatchAt: '2026-03-09T18:00:00.000Z' });
+    expect(firstResult.sessionsProcessed).toBe(0);
+    expect(firstResult.sentCount).toBe(0);
+    expect(firstResult.pendingCancellations).toHaveLength(1);
+    expect(sender.cancellations).toEqual([]);
 
-    expect(first).toEqual({
-      sessionsProcessed: 1,
-      sentCount: 2,
-    });
-    expect(second).toEqual({
-      sessionsProcessed: 0,
-      sentCount: 0,
-    });
-    expect(sender.reminders).toEqual([]);
+    // Caller processes pending cancellations
+    for (const cancellation of firstResult.pendingCancellations) {
+      cancellationService.execute({ cancellation });
+    }
     expect(sender.cancellations).toEqual([
       { recipientId: 'M001', sessionId: 'session-1' },
       { recipientId: 'M002', sessionId: 'session-1' },
     ]);
+
+    // Second run: cancellation already sent, no pending
+    const secondResult = reminderService.execute({ dispatchAt: '2026-03-09T18:05:00.000Z' });
+    expect(secondResult.pendingCancellations).toHaveLength(0);
+    expect(sender.cancellations).toHaveLength(2);
   });
 
-  it('dispatches cancellation notifications before reminder mails in the same run', () => {
+  it('reminder service sends reminders inline; cancellations are returned as pending', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, [
       {
         sessionId: 'session-cancelled',
@@ -358,26 +233,32 @@ describe('Notification application services', () => {
       },
     ]);
     const userRepository = new InMemoryUserRepository([
-      createUser('M001', 'Mitglied', ['wed-mixed']),
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
     ]);
-    const configProvider = new TestConfigurationProvider({
+    const configProvider = new TestConfigurationProvider([], {
       offsets: [{ hours: 48, minutes: 0 }],
       channels: ['email'],
     });
     const sender = new RecordingNotificationSender();
-    const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+    const reminderService = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+    const cancellationService = new SendCancellationNotificationService(trainingRepository, userRepository, sender);
 
-    const result = service.execute({
-      dispatchAt: '2026-03-09T18:00:00.000Z',
-    });
+    const result = reminderService.execute({ dispatchAt: '2026-03-09T18:00:00.000Z' });
 
-    expect(result).toEqual({
-      sessionsProcessed: 2,
-      sentCount: 2,
-    });
+    // Reminder service only sends the reminder; cancellation is pending
+    expect(result.sessionsProcessed).toBe(1);
+    expect(result.sentCount).toBe(1);
+    expect(result.pendingCancellations).toHaveLength(1);
+    expect(sender.reminders).toEqual([{ recipientId: 'M001', sessionId: 'session-scheduled' }]);
+    expect(sender.cancellations).toEqual([]);
+
+    // Dispatch runner processes pending cancellations after
+    for (const cancellation of result.pendingCancellations) {
+      cancellationService.execute({ cancellation });
+    }
     expect(sender.events).toEqual([
-      { type: 'cancellation', recipientId: 'M001', sessionId: 'session-cancelled' },
       { type: 'reminder', recipientId: 'M001', sessionId: 'session-scheduled' },
+      { type: 'cancellation', recipientId: 'M001', sessionId: 'session-cancelled' },
     ]);
   });
 
@@ -397,9 +278,9 @@ describe('Notification application services', () => {
       },
     ]);
     const userRepository = new InMemoryUserRepository([
-      createUser('M001', 'Mitglied', ['wed-mixed']),
-      createUser('T001', 'Trainer', ['wed-mixed']),
-      createUser('T002', 'Trainer', ['fri-outdoor']),
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'T001', role: 'Trainer', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'T002', role: 'Trainer', trainingIds: ['fri-outdoor'] }),
     ]);
     const sender = new RecordingNotificationSender();
     const service = new SendTrainerParticipationReportService(trainingRepository, userRepository, sender);

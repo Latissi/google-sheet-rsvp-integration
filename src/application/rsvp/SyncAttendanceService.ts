@@ -1,7 +1,7 @@
 import { IApplicationService } from '../IApplicationService';
-import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
-import { AttendanceRecord, AttendanceSource } from '../../domain/types';
-import { assertValidIsoTimestamp } from '../notifications/notificationUtils';
+import { IAttendanceRepository } from '../../domain/ports/IAttendanceRepository';
+import { AttendanceRecord, ATTENDANCE_SOURCE_PRIORITY } from '../../domain/types';
+import { assertValidIsoTimestamp } from '../../domain/validation';
 
 export interface SyncAttendanceRequest {
   record: AttendanceRecord;
@@ -15,15 +15,8 @@ export interface SyncAttendanceResult {
 
 export interface ISyncAttendanceService extends IApplicationService<SyncAttendanceRequest, SyncAttendanceResult> {}
 
-const SOURCE_PRIORITY: Record<AttendanceSource, number> = {
-  manual: 4,
-  'email-rsvp': 3,
-  'sheet-sync': 2,
-  system: 1,
-};
-
 export class SyncAttendanceService implements ISyncAttendanceService {
-  constructor(private readonly trainingDataRepository: ITrainingDataRepository) {}
+  constructor(private readonly trainingDataRepository: IAttendanceRepository) {}
 
   execute(request: SyncAttendanceRequest): SyncAttendanceResult {
     assertValidIsoTimestamp(request.record.metadata.updatedAt, 'record.metadata.updatedAt');
@@ -54,7 +47,7 @@ export class SyncAttendanceService implements ISyncAttendanceService {
 
     if (
       incomingTime === existingTime
-      && SOURCE_PRIORITY[request.record.metadata.source] <= SOURCE_PRIORITY[existingRecord.metadata.source]
+      && ATTENDANCE_SOURCE_PRIORITY[request.record.metadata.source] <= ATTENDANCE_SOURCE_PRIORITY[existingRecord.metadata.source]
     ) {
       return { applied: false, reason: 'lower-priority', existingRecord };
     }

@@ -1,12 +1,21 @@
 import { TrainingSession } from '../domain/types';
-import { assertValidDate, getSessionStartDate } from '../application/notifications/notificationUtils';
+import { assertValidDate } from '../domain/validation';
+import { getSessionStartDate } from '../application/notifications/notificationUtils';
 import { createRuntimeContext } from './createRuntimeContext';
 import { getRuntimeLogger } from './logging';
 
 // ── Internal runtime slice types ──────────────────────────────────────────────
 
 interface ReminderDispatchExecutor {
-  execute(request: { dispatchAt: string }): { sessionsProcessed: number; sentCount: number };
+  execute(request: { dispatchAt: string }): {
+    sessionsProcessed: number;
+    sentCount: number;
+    pendingCancellations: Array<{ sessionId: string; cancelledByMemberId: string; cancelledAt: string; reason?: string }>;
+  };
+}
+
+interface CancellationExecutor {
+  execute(request: { cancellation: { sessionId: string; cancelledByMemberId: string; cancelledAt: string; reason?: string } }): { sentCount: number };
 }
 
 interface ReminderDispatchRuntime {
@@ -14,6 +23,7 @@ interface ReminderDispatchRuntime {
     markLastSuccessfulReminderDispatchAt(completedAt: string): void;
   };
   sendTrainingReminderService: ReminderDispatchExecutor;
+  sendCancellationNotificationService: CancellationExecutor;
 }
 
 interface TrainerParticipationReportExecutor {
@@ -73,8 +83,17 @@ export function runReminderDispatchWithRuntime(
   assertValidDate(dispatchDate, 'dispatchAt');
 
   const result = runtime.sendTrainingReminderService.execute({ dispatchAt });
+
+  let cancellationSentCount = 0;
+  for (const cancellation of result.pendingCancellations) {
+    cancellationSentCount += runtime.sendCancellationNotificationService.execute({ cancellation }).sentCount;
+  }
+
   runtime.trainingDataRepository.markLastSuccessfulReminderDispatchAt(dispatchAt);
-  return result;
+  return {
+    sessionsProcessed: result.sessionsProcessed + result.pendingCancellations.length,
+    sentCount: result.sentCount + cancellationSentCount,
+  };
 }
 
 export function runTrainerParticipationReport(sessionId: string) {

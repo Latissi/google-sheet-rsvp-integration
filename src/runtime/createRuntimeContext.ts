@@ -32,6 +32,7 @@ import { GoogleSheetTrainingDataRepository } from '../infrastructure/adapters/Go
 import { MailAppTransport, MailNotificationSender } from '../infrastructure/adapters/MailNotificationSender';
 import { PrivateSheetConfigurationProvider } from '../infrastructure/adapters/PrivateSheetConfigurationProvider';
 import { PrivateSheetUserRepository } from '../infrastructure/adapters/PrivateSheetUserRepository';
+import { SourceTableCache } from '../infrastructure/adapters/SourceTableCache';
 import { GoogleSheetGateway } from '../infrastructure/gateway/GoogleSheetGateway';
 import { ISheetGateway } from '../infrastructure/gateway/ISheetGateway';
 import { getRuntimeLogger } from './logging';
@@ -62,12 +63,14 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
   const sheetGateway = options.sheetGateway ?? new GoogleSheetGateway();
   const configurationProvider = new PrivateSheetConfigurationProvider(sheetGateway);
   const userRepository = new PrivateSheetUserRepository(sheetGateway);
+  const sourceTableCache = new SourceTableCache(sheetGateway, configurationProvider);
   const trainingDataRepository = new GoogleSheetTrainingDataRepository(
     sheetGateway,
     configurationProvider,
     userRepository,
     undefined,
     getRuntimeLogger(),
+    sourceTableCache,
   );
   const mailNotificationSender = new MailNotificationSender(
     {},
@@ -76,7 +79,7 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
   );
   const notificationSender = mailNotificationSender;
   const syncAttendanceService = new SyncAttendanceService(trainingDataRepository);
-  const publicSourceRepository = new GoogleSheetPublicSourceRepository(sheetGateway, configurationProvider);
+  const publicSourceRepository = new GoogleSheetPublicSourceRepository(sheetGateway, configurationProvider, sourceTableCache);
   const previewPublicSourceRegistrationMatchesService = new PreviewPublicSourceRegistrationMatchesService(publicSourceRepository);
   const registerMemberService = new RegisterMemberService(userRepository);
   const updateSubscriptionPreferencesService = new UpdateSubscriptionPreferencesService(

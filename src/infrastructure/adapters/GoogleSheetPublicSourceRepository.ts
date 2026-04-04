@@ -9,6 +9,7 @@ import {
 } from '../../domain/types';
 import { MemberRowUserMatcher } from './MemberRowUserMatcher';
 import { ISheetGateway } from '../gateway/ISheetGateway';
+import { SourceTableCache } from './SourceTableCache';
 import {
   TableBounds,
   getTableBounds,
@@ -20,14 +21,16 @@ import {
 } from './SheetTableUtils';
 
 export class GoogleSheetPublicSourceRepository implements IPublicSourceRepository {
-  private readonly sourceTableCache = new Map<string, unknown[][]>();
+  private readonly sourceTableCache: SourceTableCache;
   private readonly memberRowUserMatcher: MemberRowUserMatcher;
 
   constructor(
     private readonly gateway: ISheetGateway,
     private readonly configurationProvider: IConfigurationProvider,
+    sourceTableCache?: SourceTableCache,
   ) {
     this.memberRowUserMatcher = new MemberRowUserMatcher();
+    this.sourceTableCache = sourceTableCache ?? new SourceTableCache(gateway, configurationProvider);
   }
 
   getPublicSourceRegistrationMatches(criteria: RegistrationMatchCriteria): PublicSourceRegistrationMatch[] {
@@ -146,27 +149,11 @@ export class GoogleSheetPublicSourceRepository implements IPublicSourceRepositor
   }
 
   private getSourceTable(source: PublicTrainingSource): unknown[][] {
-    const cacheKey = this.getSourceTableCacheKey(source);
-    const cached = this.sourceTableCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const publicSheetId = this.configurationProvider.getPublicSheetId();
-    const rawTable = this.gateway.getSheetValues(source.sheetName, {
-      spreadsheetId: publicSheetId,
-      rangeA1: source.tableRange,
-    });
-    this.sourceTableCache.set(cacheKey, rawTable);
-    return rawTable;
-  }
-
-  private getSourceTableCacheKey(source: PublicTrainingSource): string {
-    return `${source.sheetName}::${source.tableRange ?? ''}`;
+    return this.sourceTableCache.get(source);
   }
 
   private invalidateSourceCache(source: PublicTrainingSource): void {
-    this.sourceTableCache.delete(this.getSourceTableCacheKey(source));
+    this.sourceTableCache.invalidate(source);
   }
 
   private findFirstEmptyMemberRowIndex(rawTable: unknown[][], memberStartRowIndex: number): number | null {

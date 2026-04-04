@@ -1,5 +1,6 @@
 import { IApplicationService } from '../IApplicationService';
-import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
+import { ITrainingDefinitionRepository } from '../../domain/ports/ITrainingDefinitionRepository';
+import { IAttendanceRepository } from '../../domain/ports/IAttendanceRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import { INotificationSender } from '../../domain/ports/INotificationSender';
 import { indexTrainingDefinitions } from './notificationUtils';
@@ -18,7 +19,7 @@ export interface ISendTrainerParticipationReportService extends IApplicationServ
 
 export class SendTrainerParticipationReportService implements ISendTrainerParticipationReportService {
   constructor(
-    private readonly trainingDataRepository: ITrainingDataRepository,
+    private readonly trainingDataRepository: ITrainingDefinitionRepository & IAttendanceRepository,
     private readonly userRepository: IUserRepository,
     private readonly notificationSender: INotificationSender,
   ) {}
