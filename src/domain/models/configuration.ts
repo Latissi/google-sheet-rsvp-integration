@@ -14,7 +14,7 @@ export interface AttendanceConfig {
   firstMemberRow: number;
 }
 
-export type PublicSourceRegistrationMatchStatus = 'matched' | 'not-found' | 'ambiguous' | 'gender-mismatch';
+export type PublicSourceRegistrationMatchStatus = 'matched' | 'not-found' | 'gender-mismatch';
 
 export interface RegistrationMatchCriteria {
   firstName: string;

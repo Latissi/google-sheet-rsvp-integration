@@ -333,7 +333,7 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('name="flow" value="onboarding"');
     expect(html).toContain('action="https://script.google.com/macros/s/test/exec"');
     expect(html).toContain('target="_top"');
-    expect(html).toContain('Öffentliche Registrierung erstellt immer ein Mitgliedskonto');
+    expect(html).toContain('Mit der Anmeldung werden vorab Erinnerungen an deine Mail gesendet');
     expect(html).toContain('Bitte korrigieren');
   });
 
@@ -344,7 +344,7 @@ describe('webapp RSVP handler', () => {
       formAction: 'https://script.google.com/macros/s/test/exec',
       trainingMatchStatusMap: new Map([
         ['wed-mixed', 'matched'],
-        ['fri-group', 'ambiguous'],
+        ['fri-group', 'not-found'],
       ]),
       trainingDefinitions: [{
         trainingId: 'wed-mixed',
@@ -365,7 +365,9 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('action="https://script.google.com/macros/s/test/exec"');
     expect(html).toContain('target="_top"');
     expect(html).toContain('\u2713 Bereits eingetragen');
-    expect(html).toContain('\u26a0 Vorname unklar');
+    expect(html).toContain('\u26a0 Noch nicht im Tab');
+    expect(html).not.toContain('\u26a0 Geschlecht stimmt nicht');
+    expect(html).not.toContain('\u26a0 Vorname unklar');
     expect(html).not.toContain('Abgleich mit den Trainings-Tabs');
   });
 

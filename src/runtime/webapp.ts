@@ -24,6 +24,8 @@ import {
 } from './htmlRendering';
 export { runReminderDispatch, runTrainerParticipationReportDispatch } from './dispatchRunners';
 
+type PublicTrainingMatchBadgeStatus = Extract<PublicSourceRegistrationMatchStatus, 'matched' | 'not-found'>;
+
 export function doGet(
   event?: GoogleAppsScript.Events.DoGet,
 ): GoogleAppsScript.Content.TextOutput | GoogleAppsScript.HTML.HtmlOutput {
@@ -262,12 +264,12 @@ export function doPost(
 function computeTrainingMatchStatusMap(
   publicSources: PublicTrainingSource[],
   matches: PublicSourceRegistrationMatch[],
-): Map<string, PublicSourceRegistrationMatchStatus> {
+): Map<string, PublicTrainingMatchBadgeStatus> {
   const matchBySourceId = new Map(matches.map(m => [m.sourceId, m.status]));
-  const result = new Map<string, PublicSourceRegistrationMatchStatus>();
+  const result = new Map<string, PublicTrainingMatchBadgeStatus>();
   for (const source of publicSources) {
     const status = matchBySourceId.get(source.sourceId);
-    if (status !== undefined) {
+    if (status === 'matched' || status === 'not-found') {
       for (const training of source.trainings) {
         result.set(training.trainingId, status);
       }
@@ -279,7 +281,7 @@ function computeTrainingMatchStatusMap(
 function getTrainingMatchStatusMapFromParameters(
   runtime: ReturnType<typeof createRuntimeContext>,
   parameters: Record<string, string>,
-): Map<string, PublicSourceRegistrationMatchStatus> {
+): Map<string, PublicTrainingMatchBadgeStatus> {
   const firstName = parameters.firstName?.trim() ?? '';
   const lastName = parameters.lastName?.trim() ?? '';
   if (!firstName || !lastName) {
@@ -297,7 +299,7 @@ function getTrainingMatchStatusMapFromParameters(
 function getTrainingMatchStatusMapForMember(
   runtime: ReturnType<typeof createRuntimeContext>,
   memberId: string,
-): Map<string, PublicSourceRegistrationMatchStatus> {
+): Map<string, PublicTrainingMatchBadgeStatus> {
   const user = runtime.userRepository.getUserByMemberId(memberId);
   if (!user) {
     return new Map();
@@ -309,7 +311,7 @@ function getTrainingMatchStatusMapForMember(
 function getTrainingMatchStatusMapForUser(
   runtime: ReturnType<typeof createRuntimeContext>,
   user: UserRecord,
-): Map<string, PublicSourceRegistrationMatchStatus> {
+): Map<string, PublicTrainingMatchBadgeStatus> {
   const matches = runtime.previewPublicSourceRegistrationMatchesService.execute({
     firstName: user.personName.firstName,
     lastName: user.personName.lastName,

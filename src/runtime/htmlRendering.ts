@@ -1,10 +1,12 @@
-import { PublicSourceRegistrationMatchStatus, TrainingDefinition } from '../domain/types';
+import { TrainingDefinition } from '../domain/types';
 import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
 import {
   buildVerbosePublicErrorMessage,
   CancelTrainingConfirmationPayload,
   RegistrationRequestParameters,
 } from './requestHandlers';
+
+type PublicTrainingMatchBadgeStatus = 'matched' | 'not-found';
 
 // ── Page title constants ──────────────────────────────────────────────────────
 
@@ -46,12 +48,12 @@ export function buildPreferencesPageHtml(options: {
   selectedTrainingIds?: string[];
   message?: string;
   formAction?: string;
-  trainingMatchStatusMap?: Map<string, PublicSourceRegistrationMatchStatus>;
+  trainingMatchStatusMap?: Map<string, PublicTrainingMatchBadgeStatus>;
   mode?: 'onboarding' | 'manage';
 }): string {
   const isOnboarding = options.mode !== 'manage';
   const selectedTrainingIds = new Set(options.selectedTrainingIds ?? []);
-  const matchMap = options.trainingMatchStatusMap ?? new Map<string, PublicSourceRegistrationMatchStatus>();
+  const matchMap = options.trainingMatchStatusMap ?? new Map<string, PublicTrainingMatchBadgeStatus>();
   const existingRegistrationNotice = isOnboarding && options.existingRegistrationEmail
     ? `<p class="notice">Du bist bereits fuer E-Mail-Benachrichtigungen mit ${escapeHtml(options.existingRegistrationEmail)} registriert. Du kannst deine Trainings-Erinnerungen hier aktualisieren.</p>`
     : '';
@@ -119,7 +121,7 @@ export function renderPreferencesPage(options: {
   selectedTrainingIds?: string[];
   message?: string;
   formAction?: string;
-  trainingMatchStatusMap?: Map<string, PublicSourceRegistrationMatchStatus>;
+  trainingMatchStatusMap?: Map<string, PublicTrainingMatchBadgeStatus>;
   mode?: 'onboarding' | 'manage';
 }): GoogleAppsScript.HTML.HtmlOutput {
   return HtmlService.createHtmlOutput(buildPreferencesPageHtml(options)).setTitle(PUBLIC_PREFERENCES_TITLE);
@@ -205,13 +207,9 @@ function renderPublicPage(title: string, body: string): string {
       .match-card small { color: #6b7280; }
       .match-card.status-matched { background: #eef8ef; border-color: #9ac69d; }
       .match-card.status-not-found { background: #FAFAFA; border-color: #E5E5E5; }
-      .match-card.status-ambiguous { background: #fff4dd; border-color: #e1b86c; }
-      .match-card.status-gender-mismatch { background: #fdeeee; border-color: #df9d9d; }
       .match-badge { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; margin: 0.2rem 0 0.15rem; vertical-align: middle; }
       .match-badge.status-matched { background: #d1fae5; color: #064e3b; }
       .match-badge.status-not-found { background: #fef3c7; color: #78350f; }
-      .match-badge.status-ambiguous { background: #fef3c7; color: #78350f; }
-      .match-badge.status-gender-mismatch { background: #fee2e2; color: #7f1d1d; }
       .options { display: grid; gap: 0.85rem; }
       .option { display: flex; gap: 0.85rem; align-items: flex-start; border: 1px solid #E5E5E5; border-radius: 8px; padding: 0.9rem 1rem; background: #FAFAFA; }
       .option input { margin-top: 0.25rem; accent-color: #C41230; }
@@ -237,12 +235,10 @@ function renderEmailField(name: string, label: string, value?: string): string {
   return `<label><span>${escapeHtml(label)}</span><input type="email" name="${escapeHtml(name)}" value="${escapeHtml(value ?? '')}" required /></label>`;
 }
 
-function renderMatchBadge(status: PublicSourceRegistrationMatchStatus): string {
-  const labels: Record<PublicSourceRegistrationMatchStatus, string> = {
+function renderMatchBadge(status: PublicTrainingMatchBadgeStatus): string {
+  const labels: Record<PublicTrainingMatchBadgeStatus, string> = {
     'matched': '✓ Bereits eingetragen',
     'not-found': '⚠ Noch nicht im Tab',
-    'ambiguous': '⚠ Vorname unklar',
-    'gender-mismatch': '⚠ Geschlecht stimmt nicht',
   };
   return `<span class="match-badge status-${escapeHtml(status)}">${escapeHtml(labels[status])}</span>`;
 }
