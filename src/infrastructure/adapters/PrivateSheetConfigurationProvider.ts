@@ -110,14 +110,19 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
     return normalized;
   }
 
-  private parseJsonConfig<T>(key: string): T {
+  private parseReminderOffsetsConfig(key: string): ReminderOffset[] {
     const value = this.getConfigValue(key);
+    const offsets = value.split(',').map(part => part.trim());
+
+    if (offsets.some(offset => offset === '')) {
+      throw new Error(`Configuration key "${key}" must contain comma-separated non-negative integer hour values.`);
+    }
 
     try {
-      return JSON.parse(value) as T;
+      return offsets.map((offset, index) => this.parseReminderOffset(offset, index));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Configuration key "${key}" must contain valid JSON. ${message}`);
+      throw new Error(`Configuration key "${key}" must contain comma-separated non-negative integer hour values. ${message}`);
     }
   }
 
@@ -439,7 +444,7 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
 
   getReminderPolicy(): ReminderPolicy {
     const offsets = this.normalizeReminderOffsets(
-      (this.parseJsonConfig<unknown>('ERINNERUNGS_OFFSETS') as unknown[]).map((offset, index) => this.parseReminderOffset(offset, index)),
+      this.parseReminderOffsetsConfig('ERINNERUNGS_STUNDEN'),
     );
 
     return {

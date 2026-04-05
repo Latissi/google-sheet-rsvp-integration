@@ -7,7 +7,7 @@ describe('PrivateSheetConfigurationProvider', () => {
       ['Schlüssel', 'Wert'],
       ['OEFFENTLICHES_SHEET_ID', 'test_sheet_id_123'],
       ['WEBAPP_ADRESSE', 'https://script.google.com/macros/s/test/exec'],
-      ['ERINNERUNGS_OFFSETS', JSON.stringify([48, 24])],
+      ['ERINNERUNGS_STUNDEN', '48,24'],
     ],
     Trainingsquellen: [
       ['QuellenId', 'TabellenName', 'TabellenBereich', 'DatumsKopfZeile', 'InfoZeile', 'MitgliederStartZeile', 'VornameSpalte', 'NachnameSpalte', 'GeschlechtSpalte', 'StartSpalte'],
@@ -174,7 +174,7 @@ describe('PrivateSheetConfigurationProvider', () => {
     }
   });
 
-  it('returns a reminder policy from ERINNERUNGS_OFFSETS', () => {
+  it('returns a reminder policy from ERINNERUNGS_STUNDEN', () => {
     expect(provider.getReminderPolicy()).toEqual({
       offsets: [
         { hours: 48, minutes: 0 },
@@ -182,6 +182,110 @@ describe('PrivateSheetConfigurationProvider', () => {
       ],
       channels: ['email'],
     });
+  });
+
+  it('normalizes comma-separated reminder hours even when the sheet order is ascending', () => {
+    const ascendingGateway = new MockSheetGateway({
+      ...initialData,
+      Konfiguration: [
+        ['Schlüssel', 'Wert'],
+        ['OEFFENTLICHES_SHEET_ID', 'test_sheet_id_123'],
+        ['WEBAPP_ADRESSE', 'https://script.google.com/macros/s/test/exec'],
+        ['ERINNERUNGS_STUNDEN', '24, 48'],
+      ],
+    });
+    const ascendingProvider = new PrivateSheetConfigurationProvider(ascendingGateway);
+
+    expect(ascendingProvider.getReminderPolicy()).toEqual({
+      offsets: [
+        { hours: 48, minutes: 0 },
+        { hours: 24, minutes: 0 },
+      ],
+      channels: ['email'],
+    });
+  });
+
+  it('rejects reminder hours that are not comma-separated integers', () => {
+    const invalidGateway = new MockSheetGateway({
+      ...initialData,
+      Konfiguration: [
+        ['Schlüssel', 'Wert'],
+        ['OEFFENTLICHES_SHEET_ID', 'test_sheet_id_123'],
+        ['WEBAPP_ADRESSE', 'https://script.google.com/macros/s/test/exec'],
+        ['ERINNERUNGS_STUNDEN', '48,abc'],
+      ],
+    });
+    const invalidProvider = new PrivateSheetConfigurationProvider(invalidGateway);
+
+    expect(() => invalidProvider.getReminderPolicy()).toThrow(
+      'Configuration key "ERINNERUNGS_STUNDEN" must contain comma-separated non-negative integer hour values. Reminder offset at index 1 must be a non-negative integer hour value.',
+    );
+  });
+
+  it('rejects the legacy JSON array reminder format', () => {
+    const invalidGateway = new MockSheetGateway({
+      ...initialData,
+      Konfiguration: [
+        ['Schlüssel', 'Wert'],
+        ['OEFFENTLICHES_SHEET_ID', 'test_sheet_id_123'],
+        ['WEBAPP_ADRESSE', 'https://script.google.com/macros/s/test/exec'],
+        ['ERINNERUNGS_STUNDEN', '[48,24]'],
+      ],
+    });
+    const invalidProvider = new PrivateSheetConfigurationProvider(invalidGateway);
+
+    expect(() => invalidProvider.getReminderPolicy()).toThrow(
+      'Configuration key "ERINNERUNGS_STUNDEN" must contain comma-separated non-negative integer hour values. Reminder offset at index 0 must be a non-negative integer hour value.',
+    );
+  });
+
+  it('rejects negative reminder hours', () => {
+    const invalidGateway = new MockSheetGateway({
+      ...initialData,
+      Konfiguration: [
+        ['Schlüssel', 'Wert'],
+        ['OEFFENTLICHES_SHEET_ID', 'test_sheet_id_123'],
+        ['WEBAPP_ADRESSE', 'https://script.google.com/macros/s/test/exec'],
+        ['ERINNERUNGS_STUNDEN', '48,-24'],
+      ],
+    });
+    const invalidProvider = new PrivateSheetConfigurationProvider(invalidGateway);
+
+    expect(() => invalidProvider.getReminderPolicy()).toThrow(
+      'Configuration key "ERINNERUNGS_STUNDEN" must contain comma-separated non-negative integer hour values. Reminder offset at index 1 must be a non-negative integer hour value.',
+    );
+  });
+
+  it('rejects duplicate reminder hours', () => {
+    const invalidGateway = new MockSheetGateway({
+      ...initialData,
+      Konfiguration: [
+        ['Schlüssel', 'Wert'],
+        ['OEFFENTLICHES_SHEET_ID', 'test_sheet_id_123'],
+        ['WEBAPP_ADRESSE', 'https://script.google.com/macros/s/test/exec'],
+        ['ERINNERUNGS_STUNDEN', '48,48'],
+      ],
+    });
+    const invalidProvider = new PrivateSheetConfigurationProvider(invalidGateway);
+
+    expect(() => invalidProvider.getReminderPolicy()).toThrow(
+      'Duplicate reminder offset configured for 2880 minutes before training.',
+    );
+  });
+
+  it('rejects more than two reminder hours', () => {
+    const invalidGateway = new MockSheetGateway({
+      ...initialData,
+      Konfiguration: [
+        ['Schlüssel', 'Wert'],
+        ['OEFFENTLICHES_SHEET_ID', 'test_sheet_id_123'],
+        ['WEBAPP_ADRESSE', 'https://script.google.com/macros/s/test/exec'],
+        ['ERINNERUNGS_STUNDEN', '72,48,24'],
+      ],
+    });
+    const invalidProvider = new PrivateSheetConfigurationProvider(invalidGateway);
+
+    expect(() => invalidProvider.getReminderPolicy()).toThrow('A maximum of 2 reminder offsets is supported.');
   });
 
   it('rejects sources without training definitions', () => {

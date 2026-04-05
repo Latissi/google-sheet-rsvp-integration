@@ -20,7 +20,7 @@ The system follows a **Clean Architecture / Ports & Adapters** pattern.
 ## 3. Configuration Model
 There is **one supported configuration path**. Do not add fallback or compatibility branches.
 - Private sheet tabs are canonical and fixed: `Konfiguration`, `Trainingsquellen`, `Trainingsdefinitionen`, `Mitglieder`.
-- `Konfiguration` accepts the German keys `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE`, and `ERINNERUNGS_OFFSETS`.
+- `Konfiguration` accepts the German keys `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE`, and `ERINNERUNGS_STUNDEN`.
 - Public training sources are configured only through the structured tabs `Trainingsquellen` and `Trainingsdefinitionen`.
 - The public sheet supports only the `member-rows` layout.
 - Registration accepts only `action=register` plus `email`, `role`, `gender`, `firstName`, and `lastName`.

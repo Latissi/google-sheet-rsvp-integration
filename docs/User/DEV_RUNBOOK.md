@@ -38,8 +38,10 @@ Die Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten`
 Schlüssel | Wert
 OEFFENTLICHES_SHEET_ID | <ID des öffentlichen Trainings-Sheets>
 WEBAPP_ADRESSE | <die Web-App-URL aus dem Deployment>
-ERINNERUNGS_OFFSETS | [48,24]
+ERINNERUNGS_STUNDEN | 48,24
 ```
+
+`ERINNERUNGS_STUNDEN` erwartet komma-getrennte, nicht-negative Ganzzahlen in Stunden vor dem Training, zum Beispiel `48,24`.
 
 ### Tab `Trainingsquellen`
 
@@ -192,7 +194,7 @@ Erwartung: Erst danach erhält die Person Trainer-spezifische Fähigkeiten wie T
 
 ## 7. Fehlerbehebung
 - Prüfen Sie bei Bootstrap-Fehlern, dass das Script container-gebunden an das richtige private Sheet ist.
-- Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_OFFSETS` gesetzt sind.
+- Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_STUNDEN` gesetzt sind.
 - Prüfen Sie in `Trainingsquellen`, dass `DatumsKopfZeile`, `MitgliederStartZeile`, Vorname-, Nachname-, optionale Geschlechts- und Startspalte gepflegt sind.
 - Prüfen Sie in `Mitglieder`, dass Vorname, Nachname, EMail, Rolle und MitgliedId vorhanden sind und dass keine doppelten Namen existieren.
 - Prüfen Sie bei Metadaten-Problemen die privaten Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` auf unvollständige oder doppelte Zeilen.
