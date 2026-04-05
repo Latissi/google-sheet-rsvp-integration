@@ -77,6 +77,7 @@ describe('Notification application services', () => {
     expect(result).toEqual({
       sessionsProcessed: 1,
       sentCount: 1,
+      errorCount: 0,
       pendingCancellations: [],
     });
     expect(sender.reminders).toEqual([{ recipientId: 'M001', sessionId: 'session-1' }]);
@@ -105,11 +106,13 @@ describe('Notification application services', () => {
     expect(first).toEqual({
       sessionsProcessed: 1,
       sentCount: 1,
+      errorCount: 0,
       pendingCancellations: [],
     });
     expect(second).toEqual({
       sessionsProcessed: 0,
       sentCount: 0,
+      errorCount: 0,
       pendingCancellations: [],
     });
     expect(sender.reminders).toEqual([{ recipientId: 'M001', sessionId: 'session-1' }]);
@@ -292,5 +295,39 @@ describe('Notification application services', () => {
     expect(sender.reports).toEqual([
       { recipientId: 'T001', sessionId: 'session-1', attendanceCount: 2 },
     ]);
+  });
+
+  it('isolates per-user send errors: continues remaining users and still marks the offset as sent', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
+    const userRepository = new InMemoryUserRepository([
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'M002', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'M003', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+    ]);
+    const configProvider = new TestConfigurationProvider([], {
+      offsets: [{ hours: 48, minutes: 0 }],
+      channels: ['email'],
+    });
+    let callCount = 0;
+    const failingOnSecondSender = {
+      sendTrainingReminder: jest.fn().mockImplementation(() => {
+        callCount += 1;
+        if (callCount === 2) throw new Error('quota exhausted');
+      }),
+      sendTrainingCancellation: jest.fn(),
+      sendTrainerParticipationReport: jest.fn(),
+    };
+    const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, failingOnSecondSender);
+
+    const result = service.execute({ dispatchAt: '2026-03-09T18:00:00.000Z' });
+
+    // M001 and M003 succeed; M002 (2nd call) fails
+    expect(result.sentCount).toBe(2);
+    expect(result.errorCount).toBe(1);
+    expect(result.sessionsProcessed).toBe(1);
+    expect(failingOnSecondSender.sendTrainingReminder).toHaveBeenCalledTimes(3);
+
+    // The offset is marked sent so the next trigger run does not retry any user
+    expect(trainingRepository.getReminderNotificationSentAt('session-1', { hours: 48, minutes: 0 })).not.toBeNull();
   });
 });

@@ -1,3 +1,5 @@
+process.env.TZ = 'UTC';
+
 const { createDefaultPreset } = require("ts-jest");
 
 const tsJestTransformCfg = createDefaultPreset().transform;

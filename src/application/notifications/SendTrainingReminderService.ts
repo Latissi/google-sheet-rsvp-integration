@@ -23,6 +23,7 @@ export interface SendTrainingReminderRequest {
 export interface SendTrainingReminderResult {
   sessionsProcessed: number;
   sentCount: number;
+  errorCount: number;
   pendingCancellations: TrainingCancellation[];
 }
 
@@ -51,7 +52,7 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
       .filter(session => requestedSessionIds.size === 0 || requestedSessionIds.has(session.sessionId));
 
     if (reminderPolicy.offsets.length === 0 && candidateSessions.every(session => session.status !== 'Cancelled')) {
-      return { sessionsProcessed: 0, sentCount: 0, pendingCancellations: [] };
+      return { sessionsProcessed: 0, sentCount: 0, errorCount: 0, pendingCancellations: [] };
     }
 
     const previousDispatchAtValue = this.trainingDataRepository.getLastSuccessfulReminderDispatchAt();
@@ -88,6 +89,7 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
     const webAppUrl = this.configurationProvider.getWebAppUrl();
 
     let sentCount = 0;
+    let errorCount = 0;
     for (const reminderSession of reminderSessions) {
       const { session, offset } = reminderSession;
       const existingAttendance = new Set(
@@ -99,13 +101,17 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
       ));
 
       for (const user of subscribedUsers) {
-        this.notificationSender.sendTrainingReminder({
-          recipient: user,
-          session,
-          training: trainingDefinitions.get(session.trainingId),
-          webAppUrl,
-        });
-        sentCount += 1;
+        try {
+          this.notificationSender.sendTrainingReminder({
+            recipient: user,
+            session,
+            training: trainingDefinitions.get(session.trainingId),
+            webAppUrl,
+          });
+          sentCount += 1;
+        } catch {
+          errorCount += 1;
+        }
       }
 
       this.trainingDataRepository.markReminderNotificationSent(session.sessionId, offset, dispatchAt.toISOString());
@@ -114,6 +120,7 @@ export class SendTrainingReminderService implements ISendTrainingReminderService
     return {
       sessionsProcessed: reminderSessions.length,
       sentCount,
+      errorCount,
       pendingCancellations,
     };
   }

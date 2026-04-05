@@ -562,6 +562,7 @@ describe('webapp RSVP handler', () => {
         execute: ({ dispatchAt }: { dispatchAt: string }) => ({
           sessionsProcessed: dispatchAt === '2026-03-09T18:15:00.000Z' ? 1 : 0,
           sentCount: 2,
+          errorCount: 0,
           pendingCancellations: [] as Array<{ sessionId: string; cancelledByMemberId: string; cancelledAt: string; reason?: string }>,
         }),
       },
@@ -575,6 +576,7 @@ describe('webapp RSVP handler', () => {
     expect(result).toEqual({
       sessionsProcessed: 1,
       sentCount: 2,
+      errorCount: 0,
     });
     expect(markLastSuccessfulReminderDispatchAt).toHaveBeenCalledWith('2026-03-09T18:15:00.000Z');
   });

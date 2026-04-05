@@ -10,6 +10,7 @@ interface ReminderDispatchExecutor {
   execute(request: { dispatchAt: string }): {
     sessionsProcessed: number;
     sentCount: number;
+    errorCount: number;
     pendingCancellations: Array<{ sessionId: string; cancelledByMemberId: string; cancelledAt: string; reason?: string }>;
   };
 }
@@ -63,6 +64,7 @@ export function runReminderDispatch(dispatchAt: string = new Date().toISOString(
       dispatchAt,
       sessionsProcessed: result.sessionsProcessed,
       sentCount: result.sentCount,
+      errorCount: result.errorCount,
       durationMs: Date.now() - startedAt,
     });
     return result;
@@ -93,6 +95,7 @@ export function runReminderDispatchWithRuntime(
   return {
     sessionsProcessed: result.sessionsProcessed + result.pendingCancellations.length,
     sentCount: result.sentCount + cancellationSentCount,
+    errorCount: result.errorCount,
   };
 }
 

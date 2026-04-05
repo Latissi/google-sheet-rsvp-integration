@@ -34,6 +34,10 @@ export class MailAppTransport implements IMailTransport {
   constructor(private readonly senderName: string) {}
 
   sendEmail(message: MailMessage): MailDispatchResult {
+    if (MailApp.getRemainingDailyQuota() <= 0) {
+      throw new Error('Daily email quota exhausted.');
+    }
+
     MailApp.sendEmail(message.to, message.subject, message.body, {
       htmlBody: message.htmlBody,
       name: this.senderName,
