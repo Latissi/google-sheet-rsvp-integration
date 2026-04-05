@@ -26,6 +26,20 @@ export { runReminderDispatch, runTrainerParticipationReportDispatch } from './di
 
 type PublicTrainingMatchBadgeStatus = Extract<PublicSourceRegistrationMatchStatus, 'matched' | 'not-found'>;
 
+function computeTrainingSheetNameMap(
+  publicSources: PublicTrainingSource[],
+): Map<string, string> {
+  const result = new Map<string, string>();
+  for (const source of publicSources) {
+    for (const training of source.trainings) {
+      if (!result.has(training.trainingId)) {
+        result.set(training.trainingId, source.sheetName);
+      }
+    }
+  }
+  return result;
+}
+
 export function doGet(
   event?: GoogleAppsScript.Events.DoGet,
 ): GoogleAppsScript.Content.TextOutput | GoogleAppsScript.HTML.HtmlOutput {
@@ -55,6 +69,7 @@ export function doGet(
         selectedTrainingIds: runtime.userRepository.getUserByMemberId(memberId)?.subscribedTrainingIds ?? [],
         formAction: webAppUrl,
         trainingMatchStatusMap: getTrainingMatchStatusMapForMember(runtime, memberId),
+        trainingSheetNameMap: getTrainingSheetNameMap(runtime),
         mode: 'manage',
       });
     }
@@ -180,6 +195,7 @@ export function doPost(
           : undefined,
         formAction: webAppUrl,
         trainingMatchStatusMap: getTrainingMatchStatusMapFromParameters(runtime, parameters),
+        trainingSheetNameMap: getTrainingSheetNameMap(runtime),
         mode: 'onboarding',
       });
     }
@@ -193,6 +209,7 @@ export function doPost(
           message: result.message,
           formAction: webAppUrl,
           trainingMatchStatusMap: getTrainingMatchStatusMapForMember(runtime, parameters.memberId?.trim() ?? ''),
+          trainingSheetNameMap: getTrainingSheetNameMap(runtime),
           mode: 'onboarding',
         });
       }
@@ -211,6 +228,7 @@ export function doPost(
           ),
           formAction: webAppUrl,
           trainingMatchStatusMap: new Map(),
+          trainingSheetNameMap: getTrainingSheetNameMap(runtime),
           mode: 'onboarding',
         });
       }
@@ -233,6 +251,7 @@ export function doPost(
         message: result.message,
         formAction: webAppUrl,
         trainingMatchStatusMap: getTrainingMatchStatusMapForMember(runtime, memberId),
+        trainingSheetNameMap: getTrainingSheetNameMap(runtime),
         mode: 'manage',
       });
     }
@@ -318,6 +337,12 @@ function getTrainingMatchStatusMapForUser(
     gender: user.gender,
   }).matches;
   return computeTrainingMatchStatusMap(runtime.configurationProvider.getPublicTrainingSources(), matches);
+}
+
+function getTrainingSheetNameMap(
+  runtime: ReturnType<typeof createRuntimeContext>,
+): Map<string, string> {
+  return computeTrainingSheetNameMap(runtime.configurationProvider.getPublicTrainingSources());
 }
 
 export function getDoPostParameters(

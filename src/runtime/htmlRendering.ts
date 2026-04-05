@@ -8,6 +8,8 @@ import {
 
 type PublicTrainingMatchBadgeStatus = 'matched' | 'not-found';
 
+type PublicTrainingSheetNameMap = Map<string, string>;
+
 // ── Page title constants ──────────────────────────────────────────────────────
 
 export const PUBLIC_JOIN_TITLE = 'Anmeldung Trainings-Mailerinnerungen';
@@ -49,21 +51,30 @@ export function buildPreferencesPageHtml(options: {
   message?: string;
   formAction?: string;
   trainingMatchStatusMap?: Map<string, PublicTrainingMatchBadgeStatus>;
+  trainingSheetNameMap?: PublicTrainingSheetNameMap;
   mode?: 'onboarding' | 'manage';
 }): string {
   const isOnboarding = options.mode !== 'manage';
   const selectedTrainingIds = new Set(options.selectedTrainingIds ?? []);
   const matchMap = options.trainingMatchStatusMap ?? new Map<string, PublicTrainingMatchBadgeStatus>();
+  const sheetNameMap = options.trainingSheetNameMap ?? new Map<string, string>();
   const existingRegistrationNotice = isOnboarding && options.existingRegistrationEmail
     ? `<p class="notice">Du bist bereits fuer E-Mail-Benachrichtigungen mit ${escapeHtml(options.existingRegistrationEmail)} registriert. Du kannst deine Trainings-Erinnerungen hier aktualisieren.</p>`
     : '';
+  const sheetSyncExplanation = isOnboarding
+    ? '<p class="info">Mit dem Speichern aktivierst du die Mail-Erinnerungen fuer deine Auswahl. Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch fehlt, wird er beim Speichern automatisch ergänzt.</p>'
+    : '<p class="info">Mit dem Speichern aktualisierst du deine Mail-Erinnerungen fuer diese Trainings. Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch fehlt, wird er beim Speichern automatisch ergänzt.</p>';
   const trainingCards = buildTrainingOptions(options.trainingDefinitions).map(training => {
     const checked = selectedTrainingIds.has(training.trainingId) ? ' checked' : '';
     const matchStatus = matchMap.get(training.trainingId);
-    const badge = matchStatus ? renderMatchBadge(matchStatus) : '';
+    const sheetName = sheetNameMap.get(training.trainingId);
+    const badge = matchStatus && sheetName ? renderMatchBadge(matchStatus, sheetName) : '';
+    const sheetReference = sheetName
+      ? `<small class="sheet-reference">Trainings-Sheet, Tab: ${escapeHtml(sheetName)}</small>`
+      : '';
 
     return `<label class="option"><input type="checkbox" value="${escapeHtml(training.trainingId)}"${checked} />` +
-      `<span><strong>${escapeHtml(training.title)}</strong>${badge}<small>${escapeHtml(training.description)}</small></span></label>`;
+      `<span><strong>${escapeHtml(training.title)}</strong><small>${escapeHtml(training.description)}</small>${sheetReference}${badge}</span></label>`;
   }).join('');
 
   return renderPublicPage(
@@ -72,6 +83,7 @@ export function buildPreferencesPageHtml(options: {
       isOnboarding
         ? '<p>Wähle die Trainingstermine, für die du die Mail-Erinnerungen erhalten möchtest.</p>'
         : '<p>Aktualisiere hier deine Trainingstermine, für die du Mail-Erinnerungen erhalten möchtest.</p>',
+      sheetSyncExplanation,
       existingRegistrationNotice,
       options.message ? `<p class="notice">${escapeHtml(options.message)}</p>` : '',
       `<form method="post" action="${escapeHtml(options.formAction ?? '')}" target="_top" onsubmit="syncTrainingIds()">`,
@@ -100,6 +112,7 @@ export function buildOnboardingCompletionHtml(): string {
     [
       '<p>Deine Registrierung ist abgeschlossen.</p>',
       '<p>Du erhältst für deine ausgewählten Trainings künftig Erinnerungen mit direkten RSVP-Links per E-Mail.</p>',
+      '<p>Deine Zu- oder Absagen aus diesen Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch gefehlt hat, wurde er beim Speichern automatisch ergänzt.</p>',
     ].join(''),
   );
 }
@@ -122,6 +135,7 @@ export function renderPreferencesPage(options: {
   message?: string;
   formAction?: string;
   trainingMatchStatusMap?: Map<string, PublicTrainingMatchBadgeStatus>;
+  trainingSheetNameMap?: PublicTrainingSheetNameMap;
   mode?: 'onboarding' | 'manage';
 }): GoogleAppsScript.HTML.HtmlOutput {
   return HtmlService.createHtmlOutput(buildPreferencesPageHtml(options)).setTitle(PUBLIC_PREFERENCES_TITLE);
@@ -198,6 +212,7 @@ function renderPublicPage(title: string, body: string): string {
       input:focus, select:focus { border-color: #C41230; outline: none; box-shadow: 0 0 0 3px rgba(196,18,48,0.12); }
       button { border: 0; border-radius: 999px; padding: 0.95rem 1.4rem; background: #C41230; color: #fff; cursor: pointer; transition: background 0.15s; }
       button:hover { background: #9B0E24; }
+      .info { background: #F3F8FF; border: 1px solid #B7CFF8; border-radius: 8px; padding: 0.85rem 1rem; }
       .notice { background: #FFF4F4; border: 1px solid #F0A0A0; border-radius: 8px; padding: 0.85rem 1rem; }
       .match-summary { margin: 1.2rem 0 1.5rem; display: grid; gap: 0.75rem; }
       .match-summary h2 { margin: 0; font-size: 1.15rem; }
@@ -207,9 +222,10 @@ function renderPublicPage(title: string, body: string): string {
       .match-card small { color: #6b7280; }
       .match-card.status-matched { background: #eef8ef; border-color: #9ac69d; }
       .match-card.status-not-found { background: #FAFAFA; border-color: #E5E5E5; }
-      .match-badge { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; margin: 0.2rem 0 0.15rem; vertical-align: middle; }
-      .match-badge.status-matched { background: #d1fae5; color: #064e3b; }
-      .match-badge.status-not-found { background: #fef3c7; color: #78350f; }
+      .sheet-reference { color: #475569; font-size: 0.9rem; }
+      .match-badge { display: block; font-size: 0.86rem; line-height: 1.45; font-weight: 600; padding: 0.7rem 0.85rem; border-radius: 8px; margin-top: 0.35rem; }
+      .match-badge.status-matched { background: #dff5e6; color: #0f5132; }
+      .match-badge.status-not-found { background: #fff4dd; color: #8a5200; }
       .options { display: grid; gap: 0.85rem; }
       .option { display: flex; gap: 0.85rem; align-items: flex-start; border: 1px solid #E5E5E5; border-radius: 8px; padding: 0.9rem 1rem; background: #FAFAFA; }
       .option input { margin-top: 0.25rem; accent-color: #C41230; }
@@ -235,10 +251,10 @@ function renderEmailField(name: string, label: string, value?: string): string {
   return `<label><span>${escapeHtml(label)}</span><input type="email" name="${escapeHtml(name)}" value="${escapeHtml(value ?? '')}" required /></label>`;
 }
 
-function renderMatchBadge(status: PublicTrainingMatchBadgeStatus): string {
+function renderMatchBadge(status: PublicTrainingMatchBadgeStatus, sheetName: string): string {
   const labels: Record<PublicTrainingMatchBadgeStatus, string> = {
-    'matched': '✓ Bereits eingetragen',
-    'not-found': '⚠ Noch nicht im Tab',
+    'matched': `✓ Dein Name steht bereits im Trainings-Tab "${sheetName}". Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren diesen Tab.`,
+    'not-found': `⚠ Dein Name fehlt noch im Trainings-Tab "${sheetName}". Beim Speichern wird er dort automatisch ergänzt.`,
   };
   return `<span class="match-badge status-${escapeHtml(status)}">${escapeHtml(labels[status])}</span>`;
 }

@@ -346,6 +346,10 @@ describe('webapp RSVP handler', () => {
         ['wed-mixed', 'matched'],
         ['fri-group', 'not-found'],
       ]),
+      trainingSheetNameMap: new Map([
+        ['wed-mixed', 'Mittwoch Liste'],
+        ['fri-group', 'Freitag Liste'],
+      ]),
       trainingDefinitions: [{
         trainingId: 'wed-mixed',
         title: 'Mittwoch Training',
@@ -364,8 +368,12 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('subscribedTrainingIds');
     expect(html).toContain('action="https://script.google.com/macros/s/test/exec"');
     expect(html).toContain('target="_top"');
-    expect(html).toContain('\u2713 Bereits eingetragen');
-    expect(html).toContain('\u26a0 Noch nicht im Tab');
+    expect(html).toContain('Mit dem Speichern aktivierst du die Mail-Erinnerungen fuer deine Auswahl.');
+    expect(html).toContain('Trainings-Sheet, Tab: Mittwoch Liste');
+    expect(html).toContain('Trainings-Sheet, Tab: Freitag Liste');
+    expect(html).toContain('\u2713 Dein Name steht bereits im Trainings-Tab &quot;Mittwoch Liste&quot;.');
+    expect(html).toContain('\u26a0 Dein Name fehlt noch im Trainings-Tab &quot;Freitag Liste&quot;.');
+    expect(html).toContain('Beim Speichern wird er dort automatisch ergänzt.');
     expect(html).not.toContain('\u26a0 Geschlecht stimmt nicht');
     expect(html).not.toContain('\u26a0 Vorname unklar');
     expect(html).not.toContain('Abgleich mit den Trainings-Tabs');
@@ -382,6 +390,7 @@ describe('webapp RSVP handler', () => {
 
     expect(html).toContain('Du bist bereits fuer E-Mail-Benachrichtigungen mit ada@example.com registriert.');
     expect(html).toContain('Du kannst deine Trainings-Erinnerungen hier aktualisieren.');
+    expect(html).toContain('Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet.');
   });
 
   it('renders a reusable manage-preferences page without onboarding flow state', () => {
@@ -398,6 +407,7 @@ describe('webapp RSVP handler', () => {
     });
 
     expect(html).toContain('Einstellungen speichern');
+    expect(html).toContain('Mit dem Speichern aktualisierst du deine Mail-Erinnerungen fuer diese Trainings.');
     expect(html).not.toContain('name="flow" value="onboarding"');
   });
 
@@ -453,6 +463,8 @@ describe('webapp RSVP handler', () => {
 
     expect(html).toContain('Deine Registrierung ist abgeschlossen.');
     expect(html).toContain('RSVP-Links');
+    expect(html).toContain('aktualisieren automatisch das öffentliche Trainings-Sheet');
+    expect(html).toContain('wurde er beim Speichern automatisch ergänzt');
   });
 
   it('builds a confirmation payload for trainer cancellation links', () => {
