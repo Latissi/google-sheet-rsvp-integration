@@ -15,6 +15,8 @@ import {
   buildOnboardingCompletionHtml,
   buildPreferencesPageHtml,
   buildRegistrationPageHtml,
+  buildRsvpResponseHtml,
+  buildCancelTrainingConfirmationHtml,
 } from '../../runtime/htmlRendering';
 import { getDoPostParameters } from '../../runtime/webapp';
 import {
@@ -157,7 +159,7 @@ describe('webapp RSVP handler', () => {
 
     expect(result).toEqual({
       ok: false,
-      message: 'RSVP request failed. The server could not save this response. Details: Training session "[redacted]" not found.',
+      message: 'RSVP-Anfrage fehlgeschlagen. Die Antwort konnte nicht gespeichert werden. Details: Training session "[redacted]" not found.',
     });
   });
 
@@ -368,7 +370,7 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('subscribedTrainingIds');
     expect(html).toContain('action="https://script.google.com/macros/s/test/exec"');
     expect(html).toContain('target="_top"');
-    expect(html).toContain('Mit dem Speichern aktivierst du die Mail-Erinnerungen fuer deine Auswahl.');
+    expect(html).toContain('Mit dem Speichern aktivierst du die Mail-Erinnerungen für deine Auswahl.');
     expect(html).toContain('Trainings-Sheet, Tab: Mittwoch Liste');
     expect(html).toContain('Trainings-Sheet, Tab: Freitag Liste');
     expect(html).toContain('\u2713 Dein Name steht bereits im Trainings-Tab &quot;Mittwoch Liste&quot;.');
@@ -388,7 +390,7 @@ describe('webapp RSVP handler', () => {
       trainingDefinitions: [],
     });
 
-    expect(html).toContain('Du bist bereits fuer E-Mail-Benachrichtigungen mit ada@example.com registriert.');
+    expect(html).toContain('Du bist bereits für E-Mail-Benachrichtigungen mit ada@example.com registriert.');
     expect(html).toContain('Du kannst deine Trainings-Erinnerungen hier aktualisieren.');
     expect(html).toContain('Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet.');
   });
@@ -407,7 +409,7 @@ describe('webapp RSVP handler', () => {
     });
 
     expect(html).toContain('Einstellungen speichern');
-    expect(html).toContain('Mit dem Speichern aktualisierst du deine Mail-Erinnerungen fuer diese Trainings.');
+    expect(html).toContain('Mit dem Speichern aktualisierst du deine Mail-Erinnerungen für diese Trainings.');
     expect(html).not.toContain('name="flow" value="onboarding"');
   });
 
@@ -420,7 +422,7 @@ describe('webapp RSVP handler', () => {
       trainingDefinitions: [],
     });
 
-    expect(html).not.toContain('bereits fuer E-Mail-Benachrichtigungen');
+    expect(html).not.toContain('bereits für E-Mail-Benachrichtigungen');
   });
 
   it('prefers form body parameters over query parameters in doPost parsing', () => {
@@ -599,6 +601,51 @@ describe('webapp RSVP handler', () => {
 
     expect(() => runReminderDispatchWithRuntime(runtime, '2026-03-09T18:15:00.000Z')).toThrow('mail failed');
     expect(markLastSuccessfulReminderDispatchAt).not.toHaveBeenCalled();
+  });
+
+  it('renders an RSVP success response as styled HTML', () => {
+    const html = buildRsvpResponseHtml(true, 'Danke, deine Teilnahme wurde gespeichert.');
+
+    expect(html).toContain('Rückmeldung');
+    expect(html).toContain('Danke, deine Teilnahme wurde gespeichert.');
+    expect(html).toContain('#2d7a3a');
+    expect(html).toContain('&#10003;');
+  });
+
+  it('renders an RSVP error response as styled HTML', () => {
+    const html = buildRsvpResponseHtml(false, 'RSVP-Anfrage fehlgeschlagen.');
+
+    expect(html).toContain('Rückmeldung');
+    expect(html).toContain('RSVP-Anfrage fehlgeschlagen.');
+    expect(html).toContain('#C41230');
+    expect(html).toContain('&#9888;');
+  });
+
+  it('renders a cancel training confirmation page using the shared page layout', () => {
+    const html = buildCancelTrainingConfirmationHtml(
+      { ok: true, message: 'Bitte bestätige die Absage.', memberId: 'trainer::one', sessionId: 'session-1', requiresConfirmation: true },
+      'Wegen Regen',
+      'https://script.google.com/macros/s/test/exec',
+    );
+
+    expect(html).toContain('Training absagen');
+    expect(html).toContain('Bitte best\u00e4tige die Absage.');
+    expect(html).toContain('name="confirm" value="yes"');
+    expect(html).toContain('name="reason" value="Wegen Regen"');
+    expect(html).toContain('Absage jetzt best\u00e4tigen');
+    expect(html).toContain('history.back()');
+    expect(html).not.toContain('javascript:window.close()');
+  });
+
+  it('renders a cancel training error page using the shared page layout', () => {
+    const html = buildCancelTrainingConfirmationHtml(
+      { ok: false, message: 'Absage fehlgeschlagen.' },
+      '',
+    );
+
+    expect(html).toContain('Training absagen');
+    expect(html).toContain('Absage fehlgeschlagen.');
+    expect(html).not.toContain('name="confirm"');
   });
 });
 

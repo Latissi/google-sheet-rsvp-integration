@@ -15,8 +15,23 @@ type PublicTrainingSheetNameMap = Map<string, string>;
 export const PUBLIC_JOIN_TITLE = 'Anmeldung Trainings-Mailerinnerungen';
 export const PUBLIC_PREFERENCES_TITLE = 'Trainingsauswahl';
 export const PUBLIC_COMPLETION_TITLE = 'Anmeldung abgeschlossen';
+export const PUBLIC_RSVP_RESPONSE_TITLE = 'Rückmeldung';
+export const PUBLIC_CANCEL_TRAINING_TITLE = 'Training absagen';
 
 // ── Exported HTML builders (testable, framework-free) ─────────────────────────
+
+export function buildRsvpResponseHtml(ok: boolean, message: string): string {
+  const icon = ok
+    ? `<span style="font-size:3rem;color:#2d7a3a">&#10003;</span>`
+    : `<span style="font-size:3rem;color:#C41230">&#9888;</span>`;
+  return renderPublicPage(
+    PUBLIC_RSVP_RESPONSE_TITLE,
+    [
+      `<div style="text-align:center;margin-bottom:1rem">${icon}</div>`,
+      `<p style="text-align:center;font-size:1.1rem">${escapeHtml(message)}</p>`,
+    ].join(''),
+  );
+}
 
 export function buildRegistrationPageHtml(
   message?: string,
@@ -36,7 +51,7 @@ export function buildRegistrationPageHtml(
       renderTextField('firstName', 'Vorname', values.firstName),
       renderTextField('lastName', 'Nachname', values.lastName),
       renderEmailField('email', 'E-Mail', values.email),
-      `<label><span>Geschlecht</span><select name="gender" required><option value="">Bitte wählen</option><option value="m"${selectedGender === 'm' ? ' selected' : ''}>m</option><option value="w"${selectedGender === 'w' ? ' selected' : ''}>w</option></select></label>`,
+      `<label><span>Geschlecht</span><select name="gender" required><option value="">Bitte wählen</option><option value="m"${selectedGender === 'm' ? ' selected' : ''}>männlich</option><option value="w"${selectedGender === 'w' ? ' selected' : ''}>weiblich</option></select></label>`,
       '<button type="submit">Weiter zu den Trainings</button>',
       '</form>',
     ].join(''),
@@ -59,11 +74,11 @@ export function buildPreferencesPageHtml(options: {
   const matchMap = options.trainingMatchStatusMap ?? new Map<string, PublicTrainingMatchBadgeStatus>();
   const sheetNameMap = options.trainingSheetNameMap ?? new Map<string, string>();
   const existingRegistrationNotice = isOnboarding && options.existingRegistrationEmail
-    ? `<p class="notice">Du bist bereits fuer E-Mail-Benachrichtigungen mit ${escapeHtml(options.existingRegistrationEmail)} registriert. Du kannst deine Trainings-Erinnerungen hier aktualisieren.</p>`
+    ? `<p class="notice">Du bist bereits für E-Mail-Benachrichtigungen mit ${escapeHtml(options.existingRegistrationEmail)} registriert. Du kannst deine Trainings-Erinnerungen hier aktualisieren.</p>`
     : '';
   const sheetSyncExplanation = isOnboarding
-    ? '<p class="info">Mit dem Speichern aktivierst du die Mail-Erinnerungen fuer deine Auswahl. Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch fehlt, wird er beim Speichern automatisch ergänzt.</p>'
-    : '<p class="info">Mit dem Speichern aktualisierst du deine Mail-Erinnerungen fuer diese Trainings. Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch fehlt, wird er beim Speichern automatisch ergänzt.</p>';
+    ? '<p class="info">Mit dem Speichern aktivierst du die Mail-Erinnerungen für deine Auswahl. Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch fehlt, wird er beim Speichern automatisch ergänzt.</p>'
+    : '<p class="info">Mit dem Speichern aktualisierst du deine Mail-Erinnerungen für diese Trainings. Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch fehlt, wird er beim Speichern automatisch ergänzt.</p>';
   const trainingCards = buildTrainingOptions(options.trainingDefinitions).map(training => {
     const checked = selectedTrainingIds.has(training.trainingId) ? ' checked' : '';
     const matchStatus = matchMap.get(training.trainingId);
@@ -145,50 +160,44 @@ export function renderOnboardingCompletionPage(): GoogleAppsScript.HTML.HtmlOutp
   return HtmlService.createHtmlOutput(buildOnboardingCompletionHtml()).setTitle(PUBLIC_COMPLETION_TITLE);
 }
 
+export function buildCancelTrainingConfirmationHtml(
+  result: CancelTrainingConfirmationPayload,
+  reason: string,
+  formAction: string = '',
+): string {
+  if (!result.ok || !result.requiresConfirmation || !result.memberId || !result.sessionId) {
+    return renderPublicPage(
+      PUBLIC_CANCEL_TRAINING_TITLE,
+      `<p>${escapeHtml(result.message)}</p>`,
+    );
+  }
+
+  return renderPublicPage(
+    PUBLIC_CANCEL_TRAINING_TITLE,
+    [
+      `<p>${escapeHtml(result.message)}</p>`,
+      `<p class="notice">Diese Aktion informiert alle Abonnenten sofort und unterdrückt weitere RSVP-Erinnerungen für dieses Training.</p>`,
+      `<form method="post" action="${escapeHtml(formAction)}" target="_top">`,
+      `<input type="hidden" name="action" value="cancel-training" />`,
+      `<input type="hidden" name="memberId" value="${escapeHtml(result.memberId)}" />`,
+      `<input type="hidden" name="sessionId" value="${escapeHtml(result.sessionId)}" />`,
+      `<input type="hidden" name="confirm" value="yes" />`,
+      `<input type="hidden" name="reason" value="${escapeHtml(reason)}" />`,
+      `<button type="submit">Absage jetzt bestätigen</button>`,
+      `</form>`,
+      `<p><button type="button" onclick="history.back()" style="background:none;border:none;color:#C41230;cursor:pointer;padding:0;font:inherit;text-decoration:underline">Zurück</button></p>`,
+    ].join(''),
+  );
+}
+
 export function renderCancelTrainingConfirmation(
   result: CancelTrainingConfirmationPayload,
   reason: string,
   formAction: string = '',
 ): GoogleAppsScript.HTML.HtmlOutput {
-  const escapedMessage = escapeHtml(result.message);
-  if (!result.ok || !result.requiresConfirmation || !result.memberId || !result.sessionId) {
-    return HtmlService
-      .createHtmlOutput(`<!DOCTYPE html><html><body><p>${escapedMessage}</p></body></html>`)
-      .setTitle('Training absagen');
-  }
-
-  return HtmlService.createHtmlOutput(`<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #F7F7F7; color: #1A1A2E; }
-      main { max-width: 32rem; margin: 3rem auto; background: #FFFFFF; border-radius: 12px; border-top: 4px solid #C41230; padding: 2rem; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
-      h1 { margin-top: 0; font-size: 1.5rem; }
-      p { line-height: 1.5; }
-      form { margin-top: 1.5rem; }
-      button { background: #C41230; color: #fff; border: 0; border-radius: 999px; padding: 0.85rem 1.2rem; cursor: pointer; font-size: 1rem; transition: background 0.15s; }
-      button:hover { background: #9B0E24; }
-      a { color: #C41230; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Training absagen</h1>
-      <p>${escapedMessage}</p>
-      <p>Diese Aktion informiert alle Abonnenten sofort und unterdrückt weitere RSVP-Erinnerungen für dieses Training.</p>
-      <form method="post" action="${escapeHtml(formAction)}" target="_top">
-        <input type="hidden" name="action" value="cancel-training" />
-        <input type="hidden" name="memberId" value="${escapeHtml(result.memberId)}" />
-        <input type="hidden" name="sessionId" value="${escapeHtml(result.sessionId)}" />
-        <input type="hidden" name="confirm" value="yes" />
-        <input type="hidden" name="reason" value="${escapeHtml(reason)}" />
-        <button type="submit">Absage jetzt bestätigen</button>
-      </form>
-      <p><a href="javascript:window.close()">Abbrechen</a></p>
-    </main>
-  </body>
-</html>`).setTitle('Training absagen');
+  return HtmlService
+    .createHtmlOutput(buildCancelTrainingConfirmationHtml(result, reason, formAction))
+    .setTitle(PUBLIC_CANCEL_TRAINING_TITLE);
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────

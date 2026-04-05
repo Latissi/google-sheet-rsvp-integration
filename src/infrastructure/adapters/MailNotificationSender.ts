@@ -106,10 +106,15 @@ export class MailNotificationSender implements INotificationSender {
       '<ul>',
       ...detailLines.map(line => `<li>${escapeHtml(line)}</li>`),
       '</ul>',
-      `<p><a href="${escapeHtml(acceptUrl)}">Teilnahme zusagen</a></p>`,
-      `<p><a href="${escapeHtml(declineUrl)}">Teilnahme absagen</a></p>`,
-      `<p><a href="${escapeHtml(preferencesUrl)}">Benachrichtigungseinstellungen aktualisieren</a></p>`,
-      ...(cancelUrl ? [`<p><a href="${escapeHtml(cancelUrl)}">Training absagen</a></p>`] : []),
+      '<p style="margin-top:1.5rem">',
+      `<a href="${escapeHtml(acceptUrl)}" style="display:inline-block;background:#2d7a3a;color:#ffffff;text-decoration:none;padding:0.65rem 1.4rem;border-radius:999px;font-weight:600;margin-right:0.75rem">&#10003;&nbsp;Zusagen</a>`,
+      `<a href="${escapeHtml(declineUrl)}" style="display:inline-block;background:#f0f0f0;color:#1A1A2E;text-decoration:none;padding:0.65rem 1.4rem;border-radius:999px;font-weight:600">&#10005;&nbsp;Absagen</a>`,
+      '</p>',
+      `<p style="margin-top:1.5rem;font-size:0.88rem;color:#6b7280"><a href="${escapeHtml(preferencesUrl)}" style="color:#6b7280">Benachrichtigungseinstellungen aktualisieren</a></p>`,
+      ...(cancelUrl ? [
+        '<hr style="border:none;border-top:1px solid #e5e5e5;margin:1.5rem 0" />',
+        `<p style="font-size:0.88rem"><a href="${escapeHtml(cancelUrl)}" style="color:#C41230">Training absagen</a></p>`,
+      ] : []),
     ].join('');
 
     this.dispatch(notification.recipient.email, {
@@ -143,7 +148,9 @@ export class MailNotificationSender implements INotificationSender {
       body: bodyLines.join('\n'),
       htmlBody: [
         `<p>Hallo ${escapeHtml(this.getRecipientLabel(notification.recipient))},</p>`,
-        `<p>das Training <strong>${escapeHtml(trainingLabel)}</strong> am <strong>${escapeHtml(notification.session.sessionDate)}</strong> wurde abgesagt.</p>`,
+        `<div style="border-left:4px solid #C41230;background:#FFF4F4;padding:0.85rem 1rem;border-radius:0 8px 8px 0;margin:1rem 0">`,
+        `<strong>Das Training <em>${escapeHtml(trainingLabel)}</em> am ${escapeHtml(notification.session.sessionDate)} wurde abgesagt.</strong>`,
+        `</div>`,
         '<ul>',
         ...detailLines.map(line => `<li>${escapeHtml(line)}</li>`),
         '</ul>',

@@ -1,4 +1,3 @@
-import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
 import { PublicSourceRegistrationMatchStatus, PublicTrainingSource, PublicSourceRegistrationMatch, UserRecord } from '../domain/types';
 import { createRuntimeContext } from './createRuntimeContext';
 import { getRuntimeLogger } from './logging';
@@ -17,10 +16,12 @@ import {
   PUBLIC_RSVP_ERROR_MESSAGE,
 } from './requestHandlers';
 import {
+  buildRsvpResponseHtml,
   renderCancelTrainingConfirmation,
   renderOnboardingCompletionPage,
   renderPreferencesPage,
   renderRegistrationPage,
+  PUBLIC_RSVP_RESPONSE_TITLE,
 } from './htmlRendering';
 export { runReminderDispatch, runTrainerParticipationReportDispatch } from './dispatchRunners';
 
@@ -108,9 +109,9 @@ export function doGet(
       }, result.message);
     }
 
-    return ContentService
-      .createTextOutput(result.message)
-      .setMimeType(ContentService.MimeType.TEXT);
+    return HtmlService
+      .createHtmlOutput(buildRsvpResponseHtml(result.ok, result.message))
+      .setTitle(PUBLIC_RSVP_RESPONSE_TITLE);
   } catch (error) {
     logger.error('doGet', 'failed', error, {
       action,
@@ -119,14 +120,12 @@ export function doGet(
     });
     if (action === 'cancel-training') {
       const errorMessage = buildVerbosePublicErrorMessage(PUBLIC_CANCELLATION_ERROR_MESSAGE, error);
-      return HtmlService
-        .createHtmlOutput(`<!DOCTYPE html><html><body><p>${escapeHtml(errorMessage)}</p></body></html>`)
-        .setTitle('Training absagen');
+      return renderCancelTrainingConfirmation({ ok: false, message: errorMessage }, '', '');
     }
 
-    return ContentService
-      .createTextOutput(buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error))
-      .setMimeType(ContentService.MimeType.TEXT);
+    return HtmlService
+      .createHtmlOutput(buildRsvpResponseHtml(false, buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error)))
+      .setTitle(PUBLIC_RSVP_RESPONSE_TITLE);
   }
 }
 

@@ -97,10 +97,10 @@ export interface CancelTrainingExecutor {
 
 // ── Error message constants ───────────────────────────────────────────────────
 
-export const PUBLIC_RSVP_ERROR_MESSAGE = 'RSVP request failed. The server could not save this response.';
-export const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Registration request failed. The server could not save this submission.';
-export const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Preferences request failed. The server could not save these subscription settings.';
-export const PUBLIC_CANCELLATION_ERROR_MESSAGE = 'Cancellation request failed. The server could not cancel this training.';
+export const PUBLIC_RSVP_ERROR_MESSAGE = 'RSVP-Anfrage fehlgeschlagen. Die Antwort konnte nicht gespeichert werden.';
+export const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Registrierung fehlgeschlagen. Die Anmeldung konnte nicht gespeichert werden.';
+export const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Einstellungen konnten nicht gespeichert werden.';
+export const PUBLIC_CANCELLATION_ERROR_MESSAGE = 'Absage fehlgeschlagen. Das Training konnte nicht abgesagt werden.';
 
 const CANCELLED_SESSION_PUBLIC_MESSAGE = 'Dieses Training entfällt. Eine Zu- oder Absage ist nicht mehr möglich.';
 
