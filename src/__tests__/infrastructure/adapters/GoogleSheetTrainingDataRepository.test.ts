@@ -482,15 +482,136 @@ describe('GoogleSheetTrainingDataRepository', () => {
       },
     ]);
 
+    expect(logger.warn).toHaveBeenCalledTimes(1);
     expect(logger.warn).toHaveBeenCalledWith(
       'training-data-repository',
       'skipped-unconfigured-weekday',
       {
         sourceId: 'std-outdoor',
-        sessionDate: '2026-03-24',
         weekday: 'Dienstag',
+        count: 1,
+        firstSessionDate: '2026-03-24',
+        lastSessionDate: '2026-03-24',
       },
       'Public training source std-outdoor has no training definition for weekday Dienstag. Skipping session date 2026-03-24.',
+    );
+  });
+
+  it('skips past unconfigured weekdays without logging a warning', () => {
+    const logger: TestLogger = {
+      warn: jest.fn(),
+    };
+
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'std-outdoor',
+      sheetName: 'Outdoor Sessions',
+      tableRange: 'A1:F20',
+      attendance: {
+        dateHeaderRow: 2,
+        firstMemberRow: 4,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'D',
+      },
+      trainings: [{
+        trainingId: 'wed-outdoor',
+        day: 'Mittwoch',
+        title: 'Outdoor Mittwoch',
+        startTime: '18:30',
+      }],
+    }];
+
+    const { repository } = createRepository(sources, {
+      'Outdoor Sessions': [
+        ['', '', '', '', '', ''],
+        ['', '', '', '2025-03-11', '2026-03-18', '2026-03-25'],
+        ['Zusagen', '', '', 0, 4, 7],
+        ['Anna', 'Ananas', 'w', '', 'x', '-'],
+      ],
+    }, logger);
+
+    expect(repository.getUpcomingTrainingSessions()).toEqual([
+      {
+        sessionId: 'std-outdoor__wed-outdoor__2026-03-18__18:30',
+        trainingId: 'wed-outdoor',
+        sessionDate: '2026-03-18',
+        startTime: '18:30',
+        status: 'Scheduled',
+      },
+      {
+        sessionId: 'std-outdoor__wed-outdoor__2026-03-25__18:30',
+        trainingId: 'wed-outdoor',
+        sessionDate: '2026-03-25',
+        startTime: '18:30',
+        status: 'Scheduled',
+      },
+    ]);
+
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('warns once for current and future unconfigured weekdays', () => {
+    const logger: TestLogger = {
+      warn: jest.fn(),
+    };
+
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'std-outdoor',
+      sheetName: 'Outdoor Sessions',
+      tableRange: 'A1:H20',
+      attendance: {
+        dateHeaderRow: 2,
+        firstMemberRow: 4,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'D',
+      },
+      trainings: [{
+        trainingId: 'wed-outdoor',
+        day: 'Mittwoch',
+        title: 'Outdoor Mittwoch',
+        startTime: '18:30',
+      }],
+    }];
+
+    const { repository } = createRepository(sources, {
+      'Outdoor Sessions': [
+        ['', '', '', '', '', '', '', ''],
+        ['', '', '', '2025-03-11', '2026-03-17', '2026-03-18', '2026-03-24', '2026-03-25'],
+        ['Zusagen', '', '', 0, 0, 4, 0, 7],
+        ['Anna', 'Ananas', 'w', '', '', 'x', '', '-'],
+      ],
+    }, logger);
+
+    expect(repository.getUpcomingTrainingSessions()).toEqual([
+      {
+        sessionId: 'std-outdoor__wed-outdoor__2026-03-18__18:30',
+        trainingId: 'wed-outdoor',
+        sessionDate: '2026-03-18',
+        startTime: '18:30',
+        status: 'Scheduled',
+      },
+      {
+        sessionId: 'std-outdoor__wed-outdoor__2026-03-25__18:30',
+        trainingId: 'wed-outdoor',
+        sessionDate: '2026-03-25',
+        startTime: '18:30',
+        status: 'Scheduled',
+      },
+    ]);
+
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'training-data-repository',
+      'skipped-unconfigured-weekday',
+      {
+        sourceId: 'std-outdoor',
+        weekday: 'Dienstag',
+        count: 2,
+        firstSessionDate: '2026-03-17',
+        lastSessionDate: '2026-03-24',
+      },
+      'Public training source std-outdoor has no training definition for weekday Dienstag. Skipping 2 session dates from 2026-03-17 to 2026-03-24.',
     );
   });
 

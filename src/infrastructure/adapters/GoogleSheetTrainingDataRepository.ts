@@ -70,10 +70,27 @@ interface ResolvedTrainingTemplate {
   environment?: TrainingEnvironment;
 }
 
+type ResolveTrainingTemplateResult =
+  | {
+    kind: 'resolved';
+    trainingTemplate: ResolvedTrainingTemplate;
+  }
+  | {
+    kind: 'missing-weekday';
+    weekday: TrainingDefinition['day'];
+  };
+
 interface SessionColumnCandidate {
   columnIndex: number;
   sessionDate: string;
   trainingTemplate: ResolvedTrainingTemplate;
+}
+
+interface UnconfiguredWeekdayWarningSummary {
+  weekday: TrainingDefinition['day'];
+  count: number;
+  firstSessionDate: string;
+  lastSessionDate: string;
 }
 
 interface TrainingDataRepositoryLogger {
@@ -315,6 +332,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     const attendanceStartIndex = this.getAttendanceStartIndex(source, bounds);
     const sessions: SessionColumnReference[] = [];
     const candidates: SessionColumnCandidate[] = [];
+    const unconfiguredWeekdayWarnings = new Map<TrainingDefinition['day'], UnconfiguredWeekdayWarningSummary>();
     let previousSessionDate: string | null = null;
 
     for (let columnIndex = attendanceStartIndex; columnIndex < headers.length; columnIndex += 1) {
@@ -325,17 +343,19 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       previousSessionDate = sessionDate;
 
       const trainingTemplate = this.resolveTrainingTemplate(source, sessionDate);
-      if (!trainingTemplate) {
+      if (trainingTemplate.kind === 'missing-weekday') {
+        this.recordUnconfiguredWeekdayWarning(unconfiguredWeekdayWarnings, trainingTemplate.weekday, sessionDate);
         continue;
       }
 
       candidates.push({
         columnIndex,
         sessionDate,
-        trainingTemplate,
+        trainingTemplate: trainingTemplate.trainingTemplate,
       });
     }
 
+    this.emitUnconfiguredWeekdayWarnings(source, unconfiguredWeekdayWarnings);
     this.assertConfiguredTrainingsExistInPublicSheet(source, candidates);
 
     for (const { columnIndex, sessionDate, trainingTemplate } of candidates) {
@@ -458,7 +478,7 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     this.invalidateSourceCache(reference.source);
   }
 
-  private resolveTrainingTemplate(source: PublicTrainingSource, sessionDate: string): ResolvedTrainingTemplate | null {
+  private resolveTrainingTemplate(source: PublicTrainingSource, sessionDate: string): ResolveTrainingTemplateResult {
     const sessionDay = this.sessionDateParser.deriveTrainingDay(sessionDate);
     if (!sessionDay) {
       throw new Error(`Public training source "${source.sourceId}" has an unparseable session date "${sessionDate}".`);
@@ -466,17 +486,10 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
     const matches = source.trainings.filter(training => training.day === sessionDay);
     if (matches.length === 0) {
-      this.logger?.warn(
-        'training-data-repository',
-        'skipped-unconfigured-weekday',
-        {
-          sourceId: source.sourceId,
-          sessionDate,
-          weekday: sessionDay,
-        },
-        `Public training source ${source.sourceId} has no training definition for weekday ${sessionDay}. Skipping session date ${sessionDate}.`,
-      );
-      return null;
+      return {
+        kind: 'missing-weekday',
+        weekday: sessionDay,
+      };
     }
 
     if (matches.length > 1) {
@@ -485,14 +498,82 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
     const training = matches[0];
     return {
-      trainingId: training.trainingId,
-      title: training.title?.trim() || training.trainingId,
-      day: training.day,
-      startTime: training.startTime,
-      endTime: training.endTime,
-      location: training.location,
-      environment: training.environment,
+      kind: 'resolved',
+      trainingTemplate: {
+        trainingId: training.trainingId,
+        title: training.title?.trim() || training.trainingId,
+        day: training.day,
+        startTime: training.startTime,
+        endTime: training.endTime,
+        location: training.location,
+        environment: training.environment,
+      },
     };
+  }
+
+  private recordUnconfiguredWeekdayWarning(
+    warnings: Map<TrainingDefinition['day'], UnconfiguredWeekdayWarningSummary>,
+    weekday: TrainingDefinition['day'],
+    sessionDate: string,
+  ): void {
+    if (this.isPastSessionDate(sessionDate)) {
+      return;
+    }
+
+    const existing = warnings.get(weekday);
+    if (!existing) {
+      warnings.set(weekday, {
+        weekday,
+        count: 1,
+        firstSessionDate: sessionDate,
+        lastSessionDate: sessionDate,
+      });
+      return;
+    }
+
+    existing.count += 1;
+    existing.firstSessionDate = sessionDate < existing.firstSessionDate ? sessionDate : existing.firstSessionDate;
+    existing.lastSessionDate = sessionDate > existing.lastSessionDate ? sessionDate : existing.lastSessionDate;
+  }
+
+  private emitUnconfiguredWeekdayWarnings(
+    source: PublicTrainingSource,
+    warnings: Map<TrainingDefinition['day'], UnconfiguredWeekdayWarningSummary>,
+  ): void {
+    warnings.forEach((warning) => {
+      this.logger?.warn(
+        'training-data-repository',
+        'skipped-unconfigured-weekday',
+        {
+          sourceId: source.sourceId,
+          weekday: warning.weekday,
+          count: warning.count,
+          firstSessionDate: warning.firstSessionDate,
+          lastSessionDate: warning.lastSessionDate,
+        },
+        this.buildUnconfiguredWeekdayWarningMessage(source.sourceId, warning),
+      );
+    });
+  }
+
+  private buildUnconfiguredWeekdayWarningMessage(
+    sourceId: string,
+    warning: UnconfiguredWeekdayWarningSummary,
+  ): string {
+    if (warning.count === 1) {
+      return `Public training source ${sourceId} has no training definition for weekday ${warning.weekday}. Skipping session date ${warning.firstSessionDate}.`;
+    }
+
+    return `Public training source ${sourceId} has no training definition for weekday ${warning.weekday}. Skipping ${warning.count} session dates from ${warning.firstSessionDate} to ${warning.lastSessionDate}.`;
+  }
+
+  private isPastSessionDate(sessionDate: string): boolean {
+    return sessionDate < this.getCurrentUtcDateString();
+  }
+
+  private getCurrentUtcDateString(): string {
+    const now = this.nowProvider();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
   }
 
   private assertConfiguredTrainingsExistInPublicSheet(
