@@ -23,7 +23,7 @@ import {
   renderRegistrationPage,
   PUBLIC_RSVP_RESPONSE_TITLE,
 } from './htmlRendering';
-export { runReminderDispatch, runTrainerParticipationReportDispatch } from './dispatchRunners';
+export { runReminderDispatch } from './dispatchRunners';
 
 type PublicTrainingMatchBadgeStatus = Extract<PublicSourceRegistrationMatchStatus, 'matched' | 'not-found'>;
 

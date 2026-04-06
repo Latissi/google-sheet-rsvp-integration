@@ -1,6 +1,5 @@
 export * from './IApplicationService';
 export * from './notifications/SendCancellationNotificationService';
-export * from './notifications/SendTrainerParticipationReportService';
 export * from './notifications/SendTrainingReminderService';
 export * from './preferences/UpdateSubscriptionPreferencesService';
 export * from './registration/PreviewPublicSourceRegistrationMatchesService';

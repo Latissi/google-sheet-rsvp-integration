@@ -88,7 +88,6 @@ Regeln:
 Das System stellt folgende Zeit- oder Editor-Einstiegspunkte bereit:
 
 - `runReminderDispatch(dispatchAt?)`
-- `runTrainerParticipationReportDispatch(dispatchAt?, windowHours?)`
 
 Die Web-App-Einstiegspunkte `doGet(e)` und `doPost(e)` werden nicht manuell im Editor ausgeführt. Sie werden über die deployte Web-App-URL mit Request-Parametern aufgerufen.
 
@@ -105,8 +104,6 @@ Die Tabs `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` bilden dabei den 
 - `ErinnerungsVersandMetadaten` verhindert doppelte Reminder pro Session und Offset.
 - `LaufzeitMetadaten` speichert den letzten erfolgreichen Reminder-Lauf als Startpunkt fuer den naechsten Catch-up-Intervallvergleich.
 
-Für Trainerberichte entsprechend `runTrainerParticipationReportDispatch` verwenden.
-
 Trainer erhalten in Reminder-Mails zusätzlich einen Link `Training absagen`. Der erste Klick öffnet nur eine Bestätigungsseite; erst nach der Bestätigung wird die Session abgesagt und eine Absage-Mail an alle Abonnenten verschickt.
 
 ## 6. Dev-Setup testen
@@ -118,11 +115,6 @@ Trainer erhalten in Reminder-Mails zusätzlich einen Link `Training absagen`. De
 4. Bei Problemen die Executions-Ansicht sowie die Tabs `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` prüfen.
 
 Wenn kein Zeitstempel übergeben wird, verwendet die Funktion die aktuelle Uhrzeit. Dann kann ein korrektes System trotzdem `sentCount: 0` liefern, wenn im seit dem letzten erfolgreichen Lauf betrachteten Intervall kein Reminder faellig war.
-
-### Test 2 – Trainerberichte mit festem Zeitfenster ausführen
-1. Im Editor `runTrainerParticipationReportDispatch('2026-03-17T18:00:00.000Z', 24)` ausführen.
-2. Erwartung im Rückgabewert: ein Objekt mit `sessionsProcessed` und `sentCount`.
-3. Die Posteingänge der im Tab `Mitglieder` eingetragenen Trainer prüfen.
 
 ### Test 3 – RSVP über die Web-App
 Browser-Aufruf:
@@ -190,7 +182,7 @@ Dieselbe Seite wird sowohl im zweiten Registrierungsschritt als auch ueber den R
 ### Test 6 – Trainer manuell freischalten
 Wenn eine Person Trainerrechte erhalten soll, pflegt die Script-Administration dies direkt im privaten Tab `Mitglieder`, indem `Rolle` von `Mitglied` auf `Trainer` gesetzt wird.
 
-Erwartung: Erst danach erhält die Person Trainer-spezifische Fähigkeiten wie Trainingsabsage-Links und Beteiligungsreports.
+Erwartung: Erst danach erhält die Person Trainer-spezifische Fähigkeiten wie Trainingsabsage-Links.
 
 ## 7. Fehlerbehebung
 - Prüfen Sie bei Bootstrap-Fehlern, dass das Script container-gebunden an das richtige private Sheet ist.
@@ -223,4 +215,4 @@ Dieser Abschnitt legt fest, wie Fehler pro Schicht behandelt werden.
 ### Runtime-Schicht (`src/runtime/`)
 - `doGet` und `doPost` fangen alle Fehler ab und geben immer eine HTTP-Antwort zurück.
 - Unerwartete Fehler werden geloggt und als generische öffentliche Fehlermeldung zurückgegeben (kein Stack-Trace an den Client).
-- Timer-basierte Dispatcher (`runReminderDispatch`, `runTrainerParticipationReportDispatch`) lassen Fehler propagieren, damit die Apps-Script-Executions-Ansicht den Fehler anzeigt.
+- Timer-basierte Dispatcher (`runReminderDispatch`) lassen Fehler propagieren, damit die Apps-Script-Executions-Ansicht den Fehler anzeigt.

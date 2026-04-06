@@ -5,7 +5,6 @@ const appScriptEntryPoints = [
   'doGet',
   'doPost',
   'runReminderDispatch',
-  'runTrainerParticipationReportDispatch',
 ];
 
 build({

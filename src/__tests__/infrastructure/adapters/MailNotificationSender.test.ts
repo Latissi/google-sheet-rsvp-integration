@@ -1,7 +1,5 @@
 import { MailMessage, MailNotificationSender, IMailTransport, MailDispatchResult } from '../../../infrastructure/adapters/MailNotificationSender';
 import {
-  AttendanceRecord,
-  TrainerParticipationReportNotification,
   TrainingCancellationNotification,
   TrainingDefinition,
   TrainingReminderNotification,
@@ -159,47 +157,4 @@ describe('MailNotificationSender', () => {
     expect(transport.sentMessages[0].body).toContain('Grund: Unwetter');
   });
 
-  it('summarizes participation counts for trainer reports', () => {
-    const transport = new RecordingMailTransport();
-    const sender = new MailNotificationSender({}, transport);
-    const attendance: AttendanceRecord[] = [
-      {
-        memberId: 'M001',
-        sessionId: 'session-1',
-        rsvpStatus: 'Accepted',
-        metadata: { source: 'email-rsvp', updatedAt: '2026-03-09T10:00:00.000Z' },
-      },
-      {
-        memberId: 'M002',
-        sessionId: 'session-1',
-        rsvpStatus: 'Declined',
-        metadata: { source: 'email-rsvp', updatedAt: '2026-03-09T11:00:00.000Z' },
-      },
-      {
-        memberId: 'M003',
-        sessionId: 'session-1',
-        rsvpStatus: 'Accepted',
-        metadata: { source: 'email-rsvp', updatedAt: '2026-03-09T12:00:00.000Z' },
-      },
-    ];
-    const notification: TrainerParticipationReportNotification = {
-      recipient: createUser({
-        memberId: 'T001',
-        email: 'trainer@example.com',
-        role: 'Trainer',
-        roleDefinition: getRoleDefinition('Trainer'),
-      }),
-      session: createSession(),
-      training: createTraining(),
-      attendance,
-    };
-
-    sender.sendTrainerParticipationReport(notification);
-
-    expect(transport.sentMessages).toHaveLength(1);
-    expect(transport.sentMessages[0].subject).toContain('Beteiligungsreport');
-    expect(transport.sentMessages[0].body).toContain('Zusagen: 2');
-    expect(transport.sentMessages[0].body).toContain('Absagen: 1');
-    expect(transport.sentMessages[0].body).toContain('Rückmeldungen gesamt: 3');
-  });
 });

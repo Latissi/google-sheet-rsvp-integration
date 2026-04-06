@@ -1,6 +1,5 @@
 import { CancelTrainingSessionService } from '../../application/training/CancelTrainingSessionService';
 import { SendCancellationNotificationService } from '../../application/notifications/SendCancellationNotificationService';
-import { SendTrainerParticipationReportService } from '../../application/notifications/SendTrainerParticipationReportService';
 import { SendTrainingReminderService } from '../../application/notifications/SendTrainingReminderService';
 import { TrainingDefinition, TrainingSession, UserRecord } from '../../domain/types';
 import { InMemoryUserRepository } from '../mocks/InMemoryUserRepository';
@@ -265,38 +264,6 @@ describe('Notification application services', () => {
     ]);
   });
 
-  it('sends trainer participation reports only to trainer recipients', () => {
-    const trainingRepository = new InMemoryTrainingRepository(definitions, sessions, [
-      {
-        memberId: 'M001',
-        sessionId: 'session-1',
-        rsvpStatus: 'Accepted',
-        metadata: { source: 'email-rsvp', updatedAt: '2026-03-09T10:00:00.000Z' },
-      },
-      {
-        memberId: 'M002',
-        sessionId: 'session-1',
-        rsvpStatus: 'Declined',
-        metadata: { source: 'email-rsvp', updatedAt: '2026-03-09T11:00:00.000Z' },
-      },
-    ]);
-    const userRepository = new InMemoryUserRepository([
-      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
-      createUser({ memberId: 'T001', role: 'Trainer', trainingIds: ['wed-mixed'] }),
-      createUser({ memberId: 'T002', role: 'Trainer', trainingIds: ['fri-outdoor'] }),
-    ]);
-    const sender = new RecordingNotificationSender();
-    const service = new SendTrainerParticipationReportService(trainingRepository, userRepository, sender);
-
-    const result = service.execute({ sessionId: 'session-1' });
-
-    expect(result.trainerCount).toBe(1);
-    expect(result.attendanceCount).toBe(2);
-    expect(sender.reports).toEqual([
-      { recipientId: 'T001', sessionId: 'session-1', attendanceCount: 2 },
-    ]);
-  });
-
   it('isolates per-user send errors: continues remaining users and still marks the offset as sent', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
     const userRepository = new InMemoryUserRepository([
@@ -315,7 +282,6 @@ describe('Notification application services', () => {
         if (callCount === 2) throw new Error('quota exhausted');
       }),
       sendTrainingCancellation: jest.fn(),
-      sendTrainerParticipationReport: jest.fn(),
     };
     const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, failingOnSecondSender);
 

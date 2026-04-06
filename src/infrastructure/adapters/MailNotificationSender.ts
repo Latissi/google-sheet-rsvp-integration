@@ -1,8 +1,6 @@
 import { INotificationSender } from '../../domain/ports/INotificationSender';
 import { escapeHtml } from './htmlEscape';
 import {
-  AttendanceRecord,
-  TrainerParticipationReportNotification,
   TrainingCancellationNotification,
   TrainingReminderNotification,
 } from '../../domain/types';
@@ -163,37 +161,6 @@ export class MailNotificationSender implements INotificationSender {
     });
   }
 
-  sendTrainerParticipationReport(notification: TrainerParticipationReportNotification): void {
-    const trainingLabel = this.getTrainingLabel(notification.training?.title, notification.session.trainingId);
-    const counts = this.getAttendanceCounts(notification.attendance);
-    const bodyLines = [
-      `Hallo ${this.getRecipientLabel(notification.recipient)},`,
-      '',
-      `Trainingsbeteiligung für ${trainingLabel} am ${notification.session.sessionDate}:`,
-      `Zusagen: ${counts.accepted}`,
-      `Absagen: ${counts.declined}`,
-      `Rückmeldungen gesamt: ${notification.attendance.length}`,
-    ];
-
-    this.dispatch(notification.recipient.email, {
-      subject: `Beteiligungsreport: ${trainingLabel} am ${notification.session.sessionDate}`,
-      body: bodyLines.join('\n'),
-      htmlBody: [
-        `<p>Hallo ${escapeHtml(this.getRecipientLabel(notification.recipient))},</p>`,
-        `<p>Trainingsbeteiligung für <strong>${escapeHtml(trainingLabel)}</strong> am <strong>${escapeHtml(notification.session.sessionDate)}</strong>:</p>`,
-        '<ul>',
-        `<li>Zusagen: ${counts.accepted}</li>`,
-        `<li>Absagen: ${counts.declined}</li>`,
-        `<li>Rückmeldungen gesamt: ${notification.attendance.length}</li>`,
-        '</ul>',
-      ].join(''),
-    }, {
-      notificationType: 'trainer-participation-report',
-      sessionId: notification.session.sessionId,
-      trainingId: notification.session.trainingId,
-    });
-  }
-
   private dispatch(
     recipientEmail: string,
     message: Omit<MailMessage, 'to'>,
@@ -248,20 +215,6 @@ export class MailNotificationSender implements INotificationSender {
     }
 
     return lines;
-  }
-
-  private getAttendanceCounts(attendance: AttendanceRecord[]): { accepted: number; declined: number } {
-    return attendance.reduce((counts, record) => {
-      if (record.rsvpStatus === 'Accepted') {
-        counts.accepted += 1;
-      }
-
-      if (record.rsvpStatus === 'Declined') {
-        counts.declined += 1;
-      }
-
-      return counts;
-    }, { accepted: 0, declined: 0 });
   }
 
   private buildUrl(baseUrl: string, params: Record<string, string>): string {

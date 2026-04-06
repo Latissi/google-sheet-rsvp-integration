@@ -10,7 +10,7 @@ Das Logging soll dem Maintainer helfen, Fehler in der produktiven oder Entwicklu
 - Die Logs dienen primär zur Verifikation von Deployments, Trigger-Läufen und Fehlerfällen.
 
 ## Was wird geloggt?
-- Start und Ende von `doGet`, `doPost`, `runReminderDispatch`, `runTrainerParticipationReport` und `runTrainerParticipationReportDispatch`
+- Start und Ende von `doGet`, `doPost` und `runReminderDispatch`
 - Erfolgswerte wie `sentCount` oder `sessionsProcessed`
 - Sanitized Fehlerereignisse mit Operation, Zeitstempel und technischem Kontext
 

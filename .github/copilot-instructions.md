@@ -5,7 +5,7 @@ This repository implements a **hybrid RSVP workflow** for club training manageme
 ## 1. Architecture
 The system follows a **Clean Architecture / Ports & Adapters** pattern.
 - **Domain:** `src/domain/` contains pure models and port interfaces. Keep Google-specific APIs out of this layer.
-- **Application:** `src/application/` contains use-case services such as registration, RSVP, reminders, cancellations, and trainer reports.
+- **Application:** `src/application/` contains use-case services such as registration, RSVP, reminders, and cancellations.
 - **Infrastructure:** `src/infrastructure/adapters/` and `src/infrastructure/gateway/` contain Google Sheets, Mail, and private-sheet implementations.
 - **Runtime:** `src/runtime/` wires the application for Apps Script entry points. `src/runtime/createRuntimeContext.ts` is the main composition root.
 - **Single Source of Truth:** The public training sheet is the attendance source of truth; private sheets hold config, identities, roles, and subscriptions.

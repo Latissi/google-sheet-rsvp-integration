@@ -28,7 +28,6 @@ import {
 } from '../../runtime/requestHandlers';
 import {
   runReminderDispatchWithRuntime,
-  runTrainerParticipationReportDispatchWithRuntime,
 } from '../../runtime/dispatchRunners';
 
 class RecordingSubmitRsvpService {
@@ -513,45 +512,6 @@ describe('webapp RSVP handler', () => {
       cancelledAt: '2026-03-09T12:00:00.000Z',
       reason: undefined,
     }]);
-  });
-
-  it('dispatches trainer participation reports for sessions in the configured window', () => {
-    const sessions: TrainingSession[] = [
-      {
-        sessionId: 'session-1',
-        trainingId: 'wed-mixed',
-        sessionDate: '2026-03-09',
-        startTime: '18:00',
-        status: 'Scheduled',
-      },
-      {
-        sessionId: 'session-2',
-        trainingId: 'wed-mixed',
-        sessionDate: '2026-03-11',
-        startTime: '18:00',
-        status: 'Scheduled',
-      },
-    ];
-
-    const runtime = {
-      trainingDataRepository: {
-        getUpcomingTrainingSessions: () => sessions,
-      },
-      sendTrainerParticipationReportService: {
-        execute: ({ sessionId }: { sessionId: string }) => ({ sentCount: sessionId === 'session-1' ? 2 : 1 }),
-      },
-    };
-
-    const result = runTrainerParticipationReportDispatchWithRuntime(
-      runtime,
-      '2026-03-09T00:00:00.000Z',
-      24,
-    );
-
-    expect(result).toEqual({
-      sessionsProcessed: 1,
-      sentCount: 2,
-    });
   });
 
   it('marks the reminder watermark only after a successful dispatch run', () => {

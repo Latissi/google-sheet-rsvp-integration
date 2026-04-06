@@ -6,7 +6,6 @@ describe('role domain model', () => {
 
     expect(trainerRole.capabilities.canRsvpToTraining).toBe(true);
     expect(trainerRole.capabilities.canCancelTraining).toBe(true);
-    expect(trainerRole.capabilities.receivesParticipationReportEmail).toBe(true);
     expect(trainerRole.capabilities.canViewMemberContactData).toBe(true);
   });
 
@@ -15,7 +14,6 @@ describe('role domain model', () => {
 
     expect(memberRole.capabilities.canRsvpToTraining).toBe(true);
     expect(memberRole.capabilities.canCancelTraining).toBe(false);
-    expect(memberRole.capabilities.receivesParticipationReportEmail).toBe(false);
     expect(memberRole.capabilities.canViewMemberContactData).toBe(false);
   });
 

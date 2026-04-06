@@ -3,7 +3,6 @@ export type Role = 'Mitglied' | 'Trainer';
 export interface RoleCapabilities {
   canRsvpToTraining: boolean;
   canCancelTraining: boolean;
-  receivesParticipationReportEmail: boolean;
   canViewMemberContactData: boolean;
 }
 
@@ -19,7 +18,6 @@ const MEMBER_ROLE: RoleDefinition = {
   capabilities: {
     canRsvpToTraining: true,
     canCancelTraining: false,
-    receivesParticipationReportEmail: false,
     canViewMemberContactData: false,
   },
 };
@@ -30,7 +28,6 @@ const TRAINER_ROLE: RoleDefinition = {
   capabilities: {
     canRsvpToTraining: true,
     canCancelTraining: true,
-    receivesParticipationReportEmail: true,
     canViewMemberContactData: true,
   },
 };

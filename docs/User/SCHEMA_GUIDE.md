@@ -60,7 +60,7 @@ Regeln:
 Regeln:
 - Dieser Tab wird nicht automatisch aus dem oeffentlichen Sheet erzeugt oder synchronisiert.
 - Er muss manuell gepflegt werden, wenn neue Trainingsarten, Zeiten oder Orte hinzukommen oder sich aendern.
-- Die Anwendung liest diese Definitionen nur ein, um Sessions, Erinnerungen und Trainerberichte fachlich anzureichern.
+- Die Anwendung liest diese Definitionen nur ein, um Sessions und Erinnerungen fachlich anzureichern.
 - `Wochentag` ist Pflicht.
 - `Startzeit` und `Endzeit` sind fachlich Zeiten im Format `HH:MM`. Google-Sheets-Zeitwerte werden beim Einlesen auf dieses Format normalisiert.
 - Eine Quelle darf mehrere Trainingsdefinitionen enthalten.
@@ -79,7 +79,7 @@ Regeln:
 - `EMail` dient nur dem Versand von Benachrichtigungen und ist kein Identitaetsschluessel.
 - `Rolle` darf nur `Mitglied` oder `Trainer` sein.
 - Alle Personen, die RSVP oder Benachrichtigungen nutzen, müssen in diesem Tab vorhanden sein.
-- E-Mail-Empfänger fuer Erinnerungen, Absagen und Trainerberichte werden direkt aus diesem Tab gelesen.
+- E-Mail-Empfänger fuer Erinnerungen und Absagen werden direkt aus diesem Tab gelesen.
 
 ### Tab `TeilnahmeMetadaten`
 
