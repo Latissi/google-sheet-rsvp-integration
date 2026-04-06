@@ -31,7 +31,7 @@ Erforderliche Schlüssel:
 |-----------|--------------|-----------|
 | `OEFFENTLICHES_SHEET_ID` | `[Google Sheet ID]` | ID des öffentlichen Trainings-Sheets |
 | `WEBAPP_ADRESSE` | `https://script.google.com/.../exec` | Deploy-URL der Web-App für RSVP-Links |
-| `ERINNERUNGS_STUNDEN` | `48,24` | Komma-getrennte, nicht-negative Ganzzahlen in Stunden vor dem Training |
+| `ERINNERUNGS_STUNDEN` | `48;24` | Semikolon-getrennte, nicht-negative Ganzzahlen in Stunden vor dem Training |
 
 ### Tab `Trainingsquellen`
 

@@ -90,10 +90,6 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
   }
 
   private normalizeReminderOffsets(offsets: ReminderOffset[]): ReminderOffset[] {
-    if (offsets.length > 2) {
-      throw new Error('A maximum of 2 reminder offsets is supported.');
-    }
-
     const totals = new Set<number>();
     const normalized = [...offsets].sort((left, right) => {
       return getReminderOffsetMinutes(right) - getReminderOffsetMinutes(left);
@@ -112,17 +108,17 @@ export class PrivateSheetConfigurationProvider implements IConfigurationProvider
 
   private parseReminderOffsetsConfig(key: string): ReminderOffset[] {
     const value = this.getConfigValue(key);
-    const offsets = value.split(',').map(part => part.trim());
+    const offsets = value.split(';').map(part => part.trim());
 
     if (offsets.some(offset => offset === '')) {
-      throw new Error(`Configuration key "${key}" must contain comma-separated non-negative integer hour values.`);
+      throw new Error(`Configuration key "${key}" must contain semicolon-separated non-negative integer hour values.`);
     }
 
     try {
       return offsets.map((offset, index) => this.parseReminderOffset(offset, index));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Configuration key "${key}" must contain comma-separated non-negative integer hour values. ${message}`);
+      throw new Error(`Configuration key "${key}" must contain semicolon-separated non-negative integer hour values. ${message}`);
     }
   }
 

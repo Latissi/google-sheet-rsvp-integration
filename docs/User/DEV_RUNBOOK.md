@@ -38,10 +38,10 @@ Die Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten`
 Schlüssel | Wert
 OEFFENTLICHES_SHEET_ID | <ID des öffentlichen Trainings-Sheets>
 WEBAPP_ADRESSE | <die Web-App-URL aus dem Deployment>
-ERINNERUNGS_STUNDEN | 48,24
+ERINNERUNGS_STUNDEN | 48;24
 ```
 
-`ERINNERUNGS_STUNDEN` erwartet komma-getrennte, nicht-negative Ganzzahlen in Stunden vor dem Training, zum Beispiel `48,24`.
+`ERINNERUNGS_STUNDEN` erwartet semikolon-getrennte, nicht-negative Ganzzahlen in Stunden vor dem Training, zum Beispiel `48;24`.
 
 ### Tab `Trainingsquellen`
 
