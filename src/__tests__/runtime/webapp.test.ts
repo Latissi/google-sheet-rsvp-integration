@@ -464,7 +464,7 @@ describe('webapp RSVP handler', () => {
     const html = buildOnboardingCompletionHtml();
 
     expect(html).toContain('Deine Registrierung ist abgeschlossen.');
-    expect(html).toContain('RSVP-Links');
+    expect(html).toContain('Feedback-Links');
     expect(html).toContain('aktualisieren automatisch das öffentliche Trainings-Sheet');
     expect(html).toContain('wurde er beim Speichern automatisch ergänzt');
   });

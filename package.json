@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "test": "jest --runInBand",
+    "gen:assets": "node scripts/inlineAssets.js",
     "build": "rm -rf dist && node build.js && cp appsscript.json dist/",
     "push:dev": "npm run build && cp .clasp-dev.json .clasp.json && clasp push",
     "push:prod": "npm run build && cp .clasp-prod.json .clasp.json && clasp push"

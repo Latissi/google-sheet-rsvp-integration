@@ -1,5 +1,6 @@
 import { TrainingDefinition } from '../domain/types';
 import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
+import { FTW_LOGO_DATA_URI } from './publicAssets';
 import {
   buildVerbosePublicErrorMessage,
   CancelTrainingConfirmationPayload,
@@ -43,6 +44,7 @@ export function buildRegistrationPageHtml(
   return renderPublicPage(
     PUBLIC_JOIN_TITLE,
     [
+      `<div style="text-align:center;margin-bottom:1.25rem"><img src="${FTW_LOGO_DATA_URI}" alt="Vereinslogo" style="max-width:140px;height:auto" /></div>`,
       `<p>Mit der Anmeldung werden vorab Erinnerungen an deine Mail gesendet, wenn du noch keine Teilnahme Rückmeldung im Google Sheet gegeben hast. Die Auswahl der Trainingstermine erfolgt im nächsten Schritt.</p>`,
       message ? `<p class="notice">${escapeHtml(message)}</p>` : '',
       `<form method="post" action="${escapeHtml(formAction)}" target="_top">`,
@@ -125,8 +127,9 @@ export function buildOnboardingCompletionHtml(): string {
   return renderPublicPage(
     PUBLIC_COMPLETION_TITLE,
     [
+      `<div style="text-align:center;margin-bottom:1rem"><span style="font-size:3rem;color:#2d7a3a">&#10003;</span></div>`,
       '<p>Deine Registrierung ist abgeschlossen.</p>',
-      '<p>Du erhältst für deine ausgewählten Trainings künftig Erinnerungen mit direkten RSVP-Links per E-Mail.</p>',
+      '<p>Du erhältst für deine ausgewählten Trainings künftig Erinnerungen mit Feedback-Links per E-Mail.</p>',
       '<p>Deine Zu- oder Absagen aus diesen Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch gefehlt hat, wurde er beim Speichern automatisch ergänzt.</p>',
     ].join(''),
   );
