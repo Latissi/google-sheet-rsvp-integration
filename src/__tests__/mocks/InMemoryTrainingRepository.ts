@@ -71,6 +71,10 @@ export class InMemoryTrainingRepository implements ITrainingDataRepository {
       : 'Training entfällt';
   }
 
+  paintCancelledSessionColumn(_sessionId: string): void {
+    // no-op in tests
+  }
+
   getCancellationNotificationSentAt(sessionId: string): string | null {
     return this.cancellationNotificationSentAt.get(sessionId) ?? null;
   }

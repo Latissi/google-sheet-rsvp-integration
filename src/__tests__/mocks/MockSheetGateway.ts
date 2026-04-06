@@ -11,6 +11,7 @@ export class MockSheetGateway implements ISheetGateway {
   public appendedRows: Array<{ sheetName: string, values: unknown[] }> = [];
   public updatedRows: Array<{ sheetName: string, rowIndex: number, values: unknown[] }> = [];
   public updatedCells: Array<{ sheetName: string, rowIndex: number, columnIndex: number, value: unknown }> = [];
+  public backgroundUpdates: Array<{ sheetName: string, columnIndex: number, startRow: number, numRows: number, color: string }> = [];
 
   constructor(
     initialData: { [sheetName: string]: unknown[][] } = {},
@@ -96,6 +97,10 @@ export class MockSheetGateway implements ISheetGateway {
 
     row[columnIndex - 1] = value;
     this.updatedCells.push({ sheetName, rowIndex, columnIndex, value });
+  }
+
+  setColumnBackground(sheetName: string, columnIndex: number, startRow: number, numRows: number, color: string, _options?: SheetWriteOptions): void {
+    this.backgroundUpdates.push({ sheetName, columnIndex, startRow, numRows, color });
   }
 
   getUpdatesCount(): number {

@@ -28,6 +28,7 @@ import {
   getMemberRowsFirstNameIndex,
   getMemberRowsLastNameIndex,
   normalizeSheetText,
+  getTableEndRow,
 } from './SheetTableUtils';
 
 interface SessionReferenceBase {
@@ -89,6 +90,7 @@ const REMINDER_DISPATCH_METADATA_HEADERS = ['SessionId', 'OffsetMinuten', 'Gesen
 const RUNTIME_METADATA_SHEET_NAME = 'LaufzeitMetadaten';
 const RUNTIME_METADATA_HEADERS = ['Schluessel', 'Wert'];
 const LAST_SUCCESSFUL_REMINDER_DISPATCH_KEY = 'runReminderDispatch:lastSuccessfulRunAt';
+const CANCELLATION_COLUMN_COLOR = '#f4cccc';
 
 export class GoogleSheetTrainingDataRepository implements ITrainingDataRepository {
   private sessionReferencesCache: SessionReference[] | null = null;
@@ -254,7 +256,13 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       },
     );
 
+    this.doPaintCancelledSessionColumn(reference);
     this.invalidateSourceCache(reference.source);
+  }
+
+  paintCancelledSessionColumn(sessionId: string): void {
+    const reference = this.findSessionReferenceOrThrow(sessionId);
+    this.doPaintCancelledSessionColumn(reference);
   }
 
   saveAttendance(record: AttendanceRecord): void {
@@ -594,6 +602,22 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   private isCancelledByAdditionalInfo(additionalInfo: string): boolean {
     const normalized = additionalInfo.trim().toLowerCase();
     return normalized.includes('entfällt') || normalized.includes('gesperrt');
+  }
+
+  private doPaintCancelledSessionColumn(reference: SessionColumnReference): void {
+    const { source, bounds, columnIndex } = reference;
+    const { dateHeaderRow, infoRow } = source.attendance;
+    const startRow = infoRow !== undefined ? Math.min(infoRow, dateHeaderRow) : dateHeaderRow;
+    const endRow = getTableEndRow(source.tableRange) ?? startRow + 199;
+    const absoluteColumnIndex = bounds.startColumn + columnIndex + 1;
+    this.gateway.setColumnBackground(
+      source.sheetName,
+      absoluteColumnIndex,
+      startRow,
+      endRow - startRow + 1,
+      CANCELLATION_COLUMN_COLOR,
+      { spreadsheetId: this.getPublicSpreadsheetId() },
+    );
   }
 
   private createCancellationAdditionalInfo(reference: SessionColumnReference, reason?: string): string {

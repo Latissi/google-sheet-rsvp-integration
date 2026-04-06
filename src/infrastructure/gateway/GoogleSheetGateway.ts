@@ -59,6 +59,12 @@ export class GoogleSheetGateway implements ISheetGateway {
     SpreadsheetApp.flush();
   }
 
+  setColumnBackground(sheetName: string, columnIndex: number, startRow: number, numRows: number, color: string, options?: SheetWriteOptions): void {
+    const sheet = this.getSheet(sheetName, options);
+    sheet.getRange(startRow, columnIndex, numRows, 1).setBackground(color);
+    SpreadsheetApp.flush();
+  }
+
   appendRow(sheetName: string, values: unknown[], options?: SheetWriteOptions): void {
     const sheet = this.getSheet(sheetName, options);
     sheet.appendRow(values);

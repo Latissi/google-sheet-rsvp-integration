@@ -57,3 +57,11 @@ import { normalizeSheetString } from './sheetUtils';
 export function normalizeSheetText(value: unknown): string {
   return normalizeSheetString(value);
 }
+
+export function getTableEndRow(rangeA1: string | undefined): number | undefined {
+  if (!rangeA1) return undefined;
+  const endCell = rangeA1.split(':')[1];
+  if (!endCell) return undefined;
+  const match = endCell.match(/(\d+)$/);
+  return match ? parseInt(match[1], 10) : undefined;
+}

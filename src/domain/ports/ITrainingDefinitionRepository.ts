@@ -5,4 +5,5 @@ export interface ITrainingDefinitionRepository {
   getUpcomingTrainingSessions(): TrainingSession[];
   getTrainingSessionById(sessionId: string): TrainingSession | null;
   cancelTrainingSession(cancellation: TrainingCancellation): void;
+  paintCancelledSessionColumn(sessionId: string): void;
 }

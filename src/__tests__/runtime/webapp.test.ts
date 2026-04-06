@@ -559,6 +559,7 @@ describe('webapp RSVP handler', () => {
     const runtime = {
       trainingDataRepository: {
         markLastSuccessfulReminderDispatchAt,
+        paintCancelledSessionColumn: jest.fn<void, [string]>(),
       },
       sendTrainingReminderService: {
         execute: ({ dispatchAt }: { dispatchAt: string }) => ({
@@ -588,6 +589,7 @@ describe('webapp RSVP handler', () => {
     const runtime = {
       trainingDataRepository: {
         markLastSuccessfulReminderDispatchAt,
+        paintCancelledSessionColumn: jest.fn<void, [string]>(),
       },
       sendTrainingReminderService: {
         execute: () => {

@@ -22,6 +22,7 @@ interface CancellationExecutor {
 interface ReminderDispatchRuntime {
   trainingDataRepository: {
     markLastSuccessfulReminderDispatchAt(completedAt: string): void;
+    paintCancelledSessionColumn(sessionId: string): void;
   };
   sendTrainingReminderService: ReminderDispatchExecutor;
   sendCancellationNotificationService: CancellationExecutor;
@@ -89,6 +90,7 @@ export function runReminderDispatchWithRuntime(
   let cancellationSentCount = 0;
   for (const cancellation of result.pendingCancellations) {
     cancellationSentCount += runtime.sendCancellationNotificationService.execute({ cancellation }).sentCount;
+    runtime.trainingDataRepository.paintCancelledSessionColumn(cancellation.sessionId);
   }
 
   runtime.trainingDataRepository.markLastSuccessfulReminderDispatchAt(dispatchAt);
