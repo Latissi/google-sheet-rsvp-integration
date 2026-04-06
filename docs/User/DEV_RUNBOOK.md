@@ -87,7 +87,7 @@ Regeln:
 ## 5. Automatisierung einrichten
 Das System stellt folgende Zeit- oder Editor-Einstiegspunkte bereit:
 
-- `runReminderDispatch(dispatchAt?)`
+- `runReminderDispatch()`
 
 Die Web-App-Einstiegspunkte `doGet(e)` und `doPost(e)` werden nicht manuell im Editor ausgeführt. Sie werden über die deployte Web-App-URL mit Request-Parametern aufgerufen.
 
@@ -108,13 +108,15 @@ Trainer erhalten in Reminder-Mails zusätzlich einen Link `Training absagen`. De
 
 ## 6. Dev-Setup testen
 
-### Test 1 – Reminder mit festem Zeitstempel ausführen
-1. Im Editor `runReminderDispatch('2026-03-17T18:15:00.000Z')` mit einem Zeitstempel ausführen, dessen 15-Minuten-Intervall einen Reminder-Zeitpunkt einschliesst.
+### Test 1 – Reminder mit aktueller Uhrzeit ausführen
+1. Im Editor `runReminderDispatch()` ausführen oder den installierten 15-Minuten-Trigger abwarten.
 2. Erwartung im Rückgabewert: ein Objekt mit `sessionsProcessed` und `sentCount`.
 3. Die Posteingänge der im Tab `Mitglieder` eingetragenen Empfänger prüfen.
 4. Bei Problemen die Executions-Ansicht sowie die Tabs `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` prüfen.
 
-Wenn kein Zeitstempel übergeben wird, verwendet die Funktion die aktuelle Uhrzeit. Dann kann ein korrektes System trotzdem `sentCount: 0` liefern, wenn im seit dem letzten erfolgreichen Lauf betrachteten Intervall kein Reminder faellig war.
+Die Funktion verwendet immer die aktuelle Uhrzeit des laufenden Apps-Script-Kontexts. Dann kann ein korrektes System trotzdem `sentCount: 0` liefern, wenn im seit dem letzten erfolgreichen Lauf betrachteten Intervall kein Reminder faellig war.
+
+Ein installierbarer Zeit-Trigger uebergibt Apps Script intern ein Event-Objekt. `runReminderDispatch()` ignoriert dieses Trigger-Payload bewusst und verwendet es nicht als fachlichen Zeitstempel.
 
 ### Test 3 – RSVP über die Web-App
 Browser-Aufruf:

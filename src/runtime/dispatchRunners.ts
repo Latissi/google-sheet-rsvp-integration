@@ -28,9 +28,10 @@ interface ReminderDispatchRuntime {
 
 // ── Dispatch runners ──────────────────────────────────────────────────────────
 
-export function runReminderDispatch(dispatchAt: string = new Date().toISOString()) {
+export function runReminderDispatch() {
   const logger = getRuntimeLogger();
   const startedAt = Date.now();
+  const dispatchAt = new Date().toISOString();
 
   logger.info('runReminderDispatch', 'start', { dispatchAt });
 

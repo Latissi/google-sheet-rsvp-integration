@@ -27,8 +27,11 @@ import {
   handleSubscriptionPreferencesRequest,
 } from '../../runtime/requestHandlers';
 import {
+  runReminderDispatch,
   runReminderDispatchWithRuntime,
 } from '../../runtime/dispatchRunners';
+import * as createRuntimeContextModule from '../../runtime/createRuntimeContext';
+import * as loggingModule from '../../runtime/logging';
 
 class RecordingSubmitRsvpService {
   public readonly requests: SubmitRsvpRequest[] = [];
@@ -102,6 +105,10 @@ class EmptyUserLookup {
 }
 
 describe('webapp RSVP handler', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('maps RSVP query parameters to a submit request', () => {
     const service = new RecordingSubmitRsvpService();
 
@@ -608,6 +615,61 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('Training absagen');
     expect(html).toContain('Absage fehlgeschlagen.');
     expect(html).not.toContain('name="confirm"');
+  });
+
+  it('ignores a time-trigger event object and dispatches using the current timestamp', () => {
+    const executeReminderDispatch = jest.fn().mockReturnValue({
+      sessionsProcessed: 1,
+      sentCount: 2,
+      errorCount: 0,
+      pendingCancellations: [],
+    });
+    const markLastSuccessfulReminderDispatchAt = jest.fn<void, [string]>();
+    const logger = {
+      info: jest.fn<void, [string, string, Record<string, unknown>]>(),
+      error: jest.fn<void, [string, string, unknown, Record<string, unknown>]>(),
+    };
+    const runtime = {
+      trainingDataRepository: {
+        markLastSuccessfulReminderDispatchAt,
+        paintCancelledSessionColumn: jest.fn<void, [string]>(),
+      },
+      sendTrainingReminderService: {
+        execute: executeReminderDispatch,
+      },
+      sendCancellationNotificationService: {
+        execute: jest.fn().mockReturnValue({ sentCount: 0 }),
+      },
+    };
+
+    const createRuntimeContextSpy = jest.spyOn(createRuntimeContextModule, 'createRuntimeContext').mockReturnValue(
+      runtime as unknown as ReturnType<typeof createRuntimeContextModule.createRuntimeContext>,
+    );
+    const getRuntimeLoggerSpy = jest.spyOn(loggingModule, 'getRuntimeLogger').mockReturnValue(
+      logger as unknown as ReturnType<typeof loggingModule.getRuntimeLogger>,
+    );
+
+    const result = (runReminderDispatch as unknown as (event: unknown) => { sessionsProcessed: number; sentCount: number; errorCount: number })({
+      triggerUid: 'trigger-1',
+      authMode: 'FULL',
+    });
+
+    expect(result).toEqual({
+      sessionsProcessed: 1,
+      sentCount: 2,
+      errorCount: 0,
+    });
+    expect(createRuntimeContextSpy).toHaveBeenCalledTimes(1);
+    expect(getRuntimeLoggerSpy).toHaveBeenCalledTimes(1);
+    expect(executeReminderDispatch).toHaveBeenCalledWith({
+      dispatchAt: expect.any(String),
+    });
+
+    const dispatchAt = executeReminderDispatch.mock.calls[0][0].dispatchAt;
+    expect(Number.isNaN(new Date(dispatchAt).getTime())).toBe(false);
+    expect(markLastSuccessfulReminderDispatchAt).toHaveBeenCalledWith(dispatchAt);
+    expect(logger.info).toHaveBeenCalledWith('runReminderDispatch', 'start', { dispatchAt });
+    expect(logger.error).not.toHaveBeenCalled();
   });
 });
 
