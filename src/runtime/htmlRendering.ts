@@ -262,7 +262,7 @@ function renderEmailField(name: string, label: string, value?: string): string {
 
 function renderMatchBadge(status: PublicTrainingMatchBadgeStatus, sheetName: string): string {
   const labels: Record<PublicTrainingMatchBadgeStatus, string> = {
-    'matched': `✓ Dein Name steht bereits im Trainings-Tab "${sheetName}". Deine Zu- oder Absagen aus den Erinnerungsmails aktualisieren diesen Tab.`,
+    'matched': `✓ Dein Name steht bereits im Trainings-Tab "${sheetName}".`,
     'not-found': `⚠ Dein Name fehlt noch im Trainings-Tab "${sheetName}". Beim Speichern wird er dort automatisch ergänzt.`,
   };
   return `<span class="match-badge status-${escapeHtml(status)}">${escapeHtml(labels[status])}</span>`;
