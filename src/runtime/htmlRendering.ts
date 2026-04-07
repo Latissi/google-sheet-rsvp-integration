@@ -127,7 +127,6 @@ export function buildOnboardingCompletionHtml(): string {
   return renderPublicPage(
     PUBLIC_COMPLETION_TITLE,
     [
-      `<div style="text-align:center;margin-bottom:1rem"><span style="font-size:3rem;color:#2d7a3a">&#10003;</span></div>`,
       `<div style="text-align:center;margin-bottom:1.25rem"><img src="${FRANCONIA_WELCOME_DATA_URI}" alt="Willkommen" style="max-width:180px;height:auto" /></div>`,
       '<p>Deine Registrierung ist abgeschlossen.</p>',
       '<p>Du erhältst für deine ausgewählten Trainings künftig Erinnerungen mit Feedback-Links per E-Mail.</p>',
