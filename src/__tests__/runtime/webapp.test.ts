@@ -577,8 +577,7 @@ describe('webapp RSVP handler', () => {
 
     expect(html).toContain('Rückmeldung');
     expect(html).toContain('Danke, deine Teilnahme wurde gespeichert.');
-    expect(html).toContain('#2d7a3a');
-    expect(html).toContain('&#10003;');
+    expect(html).toContain('alt="Zusage"');
   });
 
   it('renders an RSVP error response as styled HTML', () => {
@@ -586,8 +585,7 @@ describe('webapp RSVP handler', () => {
 
     expect(html).toContain('Rückmeldung');
     expect(html).toContain('RSVP-Anfrage fehlgeschlagen.');
-    expect(html).toContain('#C41230');
-    expect(html).toContain('&#9888;');
+    expect(html).toContain('alt="Absage"');
   });
 
   it('renders a cancel training confirmation page using the shared page layout', () => {

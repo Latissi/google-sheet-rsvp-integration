@@ -1,6 +1,6 @@
 import { TrainingDefinition } from '../domain/types';
 import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
-import { FTW_LOGO_DATA_URI } from './publicAssets';
+import { FTW_LOGO_DATA_URI, FRANCONIA_WELCOME_DATA_URI, FRANCONIA_HAPPY_DATA_URI, FRANCONIA_SAD_DATA_URI } from './publicAssets';
 import {
   buildVerbosePublicErrorMessage,
   CancelTrainingConfirmationPayload,
@@ -22,13 +22,13 @@ export const PUBLIC_CANCEL_TRAINING_TITLE = 'Training absagen';
 // ── Exported HTML builders (testable, framework-free) ─────────────────────────
 
 export function buildRsvpResponseHtml(ok: boolean, message: string): string {
-  const icon = ok
-    ? `<span style="font-size:3rem;color:#2d7a3a">&#10003;</span>`
-    : `<span style="font-size:3rem;color:#C41230">&#9888;</span>`;
+  const mascot = ok
+    ? `<img src="${FRANCONIA_HAPPY_DATA_URI}" alt="Zusage" style="max-width:180px;height:auto" />`
+    : `<img src="${FRANCONIA_SAD_DATA_URI}" alt="Absage" style="max-width:180px;height:auto" />`;
   return renderPublicPage(
     PUBLIC_RSVP_RESPONSE_TITLE,
     [
-      `<div style="text-align:center;margin-bottom:1rem">${icon}</div>`,
+      `<div style="text-align:center;margin-bottom:1rem">${mascot}</div>`,
       `<p style="text-align:center;font-size:1.1rem">${escapeHtml(message)}</p>`,
     ].join(''),
   );
@@ -128,6 +128,7 @@ export function buildOnboardingCompletionHtml(): string {
     PUBLIC_COMPLETION_TITLE,
     [
       `<div style="text-align:center;margin-bottom:1rem"><span style="font-size:3rem;color:#2d7a3a">&#10003;</span></div>`,
+      `<div style="text-align:center;margin-bottom:1.25rem"><img src="${FRANCONIA_WELCOME_DATA_URI}" alt="Willkommen" style="max-width:180px;height:auto" /></div>`,
       '<p>Deine Registrierung ist abgeschlossen.</p>',
       '<p>Du erhältst für deine ausgewählten Trainings künftig Erinnerungen mit Feedback-Links per E-Mail.</p>',
       '<p>Deine Zu- oder Absagen aus diesen Erinnerungsmails aktualisieren automatisch das öffentliche Trainings-Sheet. Falls dein Name in einem gewählten Trainings-Tab noch gefehlt hat, wurde er beim Speichern automatisch ergänzt.</p>',
