@@ -12,7 +12,6 @@ Erforderliche Tabs:
 - `Mitglieder`
 
 Laufzeit-Tabs:
-- `TeilnahmeMetadaten`
 - `VersandMetadaten`
 - `ErinnerungsVersandMetadaten`
 - `LaufzeitMetadaten`
@@ -80,18 +79,6 @@ Regeln:
 - `Rolle` darf nur `Mitglied` oder `Trainer` sein.
 - Alle Personen, die RSVP oder Benachrichtigungen nutzen, müssen in diesem Tab vorhanden sein.
 - E-Mail-Empfänger fuer Erinnerungen und Absagen werden direkt aus diesem Tab gelesen.
-
-### Tab `TeilnahmeMetadaten`
-
-| SessionId | MitgliedId | Quelle | AktualisiertAm |
-|-----------|------------|--------|----------------|
-| `club-rsvp__wed-mixed__2026-03-11__18:00` | `max::mustermann` | `email-rsvp` | `2026-03-09T10:00:00.000Z` |
-
-Regeln:
-- Eine Zeile pro Kombination aus `SessionId` und `MitgliedId`.
-- `Quelle` verwendet die internen Werte `manual`, `email-rsvp`, `sheet-sync` oder `system`.
-- `AktualisiertAm` ist ein ISO-8601-Zeitstempel.
-- Fehlt fuer eine Kombination eine Zeile, behandelt die Anwendung den Eintrag als manuell gepflegt.
 
 ### Tab `VersandMetadaten`
 

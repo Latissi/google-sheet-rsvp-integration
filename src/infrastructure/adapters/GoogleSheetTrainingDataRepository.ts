@@ -3,7 +3,6 @@ import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataReposit
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import {
   AttendanceRecord,
-  AttendanceSyncMetadata,
   PublicTrainingSource,
   ReminderOffset,
   RsvpStatus,
@@ -49,11 +48,6 @@ interface SessionDispatchMetadata {
   cancellationNotificationSentAt: string;
 }
 
-interface AttendanceMetadataRow extends AttendanceSyncMetadata {
-  sessionId: string;
-  memberId: string;
-}
-
 interface ReminderMetadata {
   sessionId: string;
   offsetMinutes: number;
@@ -97,9 +91,6 @@ interface TrainingDataRepositoryLogger {
   warn(operation: string, event: string, context?: Record<string, unknown>, message?: string): void;
 }
 
-const DEFAULT_MANUAL_TIMESTAMP = '1970-01-01T00:00:00.000Z';
-const ATTENDANCE_METADATA_SHEET_NAME = 'TeilnahmeMetadaten';
-const ATTENDANCE_METADATA_HEADERS = ['SessionId', 'MitgliedId', 'Quelle', 'AktualisiertAm'];
 const DISPATCH_METADATA_SHEET_NAME = 'VersandMetadaten';
 const DISPATCH_METADATA_HEADERS = ['SessionId', 'AbsageBenachrichtigungGesendetAm'];
 const REMINDER_DISPATCH_METADATA_SHEET_NAME = 'ErinnerungsVersandMetadaten';
@@ -112,7 +103,6 @@ const CANCELLATION_COLUMN_COLOR = '#f4cccc';
 export class GoogleSheetTrainingDataRepository implements ITrainingDataRepository {
   private sessionReferencesCache: SessionReference[] | null = null;
   private readonly sourceTableCache: SourceTableCache;
-  private readonly attendanceMetadataStore: SheetMetadataStore<AttendanceMetadataRow>;
   private readonly sessionDispatchMetadataStore: SheetMetadataStore<SessionDispatchMetadata>;
   private readonly reminderDispatchMetadataStore: SheetMetadataStore<ReminderMetadata>;
   private readonly runtimeMetadataStore: SheetMetadataStore<string>;
@@ -130,31 +120,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     this.sessionDateParser = new TrainingSessionDateParser(nowProvider);
     this.memberRowUserMatcher = new MemberRowUserMatcher();
     this.sourceTableCache = sourceTableCache ?? new SourceTableCache(gateway, configurationProvider);
-
-    this.attendanceMetadataStore = new SheetMetadataStore<AttendanceMetadataRow>(
-      gateway,
-      ATTENDANCE_METADATA_SHEET_NAME,
-      ATTENDANCE_METADATA_HEADERS,
-      (cols, rowNum) => {
-        if (!cols['SessionId'] || !cols['MitgliedId'] || !cols['Quelle'] || !cols['AktualisiertAm']) {
-          throw new Error(`Sheet "${ATTENDANCE_METADATA_SHEET_NAME}" contains an incomplete metadata row at ${rowNum}.`);
-        }
-        if (!isAttendanceSource(cols['Quelle'])) {
-          throw new Error(`Sheet "${ATTENDANCE_METADATA_SHEET_NAME}" contains an invalid attendance source at row ${rowNum}.`);
-        }
-        if (cols['SessionId']!.includes('::')) {
-          throw new Error(`Sheet "${ATTENDANCE_METADATA_SHEET_NAME}" row ${rowNum}: SessionId must not contain "::"`);
-        }
-        return `${cols['SessionId']}::${cols['MitgliedId']}`;
-      },
-      (cols) => ({
-        sessionId: cols['SessionId']!,
-        memberId: cols['MitgliedId']!,
-        source: cols['Quelle'] as AttendanceSyncMetadata['source'],
-        updatedAt: cols['AktualisiertAm']!,
-      }),
-      (_key, meta) => [meta.sessionId, meta.memberId, meta.source, meta.updatedAt],
-    );
 
     this.sessionDispatchMetadataStore = new SheetMetadataStore<SessionDispatchMetadata>(
       gateway,
@@ -421,16 +386,10 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
           return null;
         }
 
-        const metadata = this.getCellMetadata(
-          reference.session.sessionId,
-          user.memberId,
-        );
-
         return {
           memberId: user.memberId,
           sessionId: reference.session.sessionId,
           rsvpStatus,
-          metadata,
         } satisfies AttendanceRecord;
       })
       .filter((record): record is AttendanceRecord => record !== null);
@@ -473,7 +432,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       this.formatAttendanceCell(record.rsvpStatus),
       { spreadsheetId: this.getPublicSpreadsheetId() },
     );
-    this.upsertAttendanceMetadata(record);
 
     this.invalidateSourceCache(reference.source);
   }
@@ -724,38 +682,12 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return `${cancellationPrefix} | ${existingAdditionalInfo}`;
   }
 
-  private getCellMetadata(sessionId: string, memberId: string): AttendanceSyncMetadata {
-    const key = this.createAttendanceMetadataKey(sessionId, memberId);
-    const row = this.attendanceMetadataStore.get(key);
-    return row ? { source: row.source, updatedAt: row.updatedAt } : this.getDefaultManualMetadata();
-  }
-
-  private upsertAttendanceMetadata(record: AttendanceRecord): void {
-    const key = this.createAttendanceMetadataKey(record.sessionId, record.memberId);
-    this.attendanceMetadataStore.upsert(key, {
-      sessionId: record.sessionId,
-      memberId: record.memberId,
-      ...record.metadata,
-    });
-  }
-
-  private createAttendanceMetadataKey(sessionId: string, memberId: string): string {
-    return `${sessionId}::${memberId}`;
-  }
-
   private createReminderDispatchMetadataKey(sessionId: string, offset: ReminderOffset): string {
     return this.createReminderDispatchMetadataKeyFromMinutes(sessionId, getReminderOffsetMinutes(offset));
   }
 
   private createReminderDispatchMetadataKeyFromMinutes(sessionId: string, offsetMinutes: number): string {
     return `${sessionId}::${offsetMinutes}`;
-  }
-
-  private getDefaultManualMetadata(): AttendanceSyncMetadata {
-    return {
-      source: 'manual',
-      updatedAt: DEFAULT_MANUAL_TIMESTAMP,
-    };
   }
 
   private createSessionId(sourceId: string, trainingId: string, sessionDate: string, startTime: string): string {
@@ -768,9 +700,5 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     return parts.map(part => part.trim()).join('__');
   }
 
-}
-
-function isAttendanceSource(value: string): value is AttendanceSyncMetadata['source'] {
-  return ['manual', 'email-rsvp', 'sheet-sync', 'system'].includes(value);
 }
 

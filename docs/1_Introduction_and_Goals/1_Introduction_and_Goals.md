@@ -30,8 +30,8 @@ Ziel ist es, die Teilnahme Rückmeldungen zum Training zu erhöhen, indem Rückm
 ### FR-4 Blatt-Synchronisierung (Sheet-Sync)
 - Synchronisierung der RSVP-Ergebnisse aus E-Mails in die Anwesenheitszellen.
 - Manuelle Bearbeitungen durch den Trainer sind jederzeit möglich.
-- Manuelle Werte dürfen nicht überschrieben werden, außer es geht eine neuere explizite RSVP nach der manuellen Änderung ein.
-- Gewährleistung einer deterministischen Konfliktlösung mittels Quelle + Zeitstempel-Metadaten.
+- Jede neue RSVP-Antwort überschreibt den bisherigen RSVP-Wert im öffentlichen Blatt.
+- Das öffentliche Blatt ist die einzige persistente Quelle für RSVP-Anwesenheitswerte.
 - Trainings 
 
 ### FR-5 Benachrichtigung bei Trainingsabsage

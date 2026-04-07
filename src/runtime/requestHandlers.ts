@@ -27,7 +27,6 @@ export interface RsvpRequestParameters {
   memberId?: string;
   sessionId?: string;
   response?: string;
-  respondedAt?: string;
 }
 
 export interface RegistrationRequestParameters {
@@ -109,7 +108,6 @@ const CANCELLED_SESSION_PUBLIC_MESSAGE = 'Dieses Training entfällt. Eine Zu- od
 export function handleRsvpRequest(
   parameters: RsvpRequestParameters,
   submitRsvpService: RsvpRequestExecutor,
-  now: string = new Date().toISOString(),
 ): RsvpResponsePayload {
   if ((parameters.action ?? '').trim().toLowerCase() !== 'rsvp') {
     return {
@@ -129,15 +127,11 @@ export function handleRsvpRequest(
     };
   }
 
-  const respondedAt = parameters.respondedAt?.trim() || now;
-
   try {
     submitRsvpService.execute({
       memberId,
       sessionId,
       rsvpStatus,
-      respondedAt,
-      source: 'email-rsvp',
     });
 
     return {

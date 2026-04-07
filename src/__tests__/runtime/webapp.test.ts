@@ -117,7 +117,6 @@ describe('webapp RSVP handler', () => {
       memberId: 'M001',
       sessionId: 'session-1',
       response: 'Accepted',
-      respondedAt: '2026-03-09T12:00:00.000Z',
     }, service);
 
     expect(result).toEqual({
@@ -128,8 +127,6 @@ describe('webapp RSVP handler', () => {
       memberId: 'M001',
       sessionId: 'session-1',
       rsvpStatus: 'Accepted',
-      respondedAt: '2026-03-09T12:00:00.000Z',
-      source: 'email-rsvp',
     }]);
   });
 
@@ -161,7 +158,7 @@ describe('webapp RSVP handler', () => {
       memberId: 'M001',
       sessionId: 'session-1',
       response: 'Declined',
-    }, failingService, '2026-03-09T12:00:00.000Z');
+    }, failingService);
 
     expect(result).toEqual({
       ok: false,
@@ -181,7 +178,7 @@ describe('webapp RSVP handler', () => {
       memberId: 'M001',
       sessionId: 'session-1',
       response: 'Declined',
-    }, failingService, '2026-03-09T12:00:00.000Z');
+    }, failingService);
 
     expect(result).toEqual({
       ok: false,

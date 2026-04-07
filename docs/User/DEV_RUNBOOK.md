@@ -6,7 +6,7 @@ Dieses Runbook beschreibt die kanonische Dev-Einrichtung. Das System unterstütz
 Öffnen Sie das deployte Apps-Script-Projekt im Browser.
 
 Das Projekt ist typischerweise container-gebunden an das private Dev-Sheet. Das private Sheet enthält die Tabs `Konfiguration`, `Trainingsquellen`, `Trainingsdefinitionen` und `Mitglieder`. Das öffentliche Trainings-Sheet wird separat per ID referenziert.
-Zusätzlich kann die Anwendung dort die Laufzeit-Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` anlegen, sobald RSVP-, Versand- oder Laufzeitmetadaten geschrieben werden.
+Zusätzlich kann die Anwendung dort die Laufzeit-Tabs `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` anlegen, sobald Versand- oder Laufzeitmetadaten geschrieben werden.
 
 ## 2. Als Web-App deployen
 Um eingehende RSVPs per HTTP zu verarbeiten, deployen Sie das Script als Web-App.
@@ -30,7 +30,7 @@ Das private Dev-Sheet muss genau diese Tabs enthalten:
 - `Trainingsdefinitionen`
 - `Mitglieder`
 
-Die Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` werden von der Anwendung selbst verwaltet. Sie muessen nicht manuell vorbereitet werden, duerfen aber auch nicht fuer Fachdaten zweckentfremdet werden.
+Die Tabs `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` werden von der Anwendung selbst verwaltet. Sie muessen nicht manuell vorbereitet werden, duerfen aber auch nicht fuer Fachdaten zweckentfremdet werden.
 
 ### Tab `Konfiguration`
 
@@ -191,7 +191,7 @@ Erwartung: Erst danach erhält die Person Trainer-spezifische Fähigkeiten wie T
 - Prüfen Sie im Tab `Konfiguration`, dass `OEFFENTLICHES_SHEET_ID`, `WEBAPP_ADRESSE` und `ERINNERUNGS_STUNDEN` gesetzt sind.
 - Prüfen Sie in `Trainingsquellen`, dass `DatumsKopfZeile`, `MitgliederStartZeile`, Vorname-, Nachname-, optionale Geschlechts- und Startspalte gepflegt sind.
 - Prüfen Sie in `Mitglieder`, dass Vorname, Nachname, EMail, Rolle und MitgliedId vorhanden sind und dass keine doppelten Namen existieren.
-- Prüfen Sie bei Metadaten-Problemen die privaten Tabs `TeilnahmeMetadaten`, `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` auf unvollständige oder doppelte Zeilen.
+- Prüfen Sie bei Metadaten-Problemen die privaten Tabs `VersandMetadaten`, `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` auf unvollständige oder doppelte Zeilen.
 - Prüfen Sie die `Executions`-Ansicht und den privaten Tab `Systemprotokoll` auf Laufzeitfehler.
 
 Dieses Runbook beschreibt absichtlich keinen Migrationspfad. Wenn ein bestehendes Sheet nicht in dieses Schema passt, muss das Sheet angepasst werden.

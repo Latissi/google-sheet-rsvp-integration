@@ -31,41 +31,47 @@ describe('RSVP application services', () => {
       memberId: 'M001',
       sessionId: 'session-1',
       rsvpStatus: 'Accepted',
-      respondedAt: '2026-03-09T10:00:00.000Z',
     });
 
-    expect(result.attendance.metadata.source).toBe('email-rsvp');
-    expect(trainingRepository.getAttendanceForSession('session-1')).toHaveLength(1);
-  });
-
-  it('does not overwrite a newer manual attendance update', () => {
-    const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
-    trainingRepository.attendance.push({
+    expect(result.attendance).toEqual({
       memberId: 'M001',
       sessionId: 'session-1',
       rsvpStatus: 'Accepted',
-      metadata: {
-        source: 'manual',
-        updatedAt: '2026-03-09T10:00:00.000Z',
-      },
     });
-    const service = new SyncAttendanceService(trainingRepository);
+    expect(trainingRepository.getAttendanceForSession('session-1')).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Accepted',
+    }]);
+  });
+
+  it('overwrites an existing RSVP for the same user and session', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
+    const userRepository = new InMemoryUserRepository([createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] })]);
+    const service = new SubmitRsvpService(trainingRepository, userRepository, new SyncAttendanceService(trainingRepository));
+
+    service.execute({
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Accepted',
+    });
 
     const result = service.execute({
-      record: {
-        memberId: 'M001',
-        sessionId: 'session-1',
-        rsvpStatus: 'Declined',
-        metadata: {
-          source: 'email-rsvp',
-          updatedAt: '2026-03-09T09:00:00.000Z',
-        },
-      },
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Declined',
     });
 
-    expect(result.applied).toBe(false);
-    expect(result.reason).toBe('older-update');
-    expect(trainingRepository.getAttendanceForSession('session-1')[0].rsvpStatus).toBe('Accepted');
+    expect(result.attendance).toEqual({
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Declined',
+    });
+    expect(trainingRepository.getAttendanceForSession('session-1')).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Declined',
+    }]);
   });
 
   it('rejects RSVP for cancelled sessions', () => {
@@ -83,7 +89,6 @@ describe('RSVP application services', () => {
       sessionId: 'session-1',
       memberId: 'M001',
       rsvpStatus: 'Accepted',
-      respondedAt: '2026-03-09T10:00:00.000Z',
     })).toThrow('Training session "session-1" is cancelled.');
   });
 });

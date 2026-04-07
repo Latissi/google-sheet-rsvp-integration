@@ -39,7 +39,7 @@ Beide Optionen gehen von folgendem Setup aus:
 - **Apps Script** (empfohlen als Standalone, technisch aber auch bound an die private Tabelle möglich)  
   - Liest Trainingstermine aus dem öffentlichen Sheet.
   - Liest User & Rollen + Konfiguration aus der privaten Tabelle.
-  - Schreibt Anwesenheitswerte und Status in das öffentliche Sheet (FR‑4), respektiert manuelle Änderungen inkl. Zeitstempeln.
+  - Schreibt Anwesenheitswerte und Status direkt in das öffentliche Sheet (FR‑4).
   - Implementiert Web-App für One‑Click‑RSVP und Traineraktionen.
 
 ### Bewertung nach Anforderungen
@@ -48,7 +48,7 @@ Beide Optionen gehen von folgendem Setup aus:
   - Google Form schreibt in die private Tabelle (neues Tab „Registrierung“ oder direkt in die User-Tabelle).  
   - Name muss identisch mit dem Namen im Trainingssheet sein – Matching über Name oder eine interne ID.  
 - **FR‑2/FR‑3/FR‑4 (Erinnerungen + One‑Click + Sync):**  
-  - Script liest aus beiden Tabellen, verschickt Erinnerungen und synchronisiert Ergebnisse deterministisch (Quelle + Zeitstempel).  
+  - Script liest aus beiden Tabellen, verschickt Erinnerungen und synchronisiert RSVP-Ergebnisse direkt in das öffentliche Sheet.  
 - **FR‑5/FR‑6/FR‑7/FR‑8 (Trainerrechte, Berichte, Datenschutz):**  
   - Trainer-Rollen stehen in der privaten Tabelle; das Script entscheidet, welche Aktionen/Ansichten ein Benutzer bekommt.  
   - Öffentliche Sheet-Ansichten enthalten keine E-Mail-Adressen; alle Kontaktdaten liegen in der privaten Tabelle.

@@ -30,10 +30,6 @@ describe('Notification application services', () => {
       memberId: 'M001',
       sessionId: 'session-1',
       rsvpStatus: 'Accepted',
-      metadata: {
-        source: 'email-rsvp',
-        updatedAt: '2026-03-09T10:00:00.000Z',
-      },
     }]);
     const userRepository = new InMemoryUserRepository([
       createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),

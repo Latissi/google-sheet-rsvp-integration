@@ -13,7 +13,6 @@ interface TestLogger {
 }
 
 const ATTENDANCE_METADATA_SHEET_NAME = 'TeilnahmeMetadaten';
-const ATTENDANCE_METADATA_HEADERS = ['SessionId', 'MitgliedId', 'Quelle', 'AktualisiertAm'];
 const DISPATCH_METADATA_SHEET_NAME = 'VersandMetadaten';
 const DISPATCH_METADATA_HEADERS = ['SessionId', 'AbsageBenachrichtigungGesendetAm'];
 const REMINDER_DISPATCH_METADATA_SHEET_NAME = 'ErinnerungsVersandMetadaten';
@@ -194,7 +193,7 @@ describe('GoogleSheetTrainingDataRepository', () => {
     ]);
   });
 
-  it('reads attendance and metadata from simple member rows', () => {
+  it('reads attendance from simple member rows', () => {
     const sources: PublicTrainingSource[] = [{
       sourceId: 'club-rsvp',
       sheetName: 'RSVP Übersicht',
@@ -219,9 +218,50 @@ describe('GoogleSheetTrainingDataRepository', () => {
         ['Alice', 'Example', 'x', '-'],
         ['Charlie', 'Coach', '-', ''],
       ],
+    });
+
+    expect(repository.getAttendanceForSession('club-rsvp__wed-mixed__2026-03-11__18:00')).toEqual([
+      {
+        memberId: 'alice::example',
+        sessionId: 'club-rsvp__wed-mixed__2026-03-11__18:00',
+        rsvpStatus: 'Accepted',
+      },
+      {
+        memberId: 'charlie::coach',
+        sessionId: 'club-rsvp__wed-mixed__2026-03-11__18:00',
+        rsvpStatus: 'Declined',
+      },
+    ]);
+  });
+
+  it('ignores duplicate attendance metadata rows', () => {
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'club-rsvp',
+      sheetName: 'RSVP Übersicht',
+      tableRange: 'A1:D10',
+      attendance: {
+        dateHeaderRow: 1,
+        firstMemberRow: 2,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'C',
+      },
+      trainings: [{
+        trainingId: 'wed-mixed',
+        day: 'Mittwoch',
+        title: 'Mittwoch Training',
+        startTime: '18:00',
+      }],
+    }];
+    const { repository } = createRepository(sources, {
+      'RSVP Übersicht': [
+        ['Vorname', 'Nachname', new Date('2026-03-11T00:00:00.000Z')],
+        ['Alice', 'Example', 'x'],
+      ],
       [ATTENDANCE_METADATA_SHEET_NAME]: [
-        ATTENDANCE_METADATA_HEADERS,
+        ['SessionId', 'MitgliedId', 'Quelle', 'AktualisiertAm'],
         ['club-rsvp__wed-mixed__2026-03-11__18:00', 'alice::example', 'email-rsvp', '2026-03-09T10:00:00.000Z'],
+        ['club-rsvp__wed-mixed__2026-03-11__18:00', 'alice::example', 'email-rsvp', '2026-03-09T10:01:00.000Z'],
       ],
     });
 
@@ -230,19 +270,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
         memberId: 'alice::example',
         sessionId: 'club-rsvp__wed-mixed__2026-03-11__18:00',
         rsvpStatus: 'Accepted',
-        metadata: {
-          source: 'email-rsvp',
-          updatedAt: '2026-03-09T10:00:00.000Z',
-        },
-      },
-      {
-        memberId: 'charlie::coach',
-        sessionId: 'club-rsvp__wed-mixed__2026-03-11__18:00',
-        rsvpStatus: 'Declined',
-        metadata: {
-          source: 'manual',
-          updatedAt: '1970-01-01T00:00:00.000Z',
-        },
       },
     ]);
   });
@@ -340,10 +367,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
         memberId: 'anna::ananas',
         sessionId: 'single-gender__wed-single__2026-03-18__19:00',
         rsvpStatus: 'Declined',
-        metadata: {
-          source: 'manual',
-          updatedAt: '1970-01-01T00:00:00.000Z',
-        },
       },
     ]);
   });
@@ -424,10 +447,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
         memberId: 'anna::ananas',
         sessionId: 'mixed-weekdays__mon-late__2025-03-17__20:15',
         rsvpStatus: 'Declined',
-        metadata: {
-          source: 'manual',
-          updatedAt: '1970-01-01T00:00:00.000Z',
-        },
       },
     ]);
   });
@@ -688,10 +707,6 @@ describe('GoogleSheetTrainingDataRepository', () => {
       memberId: 'bob::example',
       sessionId: 'club-rsvp__wed-mixed__2026-03-18__18:00',
       rsvpStatus: 'Declined',
-      metadata: {
-        source: 'email-rsvp',
-        updatedAt: '2026-03-10T09:00:00.000Z',
-      },
     });
 
     expect(gateway.updatedCells).toContainEqual({
@@ -700,10 +715,7 @@ describe('GoogleSheetTrainingDataRepository', () => {
       columnIndex: 4,
       value: '-',
     });
-    expect(gateway.getSheetValues(ATTENDANCE_METADATA_SHEET_NAME)).toEqual([
-      ATTENDANCE_METADATA_HEADERS,
-      ['club-rsvp__wed-mixed__2026-03-18__18:00', 'bob::example', 'email-rsvp', '2026-03-10T09:00:00.000Z'],
-    ]);
+    expect(gateway.appendedRows).toEqual([]);
   });
 
   it('tracks one-time cancellation notification state in the date header note', () => {

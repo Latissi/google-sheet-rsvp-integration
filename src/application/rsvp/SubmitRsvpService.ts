@@ -1,16 +1,13 @@
 import { IApplicationService } from '../IApplicationService';
 import { ITrainingDefinitionRepository } from '../../domain/ports/ITrainingDefinitionRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
-import { AttendanceRecord, AttendanceSource, RsvpStatus } from '../../domain/types';
+import { AttendanceRecord, RsvpStatus } from '../../domain/types';
 import { ISyncAttendanceService } from './SyncAttendanceService';
-import { assertValidIsoTimestamp } from '../../domain/validation';
 
 export interface SubmitRsvpRequest {
   memberId: string;
   sessionId: string;
   rsvpStatus: Exclude<RsvpStatus, 'Pending'>;
-  respondedAt: string;
-  source?: AttendanceSource;
 }
 
 export interface SubmitRsvpResult {
@@ -27,8 +24,6 @@ export class SubmitRsvpService implements ISubmitRsvpService {
   ) {}
 
   execute(request: SubmitRsvpRequest): SubmitRsvpResult {
-    assertValidIsoTimestamp(request.respondedAt, 'respondedAt');
-
     const user = this.userRepository.getUserByMemberId(request.memberId);
     if (!user) {
       throw new Error(`User with memberId "${request.memberId}" not found.`);
@@ -49,10 +44,6 @@ export class SubmitRsvpService implements ISubmitRsvpService {
       memberId: request.memberId,
       sessionId: request.sessionId,
       rsvpStatus: request.rsvpStatus,
-      metadata: {
-        source: request.source ?? 'email-rsvp',
-        updatedAt: request.respondedAt,
-      },
     };
 
     this.syncAttendanceService.execute({ record: attendance });
