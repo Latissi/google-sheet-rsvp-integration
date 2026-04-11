@@ -718,6 +718,48 @@ describe('GoogleSheetTrainingDataRepository', () => {
     expect(gateway.appendedRows).toEqual([]);
   });
 
+  it('stores an RSVP comment as a note on the same attendance cell', () => {
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'club-rsvp',
+      sheetName: 'RSVP Übersicht',
+      tableRange: 'A1:D10',
+      attendance: {
+        dateHeaderRow: 1,
+        firstMemberRow: 2,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'C',
+      },
+      trainings: [{
+        trainingId: 'wed-mixed',
+        day: 'Mittwoch',
+        title: 'Mittwoch Training',
+        startTime: '18:00',
+      }],
+    }];
+    const { gateway, repository } = createRepository(sources, {
+      'RSVP Übersicht': [
+        ['Vorname', 'Nachname', new Date('2026-03-11T00:00:00.000Z'), new Date('2026-03-18T00:00:00.000Z')],
+        ['Alice', 'Example', '', ''],
+        ['Bob', 'Example', '', '-'],
+      ],
+    });
+
+    repository.saveRsvpComment({
+      memberId: 'bob::example',
+      sessionId: 'club-rsvp__wed-mixed__2026-03-18__18:00',
+      comment: 'Bin etwas später da.',
+    });
+
+    expect(gateway.updatedNotes).toContainEqual({
+      sheetName: 'RSVP Übersicht',
+      rowIndex: 3,
+      columnIndex: 4,
+      note: 'Bin etwas später da.',
+    });
+    expect(gateway.updatedCells).toEqual([]);
+  });
+
   it('tracks one-time cancellation notification state in the date header note', () => {
     const sources: PublicTrainingSource[] = [{
       sourceId: 'single-gender',

@@ -19,6 +19,7 @@ import {
  */
 export class InMemoryTrainingRepository implements ITrainingDataRepository {
   public attendance: AttendanceRecord[] = [];
+  public readonly rsvpComments = new Map<string, string>();
   private readonly cancellationNotificationSentAt = new Map<string, string>();
   private readonly reminderNotificationSentAt = new Map<string, string>();
   private lastSuccessfulReminderDispatchAt: string | null = null;
@@ -58,6 +59,10 @@ export class InMemoryTrainingRepository implements ITrainingDataRepository {
       return;
     }
     this.attendance.push(record);
+  }
+
+  saveRsvpComment(request: { memberId: string; sessionId: string; comment: string }): void {
+    this.rsvpComments.set(`${request.sessionId}::${request.memberId}`, request.comment);
   }
 
   cancelTrainingSession(cancellation: TrainingCancellation): void {

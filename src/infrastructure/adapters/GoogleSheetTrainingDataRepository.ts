@@ -1,4 +1,5 @@
 import { IConfigurationProvider } from '../../domain/ports/IConfigurationProvider';
+import { SaveRsvpCommentRequest } from '../../domain/ports/IRsvpCommentRepository';
 import { ITrainingDataRepository } from '../../domain/ports/ITrainingDataRepository';
 import { IUserRepository } from '../../domain/ports/IUserRepository';
 import {
@@ -40,6 +41,11 @@ interface SessionColumnReference extends SessionReferenceBase {
   kind: 'member-rows';
   columnIndex: number;
   bounds: TableBounds;
+}
+
+interface MemberRowsAttendanceCellReference {
+  rowIndex: number;
+  columnIndex: number;
 }
 
 type SessionReference = SessionColumnReference;
@@ -252,6 +258,19 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     this.saveAttendanceForMemberRowsSession(reference, record);
   }
 
+  saveRsvpComment(request: SaveRsvpCommentRequest): void {
+    const reference = this.findSessionReferenceOrThrow(request.sessionId);
+    const cellReference = this.resolveMemberRowsAttendanceCell(reference, request.memberId);
+
+    this.gateway.setCellNote(
+      reference.source.sheetName,
+      cellReference.rowIndex,
+      cellReference.columnIndex,
+      request.comment,
+      { spreadsheetId: this.getPublicSpreadsheetId() },
+    );
+  }
+
   markCancellationNotificationSent(cancellation: TrainingCancellation, notifiedAt: string): void {
     const reference = this.findSessionReferenceOrThrow(cancellation.sessionId);
     this.sessionDispatchMetadataStore.upsert(
@@ -396,9 +415,25 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   }
 
   private saveAttendanceForMemberRowsSession(reference: SessionColumnReference, record: AttendanceRecord): void {
-    const user = this.userRepository.getUserByMemberId(record.memberId);
+    const cellReference = this.resolveMemberRowsAttendanceCell(reference, record.memberId);
+    this.gateway.setCellValue(
+      reference.source.sheetName,
+      cellReference.rowIndex,
+      cellReference.columnIndex,
+      this.formatAttendanceCell(record.rsvpStatus),
+      { spreadsheetId: this.getPublicSpreadsheetId() },
+    );
+
+    this.invalidateSourceCache(reference.source);
+  }
+
+  private resolveMemberRowsAttendanceCell(
+    reference: SessionColumnReference,
+    memberId: string,
+  ): MemberRowsAttendanceCellReference {
+    const user = this.userRepository.getUserByMemberId(memberId);
     if (!user) {
-      throw new Error(`User with memberId "${record.memberId}" not found.`);
+      throw new Error(`User with memberId "${memberId}" not found.`);
     }
 
     const rawTable = this.getSourceTable(reference.source);
@@ -406,7 +441,6 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
     const firstNameIndex = getMemberRowsFirstNameIndex(reference.source, reference.bounds);
     const lastNameIndex = getMemberRowsLastNameIndex(reference.source, reference.bounds);
 
-    let absoluteRowIndex: number | null = null;
     for (let rowOffset = memberStartRowIndex; rowOffset < rawTable.length; rowOffset += 1) {
       const rowValues = rawTable[rowOffset];
       if (!rowValues) {
@@ -415,25 +449,14 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
 
       const rowUser = this.memberRowUserMatcher.findUser(rowValues[firstNameIndex], rowValues[lastNameIndex], [user]);
       if (rowUser?.memberId === user.memberId) {
-        absoluteRowIndex = reference.bounds.startRow + rowOffset;
-        break;
+        return {
+          rowIndex: reference.bounds.startRow + rowOffset,
+          columnIndex: reference.bounds.startColumn + reference.columnIndex + 1,
+        };
       }
     }
 
-    if (absoluteRowIndex === null) {
-      throw new Error(`No attendance row found for memberId "${record.memberId}" in session "${record.sessionId}".`);
-    }
-
-    const absoluteColumnIndex = reference.bounds.startColumn + reference.columnIndex + 1;
-    this.gateway.setCellValue(
-      reference.source.sheetName,
-      absoluteRowIndex,
-      absoluteColumnIndex,
-      this.formatAttendanceCell(record.rsvpStatus),
-      { spreadsheetId: this.getPublicSpreadsheetId() },
-    );
-
-    this.invalidateSourceCache(reference.source);
+    throw new Error(`No attendance row found for memberId "${memberId}" in session "${reference.session.sessionId}".`);
   }
 
   private resolveTrainingTemplate(source: PublicTrainingSource, sessionDate: string): ResolveTrainingTemplateResult {

@@ -1,10 +1,12 @@
 import { TrainingDefinition } from '../domain/types';
+import { MAX_RSVP_COMMENT_LENGTH } from '../application/rsvp/UpdateRsvpCommentService';
 import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
 import { FTW_LOGO_DATA_URI, FRANCONIA_WELCOME_DATA_URI, FRANCONIA_HAPPY_DATA_URI, FRANCONIA_SAD_DATA_URI } from './publicAssets';
 import {
   CancelTrainingConfirmationPayload,
   RegistrationRequestParameters,
   RsvpStatus,
+  RsvpCommentResultPayload,
 } from './requestHandlers';
 
 type PublicTrainingMatchBadgeStatus = 'matched' | 'not-found';
@@ -19,21 +21,52 @@ export const PUBLIC_COMPLETION_TITLE = 'Anmeldung abgeschlossen';
 export const PUBLIC_RSVP_RESPONSE_TITLE = 'Rückmeldung';
 export const PUBLIC_CANCEL_TRAINING_TITLE = 'Training absagen';
 
+interface RsvpCommentFormOptions {
+  memberId: string;
+  sessionId: string;
+  formAction?: string;
+  comment?: string;
+}
+
 // ── Exported HTML builders (testable, framework-free) ─────────────────────────
 
-export function buildRsvpResponseHtml(message: string, rsvpStatus?: RsvpStatus): string {
+export function buildRsvpResponseHtml(
+  message: string,
+  rsvpStatus?: RsvpStatus,
+  commentForm?: RsvpCommentFormOptions,
+): string {
   const mascot = rsvpStatus === 'Accepted'
     ? `<img src="${FRANCONIA_HAPPY_DATA_URI}" alt="Zusage" style="max-width:180px;height:auto" />`
     : rsvpStatus === 'Declined'
       ? `<img src="${FRANCONIA_SAD_DATA_URI}" alt="Absage" style="max-width:180px;height:auto" />`
       : '';
+
+  const commentFormHtml = commentForm
+    ? [
+      '<div class="info">Optional: Ergänze noch einen kurzen Kommentar zu deiner Rückmeldung. Er wird als Notiz in derselben RSVP-Zelle im Trainings-Sheet gespeichert.</div>',
+      `<form method="post" action="${escapeHtml(commentForm.formAction ?? '')}" target="_top">`,
+      '<input type="hidden" name="action" value="rsvp-comment" />',
+      `<input type="hidden" name="memberId" value="${escapeHtml(commentForm.memberId)}" />`,
+      `<input type="hidden" name="sessionId" value="${escapeHtml(commentForm.sessionId)}" />`,
+      renderTextAreaField('comment', 'Optionaler Kommentar', commentForm.comment, MAX_RSVP_COMMENT_LENGTH),
+      '<button type="submit">Kommentar speichern</button>',
+      '<p class="fine-print">Ohne Kommentar kannst du dieses Fenster einfach schließen.</p>',
+      '</form>',
+    ].join('')
+    : '';
+
   return renderPublicPage(
     PUBLIC_RSVP_RESPONSE_TITLE,
     [
       mascot ? `<div style="text-align:center;margin-bottom:1rem">${mascot}</div>` : '',
       `<p style="text-align:center;font-size:1.1rem">${escapeHtml(message)}</p>`,
+      commentFormHtml,
     ].join(''),
   );
+}
+
+export function shouldRenderRsvpCommentForm(result: RsvpCommentResultPayload): boolean {
+  return result.commentSaved !== true;
 }
 
 export function buildRegistrationPageHtml(
@@ -222,12 +255,14 @@ function renderPublicPage(title: string, body: string): string {
       label { display: grid; gap: 0.35rem; font-weight: 600; }
       label span { font-size: 0.95rem; }
       input, select, button { font: inherit; }
-      input, select { border: 1px solid #CCCCCC; border-radius: 8px; padding: 0.85rem 1rem; background: #FAFAFA; }
-      input:focus, select:focus { border-color: #C41230; outline: none; box-shadow: 0 0 0 3px rgba(196,18,48,0.12); }
+      input, select, textarea { border: 1px solid #CCCCCC; border-radius: 8px; padding: 0.85rem 1rem; background: #FAFAFA; }
+      input:focus, select:focus, textarea:focus { border-color: #C41230; outline: none; box-shadow: 0 0 0 3px rgba(196,18,48,0.12); }
+      textarea { min-height: 7rem; resize: vertical; }
       button { border: 0; border-radius: 999px; padding: 0.95rem 1.4rem; background: #C41230; color: #fff; cursor: pointer; transition: background 0.15s; }
       button:hover { background: #9B0E24; }
       .info { background: #F3F8FF; border: 1px solid #B7CFF8; border-radius: 8px; padding: 0.85rem 1rem; }
       .notice { background: #FFF4F4; border: 1px solid #F0A0A0; border-radius: 8px; padding: 0.85rem 1rem; }
+      .fine-print { margin-top: -0.25rem; color: #6b7280; font-size: 0.92rem; }
       .match-summary { margin: 1.2rem 0 1.5rem; display: grid; gap: 0.75rem; }
       .match-summary h2 { margin: 0; font-size: 1.15rem; }
       .match-list { display: grid; gap: 0.75rem; }
@@ -263,6 +298,11 @@ function renderTextField(name: string, label: string, value?: string): string {
 
 function renderEmailField(name: string, label: string, value?: string): string {
   return `<label><span>${escapeHtml(label)}</span><input type="email" name="${escapeHtml(name)}" value="${escapeHtml(value ?? '')}" required /></label>`;
+}
+
+function renderTextAreaField(name: string, label: string, value?: string, maxLength?: number): string {
+  const maxLengthAttribute = maxLength ? ` maxlength="${String(maxLength)}"` : '';
+  return `<label><span>${escapeHtml(label)}</span><textarea name="${escapeHtml(name)}"${maxLengthAttribute}>${escapeHtml(value ?? '')}</textarea></label>`;
 }
 
 function renderMatchBadge(status: PublicTrainingMatchBadgeStatus, sheetName: string): string {

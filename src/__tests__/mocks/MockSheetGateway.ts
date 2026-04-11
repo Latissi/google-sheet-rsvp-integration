@@ -11,6 +11,7 @@ export class MockSheetGateway implements ISheetGateway {
   public appendedRows: Array<{ sheetName: string, values: unknown[] }> = [];
   public updatedRows: Array<{ sheetName: string, rowIndex: number, values: unknown[] }> = [];
   public updatedCells: Array<{ sheetName: string, rowIndex: number, columnIndex: number, value: unknown }> = [];
+  public updatedNotes: Array<{ sheetName: string, rowIndex: number, columnIndex: number, note: string }> = [];
   public backgroundUpdates: Array<{ sheetName: string, columnIndex: number, startRow: number, numRows: number, color: string }> = [];
 
   constructor(
@@ -97,6 +98,22 @@ export class MockSheetGateway implements ISheetGateway {
 
     row[columnIndex - 1] = value;
     this.updatedCells.push({ sheetName, rowIndex, columnIndex, value });
+  }
+
+  setCellNote(sheetName: string, rowIndex: number, columnIndex: number, note: string, _options?: SheetWriteOptions): void {
+    const data = this.inMemorySheets.get(sheetName);
+    if (!data) throw new Error(`Sheet with name "${sheetName}" not found.`);
+
+    const row = data[rowIndex - 1];
+    if (!row) {
+      throw new Error(`Row index out of bounds: ${rowIndex}`);
+    }
+
+    if (columnIndex <= 0 || columnIndex > row.length) {
+      throw new Error(`Column index out of bounds: ${columnIndex}`);
+    }
+
+    this.updatedNotes.push({ sheetName, rowIndex, columnIndex, note });
   }
 
   setColumnBackground(sheetName: string, columnIndex: number, startRow: number, numRows: number, color: string, _options?: SheetWriteOptions): void {

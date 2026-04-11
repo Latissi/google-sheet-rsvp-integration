@@ -6,6 +6,7 @@ import {
   handleCancelTrainingConfirmationRequest,
   handleCancelTrainingRequest,
   handleRegistrationRequest,
+  handleRsvpCommentRequest,
   RegistrationResponsePayload,
   handleRsvpRequest,
   handleSubscriptionPreferencesRequest,
@@ -13,6 +14,7 @@ import {
   PUBLIC_CANCELLATION_ERROR_MESSAGE,
   PUBLIC_PREFERENCES_ERROR_MESSAGE,
   PUBLIC_REGISTRATION_ERROR_MESSAGE,
+  PUBLIC_RSVP_COMMENT_ERROR_MESSAGE,
   PUBLIC_RSVP_ERROR_MESSAGE,
 } from './requestHandlers';
 import {
@@ -22,6 +24,7 @@ import {
   renderPreferencesPage,
   renderRegistrationPage,
   PUBLIC_RSVP_RESPONSE_TITLE,
+  shouldRenderRsvpCommentForm,
 } from './htmlRendering';
 export { runReminderDispatch } from './dispatchRunners';
 
@@ -110,7 +113,17 @@ export function doGet(
     }
 
     return HtmlService
-      .createHtmlOutput(buildRsvpResponseHtml(result.message, result.rsvpStatus))
+      .createHtmlOutput(buildRsvpResponseHtml(
+        result.message,
+        result.rsvpStatus,
+        result.ok && result.rsvpStatus && parameters.memberId?.trim() && parameters.sessionId?.trim()
+          ? {
+            memberId: parameters.memberId.trim(),
+            sessionId: parameters.sessionId.trim(),
+            formAction: webAppUrl,
+          }
+          : undefined,
+      ))
       .setTitle(PUBLIC_RSVP_RESPONSE_TITLE);
   } catch (error) {
     logger.error('doGet', 'failed', error, {
@@ -149,6 +162,8 @@ export function doPost(
 
     const result = action === 'rsvp'
       ? handleRsvpRequest(parameters, runtime.submitRsvpService)
+      : action === 'rsvp-comment'
+        ? handleRsvpCommentRequest(parameters, runtime.updateRsvpCommentService)
       : action === 'cancel-training'
         ? handleCancelTrainingRequest(parameters, runtime.cancelTrainingSessionService)
       : action === 'preferences'
@@ -255,6 +270,23 @@ export function doPost(
       });
     }
 
+    if (action === 'rsvp-comment') {
+      return HtmlService
+        .createHtmlOutput(buildRsvpResponseHtml(
+          result.message,
+          undefined,
+          shouldRenderRsvpCommentForm(result)
+            ? {
+              memberId: parameters.memberId?.trim() ?? '',
+              sessionId: parameters.sessionId?.trim() ?? '',
+              formAction: webAppUrl,
+              comment: parameters.comment ?? '',
+            }
+            : undefined,
+        ))
+        .setTitle(PUBLIC_RSVP_RESPONSE_TITLE);
+    }
+
     return ContentService
       .createTextOutput(result.message)
       .setMimeType(ContentService.MimeType.TEXT);
@@ -267,6 +299,8 @@ export function doPost(
 
     const fallbackMessage = action === 'rsvp'
       ? buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error)
+      : action === 'rsvp-comment'
+        ? buildVerbosePublicErrorMessage(PUBLIC_RSVP_COMMENT_ERROR_MESSAGE, error)
       : action === 'cancel-training'
         ? buildVerbosePublicErrorMessage(PUBLIC_CANCELLATION_ERROR_MESSAGE, error)
       : action === 'preferences'

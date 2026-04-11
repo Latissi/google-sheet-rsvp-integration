@@ -4,6 +4,7 @@ import {
   SubmitRsvpRequest,
   UpdateSubscriptionPreferencesRequest,
 } from '../application';
+import { UpdateRsvpCommentRequest } from '../application/rsvp/UpdateRsvpCommentService';
 import { createCompositeMemberId } from '../domain/types';
 import { TrainingSession, UserRecord } from '../domain/types';
 import { getRuntimeLogger, sanitizeLogMessage } from './logging';
@@ -25,6 +26,13 @@ export interface RsvpRequestParameters {
   memberId?: string;
   sessionId?: string;
   response?: string;
+}
+
+export interface RsvpCommentRequestParameters {
+  action?: string;
+  memberId?: string;
+  sessionId?: string;
+  comment?: string;
 }
 
 export interface RegistrationRequestParameters {
@@ -64,6 +72,10 @@ export interface RsvpResultPayload extends RsvpResponsePayload {
   rsvpStatus?: RsvpStatus;
 }
 
+export interface RsvpCommentResultPayload extends RsvpResponsePayload {
+  commentSaved?: boolean;
+}
+
 export interface RegistrationResponsePayload extends RsvpResponsePayload {
   memberId?: string;
   created?: boolean;
@@ -83,6 +95,10 @@ export interface RsvpRequestExecutor {
   execute(request: SubmitRsvpRequest): unknown;
 }
 
+export interface RsvpCommentRequestExecutor {
+  execute(request: UpdateRsvpCommentRequest): unknown;
+}
+
 export interface RegisterMemberExecutor {
   execute(request: RegisterMemberRequest): { user: UserRecord; created: boolean };
 }
@@ -98,6 +114,7 @@ export interface CancelTrainingExecutor {
 // ── Error message constants ───────────────────────────────────────────────────
 
 export const PUBLIC_RSVP_ERROR_MESSAGE = 'RSVP-Anfrage fehlgeschlagen. Die Antwort konnte nicht gespeichert werden.';
+export const PUBLIC_RSVP_COMMENT_ERROR_MESSAGE = 'Kommentar konnte nicht gespeichert werden.';
 export const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Registrierung fehlgeschlagen. Die Anmeldung konnte nicht gespeichert werden.';
 export const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Einstellungen konnten nicht gespeichert werden.';
 export const PUBLIC_CANCELLATION_ERROR_MESSAGE = 'Absage fehlgeschlagen. Das Training konnte nicht abgesagt werden.';
@@ -153,6 +170,64 @@ export function handleRsvpRequest(
     return {
       ok: false,
       message: buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error),
+    };
+  }
+}
+
+export function handleRsvpCommentRequest(
+  parameters: RsvpCommentRequestParameters,
+  updateRsvpCommentService: RsvpCommentRequestExecutor,
+): RsvpCommentResultPayload {
+  if ((parameters.action ?? '').trim().toLowerCase() !== 'rsvp-comment') {
+    return {
+      ok: false,
+      message: 'Invalid action. Expected action=rsvp-comment.',
+    };
+  }
+
+  const memberId = parameters.memberId?.trim();
+  const sessionId = parameters.sessionId?.trim();
+  const comment = parameters.comment?.trim() ?? '';
+
+  if (!memberId || !sessionId) {
+    return {
+      ok: false,
+      message: 'Incomplete RSVP comment request. Required parameters: memberId, sessionId.',
+    };
+  }
+
+  if (!comment) {
+    return {
+      ok: true,
+      message: 'Kein Kommentar gespeichert. Du kannst die Seite jetzt schließen oder noch einen Kommentar ergänzen.',
+      commentSaved: false,
+    };
+  }
+
+  try {
+    updateRsvpCommentService.execute({
+      memberId,
+      sessionId,
+      comment,
+    });
+
+    return {
+      ok: true,
+      message: 'Danke, dein Kommentar wurde gespeichert.',
+      commentSaved: true,
+    };
+  } catch (error) {
+    logPublicRequestError('rsvp-comment', error, { memberId, sessionId });
+    if (isCancelledSessionError(error)) {
+      return {
+        ok: false,
+        message: CANCELLED_SESSION_PUBLIC_MESSAGE,
+      };
+    }
+    return {
+      ok: false,
+      message: buildVerbosePublicErrorMessage(PUBLIC_RSVP_COMMENT_ERROR_MESSAGE, error),
+      commentSaved: false,
     };
   }
 }

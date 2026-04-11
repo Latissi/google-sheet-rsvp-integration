@@ -7,4 +7,5 @@ export * from './registration/RegisterMemberService';
 export * from './registration/SyncPublicSourceMembersOnOnboardingService';
 export * from './rsvp/SubmitRsvpService';
 export * from './rsvp/SyncAttendanceService';
+export * from './rsvp/UpdateRsvpCommentService';
 export * from './training/CancelTrainingSessionService';

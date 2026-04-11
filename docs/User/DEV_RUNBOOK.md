@@ -125,7 +125,9 @@ Browser-Aufruf:
 [IHRE_WEB_APP_URL]?action=rsvp&memberId=ada::lovelace&sessionId=session-456&response=yes
 ```
 
-Erwartung: Die Anwendung bestätigt die Antwort und aktualisiert das öffentliche Sheet.
+Erwartung: Die Anwendung bestätigt die Antwort, aktualisiert das öffentliche Sheet und zeigt danach optional ein Kommentarfeld an.
+
+Wenn ein Kommentar eingetragen und abgeschickt wird, speichert die Anwendung ihn als Notiz an derselben RSVP-Zelle im öffentlichen Sheet, in der auch `x` oder `-` geschrieben wurde. Die Tabellenstruktur des öffentlichen Sheets ändert sich dadurch nicht.
 
 ### Test 3a – Trainingsabsage für Trainer
 Browser-Aufruf aus einem Trainer-Reminder oder manuell:

@@ -17,6 +17,10 @@ import {
   UpdateSubscriptionPreferencesService,
 } from '../application';
 import {
+  IUpdateRsvpCommentService,
+  UpdateRsvpCommentService,
+} from '../application/rsvp/UpdateRsvpCommentService';
+import {
   IPreviewPublicSourceRegistrationMatchesService,
   PreviewPublicSourceRegistrationMatchesService,
 } from '../application/registration/PreviewPublicSourceRegistrationMatchesService';
@@ -46,6 +50,7 @@ export interface RuntimeContext {
   updateSubscriptionPreferencesService: IUpdateSubscriptionPreferencesService;
   syncPublicSourceMembersOnOnboardingService: ISyncPublicSourceMembersOnOnboardingService;
   submitRsvpService: ISubmitRsvpService;
+  updateRsvpCommentService: IUpdateRsvpCommentService;
   cancelTrainingSessionService: ICancelTrainingSessionService;
   syncAttendanceService: ISyncAttendanceService;
   sendTrainingReminderService: ISendTrainingReminderService;
@@ -92,6 +97,11 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     userRepository,
     syncAttendanceService,
   );
+  const updateRsvpCommentService = new UpdateRsvpCommentService(
+    trainingDataRepository,
+    trainingDataRepository,
+    userRepository,
+  );
   const sendTrainingReminderService = new SendTrainingReminderService(
     trainingDataRepository,
     userRepository,
@@ -120,6 +130,7 @@ export function createRuntimeContext(options: RuntimeContextOptions = {}): Runti
     updateSubscriptionPreferencesService,
     syncPublicSourceMembersOnOnboardingService,
     submitRsvpService,
+    updateRsvpCommentService,
     cancelTrainingSessionService,
     syncAttendanceService,
     sendTrainingReminderService,

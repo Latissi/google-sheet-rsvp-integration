@@ -1,5 +1,6 @@
 import { IAttendanceRepository } from './IAttendanceRepository';
 import { INotificationStateRepository } from './INotificationStateRepository';
+import { IRsvpCommentRepository } from './IRsvpCommentRepository';
 import { ITrainingDefinitionRepository } from './ITrainingDefinitionRepository';
 
 /**
@@ -9,4 +10,5 @@ import { ITrainingDefinitionRepository } from './ITrainingDefinitionRepository';
 export interface ITrainingDataRepository
   extends ITrainingDefinitionRepository,
     IAttendanceRepository,
+    IRsvpCommentRepository,
     INotificationStateRepository {}

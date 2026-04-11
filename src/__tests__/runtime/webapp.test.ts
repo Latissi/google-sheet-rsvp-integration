@@ -4,6 +4,7 @@ import {
   SubmitRsvpRequest,
   UpdateSubscriptionPreferencesRequest,
 } from '../../application';
+import { UpdateRsvpCommentRequest } from '../../application/rsvp/UpdateRsvpCommentService';
 import {
   createCompositeMemberId,
   createPersonName,
@@ -17,12 +18,14 @@ import {
   buildRegistrationPageHtml,
   buildRsvpResponseHtml,
   buildCancelTrainingConfirmationHtml,
+  shouldRenderRsvpCommentForm,
 } from '../../runtime/htmlRendering';
-import { getDoPostParameters } from '../../runtime/webapp';
+import { doGet, doPost, getDoPostParameters } from '../../runtime/webapp';
 import {
   handleCancelTrainingConfirmationRequest,
   handleCancelTrainingRequest,
   handleRegistrationRequest,
+  handleRsvpCommentRequest,
   handleRsvpRequest,
   handleSubscriptionPreferencesRequest,
 } from '../../runtime/requestHandlers';
@@ -61,6 +64,14 @@ class RecordingRegisterMemberService {
       },
       created: true,
     };
+  }
+}
+
+class RecordingUpdateRsvpCommentService {
+  public readonly requests: UpdateRsvpCommentRequest[] = [];
+
+  execute(request: UpdateRsvpCommentRequest): void {
+    this.requests.push(request);
   }
 }
 
@@ -207,6 +218,46 @@ describe('webapp RSVP handler', () => {
       ok: false,
       message: 'Dieses Training entfällt. Eine Zu- oder Absage ist nicht mehr möglich.',
     });
+  });
+
+  it('maps RSVP comment parameters to the dedicated follow-up request', () => {
+    const service = new RecordingUpdateRsvpCommentService();
+
+    const result = handleRsvpCommentRequest({
+      action: 'rsvp-comment',
+      memberId: 'M001',
+      sessionId: 'session-1',
+      comment: '  Komme 5 Minuten später.  ',
+    }, service);
+
+    expect(result).toEqual({
+      ok: true,
+      message: 'Danke, dein Kommentar wurde gespeichert.',
+      commentSaved: true,
+    });
+    expect(service.requests).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      comment: 'Komme 5 Minuten später.',
+    }]);
+  });
+
+  it('treats blank RSVP comments as an optional no-op', () => {
+    const service = new RecordingUpdateRsvpCommentService();
+
+    const result = handleRsvpCommentRequest({
+      action: 'rsvp-comment',
+      memberId: 'M001',
+      sessionId: 'session-1',
+      comment: '   ',
+    }, service);
+
+    expect(result).toEqual({
+      ok: true,
+      message: 'Kein Kommentar gespeichert. Du kannst die Seite jetzt schließen oder noch einen Kommentar ergänzen.',
+      commentSaved: false,
+    });
+    expect(service.requests).toEqual([]);
   });
 
   it('maps canonical registration parameters to a register request', () => {
@@ -600,6 +651,33 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('alt="Zusage"');
   });
 
+  it('renders an RSVP response with an optional follow-up comment form', () => {
+    const html = buildRsvpResponseHtml(
+      'Danke, deine Teilnahme wurde gespeichert.',
+      'Accepted',
+      {
+        memberId: 'M001',
+        sessionId: 'session-1',
+        formAction: 'https://script.google.com/macros/s/test/exec',
+        comment: 'Bin 10 Minuten später da.',
+      },
+    );
+
+    expect(html).toContain('name="action" value="rsvp-comment"');
+    expect(html).toContain('name="memberId" value="M001"');
+    expect(html).toContain('name="sessionId" value="session-1"');
+    expect(html).toContain('textarea name="comment"');
+    expect(html).toContain('Kommentar speichern');
+    expect(html).toContain('Bin 10 Minuten später da.');
+    expect(html).toContain('target="_top"');
+  });
+
+  it('keeps the RSVP comment form visible until a comment is actually saved', () => {
+    expect(shouldRenderRsvpCommentForm({ ok: true, message: 'Noch offen.', commentSaved: false })).toBe(true);
+    expect(shouldRenderRsvpCommentForm({ ok: false, message: 'Fehler.', commentSaved: false })).toBe(true);
+    expect(shouldRenderRsvpCommentForm({ ok: true, message: 'Gespeichert.', commentSaved: true })).toBe(false);
+  });
+
   it('renders a declined RSVP response with the absage illustration', () => {
     const html = buildRsvpResponseHtml('Danke, deine Absage wurde gespeichert.', 'Declined');
 
@@ -615,6 +693,76 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('RSVP-Anfrage fehlgeschlagen.');
     expect(html).not.toContain('alt="Zusage"');
     expect(html).not.toContain('alt="Absage"');
+  });
+
+  it('renders the RSVP comment form after a successful RSVP doGet request', () => {
+    const submitRsvpService = new RecordingSubmitRsvpService();
+    const runtime = createRuntimeContextFixture({
+      submitRsvpService,
+      updateRsvpCommentService: new RecordingUpdateRsvpCommentService(),
+    });
+    const createRuntimeContextSpy = jest.spyOn(createRuntimeContextModule, 'createRuntimeContext').mockReturnValue(
+      runtime as unknown as ReturnType<typeof createRuntimeContextModule.createRuntimeContext>,
+    );
+    const loggerSpy = jest.spyOn(loggingModule, 'getRuntimeLogger').mockReturnValue(createLoggerMock() as unknown as ReturnType<typeof loggingModule.getRuntimeLogger>);
+    installHtmlServiceStub();
+
+    const result = doGet({
+      parameter: {
+        action: 'rsvp',
+        memberId: 'M001',
+        sessionId: 'session-1',
+        response: 'Accepted',
+      },
+    } as unknown as GoogleAppsScript.Events.DoGet) as unknown as { html: string; title: string };
+
+    expect(submitRsvpService.requests).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Accepted',
+    }]);
+    expect(result.title).toBe('Rückmeldung');
+    expect(result.html).toContain('name="action" value="rsvp-comment"');
+    expect(result.html).toContain('name="memberId" value="M001"');
+    expect(result.html).toContain('name="sessionId" value="session-1"');
+    expect(createRuntimeContextSpy).toHaveBeenCalledTimes(1);
+    expect(loggerSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes RSVP comment doPost requests to the follow-up service and returns html', () => {
+    const updateRsvpCommentService = new RecordingUpdateRsvpCommentService();
+    const runtime = createRuntimeContextFixture({
+      submitRsvpService: new RecordingSubmitRsvpService(),
+      updateRsvpCommentService,
+    });
+    jest.spyOn(createRuntimeContextModule, 'createRuntimeContext').mockReturnValue(
+      runtime as unknown as ReturnType<typeof createRuntimeContextModule.createRuntimeContext>,
+    );
+    jest.spyOn(loggingModule, 'getRuntimeLogger').mockReturnValue(createLoggerMock() as unknown as ReturnType<typeof loggingModule.getRuntimeLogger>);
+    installHtmlServiceStub();
+
+    const result = doPost({
+      parameter: {
+        action: 'rsvp-comment',
+        memberId: 'M001',
+        sessionId: 'session-1',
+      },
+      postData: {
+        contents: 'action=rsvp-comment&memberId=M001&sessionId=session-1&comment=Bin+spaeter+da',
+        length: 76,
+        name: 'postData',
+        type: 'application/x-www-form-urlencoded',
+      },
+    } as unknown as GoogleAppsScript.Events.DoPost) as unknown as { html: string; title: string };
+
+    expect(updateRsvpCommentService.requests).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      comment: 'Bin spaeter da',
+    }]);
+    expect(result.title).toBe('Rückmeldung');
+    expect(result.html).toContain('Danke, dein Kommentar wurde gespeichert.');
+    expect(result.html).not.toContain('name="action" value="rsvp-comment"');
   });
 
   it('renders a cancel training confirmation page using the shared page layout', () => {
@@ -712,5 +860,71 @@ function createUserRecord(memberId: string, name: string, role: 'Mitglied' | 'Tr
     subscriptions: [],
     subscribedTrainingIds: [],
     subscribedTrainings: [],
+  };
+}
+
+function installHtmlServiceStub(): void {
+  (globalThis as unknown as {
+    HtmlService: {
+      createHtmlOutput: (html: string) => { setTitle: (title: string) => { html: string; title: string } };
+    };
+  }).HtmlService = {
+    createHtmlOutput(html: string) {
+      return {
+        setTitle(title: string) {
+          return { html, title };
+        },
+      };
+    },
+  };
+}
+
+function createLoggerMock() {
+  return {
+    info: jest.fn<void, [string, string, Record<string, unknown>?]>(),
+    warn: jest.fn<void, [string, string, Record<string, unknown>?, string?]>(),
+    error: jest.fn<void, [string, string, unknown, Record<string, unknown>?]>(),
+  };
+}
+
+function createRuntimeContextFixture(overrides: {
+  submitRsvpService: RecordingSubmitRsvpService;
+  updateRsvpCommentService: RecordingUpdateRsvpCommentService;
+}) {
+  return {
+    configurationProvider: {
+      getWebAppUrl: () => 'https://script.google.com/macros/s/test/exec',
+      getPublicTrainingSources: () => [],
+      getReminderPolicy: () => ({ offsets: [] }),
+      getPublicSheetId: () => 'sheet-id',
+    },
+    userRepository: {
+      getUserByMemberId: () => null,
+    },
+    trainingDataRepository: {
+      getTrainingDefinitions: () => [],
+    },
+    publicSourceRepository: {},
+    notificationSender: {},
+    previewPublicSourceRegistrationMatchesService: {
+      execute: () => ({ matches: [] }),
+    },
+    registerMemberService: new RecordingRegisterMemberService(),
+    updateSubscriptionPreferencesService: new RecordingUpdateSubscriptionPreferencesService(),
+    syncPublicSourceMembersOnOnboardingService: {
+      execute: jest.fn(),
+    },
+    submitRsvpService: overrides.submitRsvpService,
+    updateRsvpCommentService: overrides.updateRsvpCommentService,
+    cancelTrainingSessionService: new RecordingCancelTrainingService(),
+    syncAttendanceService: {
+      execute: jest.fn(),
+    },
+    sendTrainingReminderService: {
+      execute: jest.fn(),
+    },
+    sendCancellationNotificationService: {
+      execute: jest.fn(),
+    },
   };
 }
