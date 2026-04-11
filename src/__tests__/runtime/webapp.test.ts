@@ -122,11 +122,34 @@ describe('webapp RSVP handler', () => {
     expect(result).toEqual({
       ok: true,
       message: 'Danke, deine Teilnahme wurde gespeichert.',
+      rsvpStatus: 'Accepted',
     });
     expect(service.requests).toEqual([{
       memberId: 'M001',
       sessionId: 'session-1',
       rsvpStatus: 'Accepted',
+    }]);
+  });
+
+  it('maps declined RSVPs to the submit request and response payload', () => {
+    const service = new RecordingSubmitRsvpService();
+
+    const result = handleRsvpRequest({
+      action: 'rsvp',
+      memberId: 'M001',
+      sessionId: 'session-1',
+      response: 'Declined',
+    }, service);
+
+    expect(result).toEqual({
+      ok: true,
+      message: 'Danke, deine Absage wurde gespeichert.',
+      rsvpStatus: 'Declined',
+    });
+    expect(service.requests).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Declined',
     }]);
   });
 
@@ -570,19 +593,28 @@ describe('webapp RSVP handler', () => {
   });
 
   it('renders an RSVP success response as styled HTML', () => {
-    const html = buildRsvpResponseHtml(true, 'Danke, deine Teilnahme wurde gespeichert.');
+    const html = buildRsvpResponseHtml('Danke, deine Teilnahme wurde gespeichert.', 'Accepted');
 
     expect(html).toContain('Rückmeldung');
     expect(html).toContain('Danke, deine Teilnahme wurde gespeichert.');
     expect(html).toContain('alt="Zusage"');
   });
 
-  it('renders an RSVP error response as styled HTML', () => {
-    const html = buildRsvpResponseHtml(false, 'RSVP-Anfrage fehlgeschlagen.');
+  it('renders a declined RSVP response with the absage illustration', () => {
+    const html = buildRsvpResponseHtml('Danke, deine Absage wurde gespeichert.', 'Declined');
+
+    expect(html).toContain('Rückmeldung');
+    expect(html).toContain('Danke, deine Absage wurde gespeichert.');
+    expect(html).toContain('alt="Absage"');
+  });
+
+  it('renders an RSVP error response without an illustration', () => {
+    const html = buildRsvpResponseHtml('RSVP-Anfrage fehlgeschlagen.');
 
     expect(html).toContain('Rückmeldung');
     expect(html).toContain('RSVP-Anfrage fehlgeschlagen.');
-    expect(html).toContain('alt="Absage"');
+    expect(html).not.toContain('alt="Zusage"');
+    expect(html).not.toContain('alt="Absage"');
   });
 
   it('renders a cancel training confirmation page using the shared page layout', () => {

@@ -110,7 +110,7 @@ export function doGet(
     }
 
     return HtmlService
-      .createHtmlOutput(buildRsvpResponseHtml(result.ok, result.message))
+      .createHtmlOutput(buildRsvpResponseHtml(result.message, result.rsvpStatus))
       .setTitle(PUBLIC_RSVP_RESPONSE_TITLE);
   } catch (error) {
     logger.error('doGet', 'failed', error, {
@@ -124,7 +124,7 @@ export function doGet(
     }
 
     return HtmlService
-      .createHtmlOutput(buildRsvpResponseHtml(false, buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error)))
+      .createHtmlOutput(buildRsvpResponseHtml(buildVerbosePublicErrorMessage(PUBLIC_RSVP_ERROR_MESSAGE, error)))
       .setTitle(PUBLIC_RSVP_RESPONSE_TITLE);
   }
 }

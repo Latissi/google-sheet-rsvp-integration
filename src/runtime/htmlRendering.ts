@@ -2,9 +2,9 @@ import { TrainingDefinition } from '../domain/types';
 import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
 import { FTW_LOGO_DATA_URI, FRANCONIA_WELCOME_DATA_URI, FRANCONIA_HAPPY_DATA_URI, FRANCONIA_SAD_DATA_URI } from './publicAssets';
 import {
-  buildVerbosePublicErrorMessage,
   CancelTrainingConfirmationPayload,
   RegistrationRequestParameters,
+  RsvpStatus,
 } from './requestHandlers';
 
 type PublicTrainingMatchBadgeStatus = 'matched' | 'not-found';
@@ -21,14 +21,16 @@ export const PUBLIC_CANCEL_TRAINING_TITLE = 'Training absagen';
 
 // ── Exported HTML builders (testable, framework-free) ─────────────────────────
 
-export function buildRsvpResponseHtml(ok: boolean, message: string): string {
-  const mascot = ok
+export function buildRsvpResponseHtml(message: string, rsvpStatus?: RsvpStatus): string {
+  const mascot = rsvpStatus === 'Accepted'
     ? `<img src="${FRANCONIA_HAPPY_DATA_URI}" alt="Zusage" style="max-width:180px;height:auto" />`
-    : `<img src="${FRANCONIA_SAD_DATA_URI}" alt="Absage" style="max-width:180px;height:auto" />`;
+    : rsvpStatus === 'Declined'
+      ? `<img src="${FRANCONIA_SAD_DATA_URI}" alt="Absage" style="max-width:180px;height:auto" />`
+      : '';
   return renderPublicPage(
     PUBLIC_RSVP_RESPONSE_TITLE,
     [
-      `<div style="text-align:center;margin-bottom:1rem">${mascot}</div>`,
+      mascot ? `<div style="text-align:center;margin-bottom:1rem">${mascot}</div>` : '',
       `<p style="text-align:center;font-size:1.1rem">${escapeHtml(message)}</p>`,
     ].join(''),
   );

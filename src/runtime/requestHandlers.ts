@@ -8,9 +8,7 @@ import { createCompositeMemberId } from '../domain/types';
 import { TrainingSession, UserRecord } from '../domain/types';
 import { getRuntimeLogger, sanitizeLogMessage } from './logging';
 
-// ── Local type aliases ────────────────────────────────────────────────────────
-
-type RsvpResponse = Exclude<SubmitRsvpRequest['rsvpStatus'], 'Pending'>;
+export type RsvpStatus = Exclude<SubmitRsvpRequest['rsvpStatus'], 'Pending'>;
 
 interface CancellationUserLookup {
   getUserByMemberId(memberId: string): UserRecord | null;
@@ -62,6 +60,9 @@ export interface RsvpResponsePayload {
   ok: boolean;
   message: string;
 }
+export interface RsvpResultPayload extends RsvpResponsePayload {
+  rsvpStatus?: RsvpStatus;
+}
 
 export interface RegistrationResponsePayload extends RsvpResponsePayload {
   memberId?: string;
@@ -108,7 +109,7 @@ const CANCELLED_SESSION_PUBLIC_MESSAGE = 'Dieses Training entfällt. Eine Zu- od
 export function handleRsvpRequest(
   parameters: RsvpRequestParameters,
   submitRsvpService: RsvpRequestExecutor,
-): RsvpResponsePayload {
+): RsvpResultPayload {
   if ((parameters.action ?? '').trim().toLowerCase() !== 'rsvp') {
     return {
       ok: false,
@@ -139,6 +140,7 @@ export function handleRsvpRequest(
       message: rsvpStatus === 'Accepted'
         ? 'Danke, deine Teilnahme wurde gespeichert.'
         : 'Danke, deine Absage wurde gespeichert.',
+      rsvpStatus,
     };
   } catch (error) {
     logPublicRequestError('rsvp', error, { memberId, sessionId, rsvpStatus });
@@ -360,7 +362,7 @@ export function handleCancelTrainingRequest(
 
 // ── Private utilities ─────────────────────────────────────────────────────────
 
-function parseRsvpStatus(value: string | undefined): RsvpResponse | null {
+function parseRsvpStatus(value: string | undefined): RsvpStatus | null {
   const normalizedValue = (value ?? '').trim().toLowerCase();
   if (['accepted', 'accept', 'yes', 'ja', 'zugesagt'].includes(normalizedValue)) {
     return 'Accepted';
