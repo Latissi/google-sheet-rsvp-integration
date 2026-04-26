@@ -43,7 +43,7 @@ export function buildRsvpResponseHtml(
 
   const commentFormHtml = commentForm
     ? [
-      '<div class="info">Optional: Ergänze noch einen kurzen Kommentar zu deiner Rückmeldung. Er wird als Notiz in derselben RSVP-Zelle im Trainings-Sheet gespeichert.</div>',
+      '<div class="info">Optional: Ergänze noch einen kurzen Kommentar zu deiner Rückmeldung. Er wird als Notiz in derselben Zelle im Trainings-Sheet gespeichert.</div>',
       `<form method="post" action="${escapeHtml(commentForm.formAction ?? '')}" target="_top">`,
       '<input type="hidden" name="action" value="rsvp-comment" />',
       `<input type="hidden" name="memberId" value="${escapeHtml(commentForm.memberId)}" />`,
