@@ -164,6 +164,28 @@ describe('webapp RSVP handler', () => {
     }]);
   });
 
+  it('maps tentative RSVPs to the submit request and response payload', () => {
+    const service = new RecordingSubmitRsvpService();
+
+    const result = handleRsvpRequest({
+      action: 'rsvp',
+      memberId: 'M001',
+      sessionId: 'session-1',
+      response: 'Unsicher',
+    }, service);
+
+    expect(result).toEqual({
+      ok: true,
+      message: 'Danke, deine Rückmeldung wurde als unsicher gespeichert.',
+      rsvpStatus: 'Tentative',
+    });
+    expect(service.requests).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Tentative',
+    }]);
+  });
+
   it('rejects incomplete RSVP requests', () => {
     const service = new RecordingSubmitRsvpService();
 
@@ -216,7 +238,7 @@ describe('webapp RSVP handler', () => {
 
     expect(result).toEqual({
       ok: false,
-      message: 'Dieses Training entfällt. Eine Zu- oder Absage ist nicht mehr möglich.',
+      message: 'Dieses Training entfällt. Eine Rückmeldung ist nicht mehr möglich.',
     });
   });
 
@@ -686,12 +708,21 @@ describe('webapp RSVP handler', () => {
     expect(html).toContain('alt="Absage"');
   });
 
+  it('renders a tentative RSVP response with the unsicher illustration', () => {
+    const html = buildRsvpResponseHtml('Danke, deine Rückmeldung wurde als unsicher gespeichert.', 'Tentative');
+
+    expect(html).toContain('Rückmeldung');
+    expect(html).toContain('Danke, deine Rückmeldung wurde als unsicher gespeichert.');
+    expect(html).toContain('alt="Unsicher"');
+  });
+
   it('renders an RSVP error response without an illustration', () => {
     const html = buildRsvpResponseHtml('RSVP-Anfrage fehlgeschlagen.');
 
     expect(html).toContain('Rückmeldung');
     expect(html).toContain('RSVP-Anfrage fehlgeschlagen.');
     expect(html).not.toContain('alt="Zusage"');
+    expect(html).not.toContain('alt="Unsicher"');
     expect(html).not.toContain('alt="Absage"');
   });
 
@@ -725,6 +756,39 @@ describe('webapp RSVP handler', () => {
     expect(result.html).toContain('name="action" value="rsvp-comment"');
     expect(result.html).toContain('name="memberId" value="M001"');
     expect(result.html).toContain('name="sessionId" value="session-1"');
+    expect(createRuntimeContextSpy).toHaveBeenCalledTimes(1);
+    expect(loggerSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the RSVP comment form after a tentative RSVP doGet request', () => {
+    const submitRsvpService = new RecordingSubmitRsvpService();
+    const runtime = createRuntimeContextFixture({
+      submitRsvpService,
+      updateRsvpCommentService: new RecordingUpdateRsvpCommentService(),
+    });
+    const createRuntimeContextSpy = jest.spyOn(createRuntimeContextModule, 'createRuntimeContext').mockReturnValue(
+      runtime as unknown as ReturnType<typeof createRuntimeContextModule.createRuntimeContext>,
+    );
+    const loggerSpy = jest.spyOn(loggingModule, 'getRuntimeLogger').mockReturnValue(createLoggerMock() as unknown as ReturnType<typeof loggingModule.getRuntimeLogger>);
+    installHtmlServiceStub();
+
+    const result = doGet({
+      parameter: {
+        action: 'rsvp',
+        memberId: 'M001',
+        sessionId: 'session-1',
+        response: 'Unsicher',
+      },
+    } as unknown as GoogleAppsScript.Events.DoGet) as unknown as { html: string; title: string };
+
+    expect(submitRsvpService.requests).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Tentative',
+    }]);
+    expect(result.title).toBe('Rückmeldung');
+    expect(result.html).toContain('alt="Unsicher"');
+    expect(result.html).toContain('name="action" value="rsvp-comment"');
     expect(createRuntimeContextSpy).toHaveBeenCalledTimes(1);
     expect(loggerSpy).toHaveBeenCalledTimes(1);
   });

@@ -68,6 +68,12 @@ export class MailNotificationSender implements INotificationSender {
       sessionId: notification.session.sessionId,
       response: 'Accepted',
     });
+    const tentativeUrl = this.buildUrl(notification.webAppUrl, {
+      action: 'rsvp',
+      memberId: notification.recipient.memberId,
+      sessionId: notification.session.sessionId,
+      response: 'Tentative',
+    });
     const declineUrl = this.buildUrl(notification.webAppUrl, {
       action: 'rsvp',
       memberId: notification.recipient.memberId,
@@ -94,6 +100,7 @@ export class MailNotificationSender implements INotificationSender {
       ...detailLines,
       '',
       `Zusagen: ${acceptUrl}`,
+      `Unsicher: ${tentativeUrl}`,
       `Absagen: ${declineUrl}`,
       `Benachrichtigungseinstellungen aktualisieren: ${preferencesUrl}`,
       ...(cancelUrl ? [`Training absagen: ${cancelUrl}`] : []),
@@ -106,6 +113,7 @@ export class MailNotificationSender implements INotificationSender {
       '</ul>',
       '<p style="margin-top:1.5rem">',
       `<a href="${escapeHtml(acceptUrl)}" style="display:inline-block;background:#2d7a3a;color:#ffffff;text-decoration:none;padding:0.65rem 1.4rem;border-radius:999px;font-weight:600;margin-right:0.75rem">&#10003;&nbsp;Zusagen</a>`,
+      `<a href="${escapeHtml(tentativeUrl)}" style="display:inline-block;background:#e9c46a;color:#1A1A2E;text-decoration:none;padding:0.65rem 1.4rem;border-radius:999px;font-weight:600;margin-right:0.75rem">Unsicher</a>`,
       `<a href="${escapeHtml(declineUrl)}" style="display:inline-block;background:#f0f0f0;color:#1A1A2E;text-decoration:none;padding:0.65rem 1.4rem;border-radius:999px;font-weight:600">&#10005;&nbsp;Absagen</a>`,
       '</p>',
       `<p style="margin-top:1.5rem;font-size:0.88rem;color:#6b7280"><a href="${escapeHtml(preferencesUrl)}" style="color:#6b7280">Benachrichtigungseinstellungen aktualisieren</a></p>`,

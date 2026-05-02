@@ -37,6 +37,8 @@ export function buildRsvpResponseHtml(
 ): string {
   const mascot = rsvpStatus === 'Accepted'
     ? `<img src="${FRANCONIA_HAPPY_DATA_URI}" alt="Zusage" style="max-width:180px;height:auto" />`
+    : rsvpStatus === 'Tentative'
+      ? `<img src="${FRANCONIA_WELCOME_DATA_URI}" alt="Unsicher" style="max-width:180px;height:auto" />`
     : rsvpStatus === 'Declined'
       ? `<img src="${FRANCONIA_SAD_DATA_URI}" alt="Absage" style="max-width:180px;height:auto" />`
       : '';

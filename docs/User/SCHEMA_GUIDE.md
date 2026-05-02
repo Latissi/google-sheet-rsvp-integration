@@ -122,12 +122,12 @@ Unterstützt wird ausschließlich die Struktur mit einer Zeile pro Mitglied und 
 |-----------|-----------|-----------|------------|------------|------------|
 | Zusagen |  |  | 22 | 5 | 5 |
 | Max | Mustermann | m | `x` | `-` |  |
-| Anna | Admin | w |  | `x` | `x` |
+| Anna | Admin | w |  | `(x)` | `x` |
 
 Regeln:
 - Eine Zeile pro Mitglied.
 - Eine Datumsspalte pro Session.
-- `x` für Zusage, `-` für Absage, leer für keine Antwort.
+- `x` für Zusage, `(x)` für Unsicher, `-` für Absage, leer für keine Antwort.
 - Nicht-Mitgliederzeilen oberhalb von `MitgliederStartZeile` werden ignoriert.
 - Die eigentliche Datumszeile wird ueber `DatumsKopfZeile` konfiguriert und muss nicht die erste Zeile des Bereichs sein.
 - Die App gleicht jede Zeile ab `MitgliederStartZeile` gegen `Mitglieder` ab.
@@ -137,7 +137,7 @@ Regeln:
 - Die Zuordnung zur passenden `TrainingsId` erfolgt ueber `Trainingsdefinitionen.Wochentag`.
 - Wenn `InfoZeile` konfiguriert ist, wird der Zelleninhalt dieser Zeile pro Datumsspalte als zusaetzliche Session-Information gelesen.
 - Eine Session gilt als abgesagt, wenn dieser Text `entfällt` oder `gesperrt` enthaelt, zum Beispiel `Halle gesperrt`.
-- Abgesagte Sessions akzeptieren keine Zu- oder Absagen und erhalten keine normalen Erinnerungsmails.
+- Abgesagte Sessions akzeptieren keine Rückmeldungen und erhalten keine normalen Erinnerungsmails.
 - Trainer erhalten in Reminder-Mails zusätzlich einen Web-App-Link `action=cancel-training`. Dieser Link zeigt zuerst eine Bestätigungsseite und schreibt die Absage erst nach POST-Bestätigung in die `InfoZeile`.
 
 ## 3. Registrierung über die Web-App

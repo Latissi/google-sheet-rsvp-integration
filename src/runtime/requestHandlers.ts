@@ -119,7 +119,7 @@ export const PUBLIC_REGISTRATION_ERROR_MESSAGE = 'Registrierung fehlgeschlagen. 
 export const PUBLIC_PREFERENCES_ERROR_MESSAGE = 'Einstellungen konnten nicht gespeichert werden.';
 export const PUBLIC_CANCELLATION_ERROR_MESSAGE = 'Absage fehlgeschlagen. Das Training konnte nicht abgesagt werden.';
 
-const CANCELLED_SESSION_PUBLIC_MESSAGE = 'Dieses Training entfällt. Eine Zu- oder Absage ist nicht mehr möglich.';
+const CANCELLED_SESSION_PUBLIC_MESSAGE = 'Dieses Training entfällt. Eine Rückmeldung ist nicht mehr möglich.';
 
 // ── Request handlers ──────────────────────────────────────────────────────────
 
@@ -154,9 +154,7 @@ export function handleRsvpRequest(
 
     return {
       ok: true,
-      message: rsvpStatus === 'Accepted'
-        ? 'Danke, deine Teilnahme wurde gespeichert.'
-        : 'Danke, deine Absage wurde gespeichert.',
+      message: buildRsvpSuccessMessage(rsvpStatus),
       rsvpStatus,
     };
   } catch (error) {
@@ -437,10 +435,26 @@ export function handleCancelTrainingRequest(
 
 // ── Private utilities ─────────────────────────────────────────────────────────
 
+function buildRsvpSuccessMessage(status: RsvpStatus): string {
+  if (status === 'Accepted') {
+    return 'Danke, deine Teilnahme wurde gespeichert.';
+  }
+
+  if (status === 'Tentative') {
+    return 'Danke, deine Rückmeldung wurde als unsicher gespeichert.';
+  }
+
+  return 'Danke, deine Absage wurde gespeichert.';
+}
+
 function parseRsvpStatus(value: string | undefined): RsvpStatus | null {
   const normalizedValue = (value ?? '').trim().toLowerCase();
   if (['accepted', 'accept', 'yes', 'ja', 'zugesagt'].includes(normalizedValue)) {
     return 'Accepted';
+  }
+
+  if (['tentative', 'unsure', 'uncertain', 'unsicher', 'vielleicht', '(x)'].includes(normalizedValue)) {
+    return 'Tentative';
   }
 
   if (['declined', 'decline', 'no', 'nein', 'abgesagt'].includes(normalizedValue)) {

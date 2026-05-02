@@ -1,4 +1,4 @@
-export type RsvpStatus = 'Pending' | 'Accepted' | 'Declined';
+export type RsvpStatus = 'Pending' | 'Accepted' | 'Tentative' | 'Declined';
 
 export interface AttendanceRecord {
   memberId: string;

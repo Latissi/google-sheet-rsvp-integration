@@ -100,6 +100,8 @@ So legen Sie einen Zeit-Trigger an:
 
 Für Reminder gilt bewusst genau ein installierbarer 15-Minuten-Trigger. Die Anwendung wertet beim Lauf nicht nur den exakten aktuellen Zeitpunkt aus, sondern den Intervallbereich seit dem letzten erfolgreichen Reminder-Lauf. Dadurch werden Reminder nach kurzen Ausfällen oder verzögerten Triggerstarts beim nächsten erfolgreichen Lauf nachgeholt.
 
+Mitglieder erhalten in Reminder-Mails die Links `Zusagen`, `Unsicher` und `Absagen`. Sobald eine dieser Rückmeldungen im öffentlichen Sheet gespeichert ist, werden für diese Person und Session keine weiteren Reminder mehr versendet.
+
 Die Tabs `ErinnerungsVersandMetadaten` und `LaufzeitMetadaten` bilden dabei den technischen Schutz:
 - `ErinnerungsVersandMetadaten` verhindert doppelte Reminder pro Session und Offset.
 - `LaufzeitMetadaten` speichert den letzten erfolgreichen Reminder-Lauf als Startpunkt fuer den naechsten Catch-up-Intervallvergleich.
@@ -122,12 +124,12 @@ Ein installierbarer Zeit-Trigger uebergibt Apps Script intern ein Event-Objekt. 
 Browser-Aufruf:
 
 ```text
-[IHRE_WEB_APP_URL]?action=rsvp&memberId=ada::lovelace&sessionId=session-456&response=yes
+[IHRE_WEB_APP_URL]?action=rsvp&memberId=ada::lovelace&sessionId=session-456&response=tentative
 ```
 
-Erwartung: Die Anwendung bestätigt die Antwort, aktualisiert das öffentliche Sheet und zeigt danach optional ein Kommentarfeld an.
+Erwartung: Die Anwendung bestätigt die Antwort, aktualisiert das öffentliche Sheet mit `x`, `(x)` oder `-` und zeigt danach optional ein Kommentarfeld an. Akzeptierte Antwortwerte sind unter anderem `yes`, `tentative`, `no` sowie die deutschen Varianten `zugesagt`, `unsicher` und `abgesagt`.
 
-Wenn ein Kommentar eingetragen und abgeschickt wird, speichert die Anwendung ihn als Notiz an derselben RSVP-Zelle im öffentlichen Sheet, in der auch `x` oder `-` geschrieben wurde. Die Tabellenstruktur des öffentlichen Sheets ändert sich dadurch nicht.
+Wenn ein Kommentar eingetragen und abgeschickt wird, speichert die Anwendung ihn als Notiz an derselben RSVP-Zelle im öffentlichen Sheet, in der auch `x`, `(x)` oder `-` geschrieben wurde. Die Tabellenstruktur des öffentlichen Sheets ändert sich dadurch nicht.
 
 ### Test 3a – Trainingsabsage für Trainer
 Browser-Aufruf aus einem Trainer-Reminder oder manuell:

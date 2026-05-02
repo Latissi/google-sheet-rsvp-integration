@@ -618,8 +618,16 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
       return null;
     }
 
+    if (/^\(\s*x\s*\)$/i.test(raw)) {
+      return 'Tentative';
+    }
+
     if (['accepted', 'yes', 'ja', 'zugesagt', 'true', '1', 'x'].includes(normalized)) {
       return 'Accepted';
+    }
+
+    if (['tentative', 'unsure', 'uncertain', 'unsicher', 'vielleicht'].includes(normalized)) {
+      return 'Tentative';
     }
 
     if (raw === '-' || ['declined', 'no', 'nein', 'abgesagt', 'false', '0'].includes(normalized)) {
@@ -636,6 +644,9 @@ export class GoogleSheetTrainingDataRepository implements ITrainingDataRepositor
   private formatAttendanceCell(status: RsvpStatus): string {
     if (status === 'Accepted') {
       return 'x';
+    }
+    if (status === 'Tentative') {
+      return '(x)';
     }
     if (status === 'Declined') {
       return '-';

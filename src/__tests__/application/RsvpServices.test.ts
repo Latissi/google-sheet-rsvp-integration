@@ -46,6 +46,29 @@ describe('RSVP application services', () => {
     }]);
   });
 
+  it('stores a tentative RSVP from an eligible user', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
+    const userRepository = new InMemoryUserRepository([createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] })]);
+    const service = new SubmitRsvpService(trainingRepository, userRepository, new SyncAttendanceService(trainingRepository));
+
+    const result = service.execute({
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Tentative',
+    });
+
+    expect(result.attendance).toEqual({
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Tentative',
+    });
+    expect(trainingRepository.getAttendanceForSession('session-1')).toEqual([{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Tentative',
+    }]);
+  });
+
   it('overwrites an existing RSVP for the same user and session', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
     const userRepository = new InMemoryUserRepository([createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] })]);
@@ -60,18 +83,18 @@ describe('RSVP application services', () => {
     const result = service.execute({
       memberId: 'M001',
       sessionId: 'session-1',
-      rsvpStatus: 'Declined',
+      rsvpStatus: 'Tentative',
     });
 
     expect(result.attendance).toEqual({
       memberId: 'M001',
       sessionId: 'session-1',
-      rsvpStatus: 'Declined',
+      rsvpStatus: 'Tentative',
     });
     expect(trainingRepository.getAttendanceForSession('session-1')).toEqual([{
       memberId: 'M001',
       sessionId: 'session-1',
-      rsvpStatus: 'Declined',
+      rsvpStatus: 'Tentative',
     }]);
   });
 

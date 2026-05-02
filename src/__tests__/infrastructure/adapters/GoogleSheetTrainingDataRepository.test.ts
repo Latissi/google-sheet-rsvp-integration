@@ -274,6 +274,41 @@ describe('GoogleSheetTrainingDataRepository', () => {
     ]);
   });
 
+  it('parses tentative public-sheet markers as tentative attendance', () => {
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'club-rsvp',
+      sheetName: 'RSVP Übersicht',
+      tableRange: 'A1:D10',
+      attendance: {
+        dateHeaderRow: 1,
+        firstMemberRow: 2,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'C',
+      },
+      trainings: [{
+        trainingId: 'wed-mixed',
+        day: 'Mittwoch',
+        title: 'Mittwoch Training',
+        startTime: '18:00',
+      }],
+    }];
+    const { repository } = createRepository(sources, {
+      'RSVP Übersicht': [
+        ['Vorname', 'Nachname', new Date('2026-03-11T00:00:00.000Z')],
+        ['Bob', 'Example', '(x)'],
+      ],
+    });
+
+    expect(repository.getAttendanceForSession('club-rsvp__wed-mixed__2026-03-11__18:00')).toEqual([
+      {
+        memberId: 'bob::example',
+        sessionId: 'club-rsvp__wed-mixed__2026-03-11__18:00',
+        rsvpStatus: 'Tentative',
+      },
+    ]);
+  });
+
   it('reuses the loaded public sheet within one repository instance', () => {
     const sources: PublicTrainingSource[] = [{
       sourceId: 'club-rsvp',
@@ -910,5 +945,46 @@ describe('GoogleSheetTrainingDataRepository', () => {
       value: 'Training entfällt: Trainer verhindert',
     });
     expect(repository.getTrainingSessionById('club-rsvp__wed-mixed__2026-03-18__18:00')?.status).toBe('Cancelled');
+  });
+
+  it('writes tentative attendance as a tentative public-sheet marker', () => {
+    const sources: PublicTrainingSource[] = [{
+      sourceId: 'club-rsvp',
+      sheetName: 'RSVP Übersicht',
+      tableRange: 'A1:D10',
+      attendance: {
+        dateHeaderRow: 1,
+        firstMemberRow: 2,
+        firstNameColumn: 'A',
+        lastNameColumn: 'B',
+        startColumn: 'C',
+      },
+      trainings: [{
+        trainingId: 'wed-mixed',
+        day: 'Mittwoch',
+        title: 'Mittwoch Training',
+        startTime: '18:00',
+      }],
+    }];
+    const { gateway, repository } = createRepository(sources, {
+      'RSVP Übersicht': [
+        ['Vorname', 'Nachname', new Date('2026-03-11T00:00:00.000Z'), new Date('2026-03-18T00:00:00.000Z')],
+        ['Alice', 'Example', '', ''],
+        ['Bob', 'Example', '', ''],
+      ],
+    });
+
+    repository.saveAttendance({
+      memberId: 'bob::example',
+      sessionId: 'club-rsvp__wed-mixed__2026-03-18__18:00',
+      rsvpStatus: 'Tentative',
+    });
+
+    expect(gateway.updatedCells).toContainEqual({
+      sheetName: 'RSVP Übersicht',
+      rowIndex: 3,
+      columnIndex: 4,
+      value: '(x)',
+    });
   });
 });

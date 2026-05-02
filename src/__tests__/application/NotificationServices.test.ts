@@ -52,6 +52,32 @@ describe('Notification application services', () => {
     expect(sender.reminders).toEqual([{ recipientId: 'M002', sessionId: 'session-1' }]);
   });
 
+  it('does not resend reminders after a tentative RSVP', () => {
+    const trainingRepository = new InMemoryTrainingRepository(definitions, sessions, [{
+      memberId: 'M001',
+      sessionId: 'session-1',
+      rsvpStatus: 'Tentative',
+    }]);
+    const userRepository = new InMemoryUserRepository([
+      createUser({ memberId: 'M001', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+      createUser({ memberId: 'M002', role: 'Mitglied', trainingIds: ['wed-mixed'] }),
+    ]);
+    const configProvider = new TestConfigurationProvider([], {
+      offsets: [{ hours: 48, minutes: 0 }],
+      channels: ['email'],
+    });
+    const sender = new RecordingNotificationSender();
+    const service = new SendTrainingReminderService(trainingRepository, userRepository, configProvider, sender);
+
+    const result = service.execute({
+      dispatchAt: '2026-03-09T18:00:00.000Z',
+    });
+
+    expect(result.sessionsProcessed).toBe(1);
+    expect(result.sentCount).toBe(1);
+    expect(sender.reminders).toEqual([{ recipientId: 'M002', sessionId: 'session-1' }]);
+  });
+
   it('sends reminders whose due time falls inside the elapsed interval since the last successful run', () => {
     const trainingRepository = new InMemoryTrainingRepository(definitions, sessions);
     trainingRepository.markLastSuccessfulReminderDispatchAt('2026-03-09T17:59:00.000Z');

@@ -81,10 +81,13 @@ describe('MailNotificationSender', () => {
     expect(transport.sentMessages[0].to).toBe('max@example.com');
     expect(transport.sentMessages[0].subject).toContain('Erinnerung');
     expect(transport.sentMessages[0].body).toContain('response=Accepted');
+    expect(transport.sentMessages[0].body).toContain('response=Tentative');
     expect(transport.sentMessages[0].body).toContain('response=Declined');
+    expect(transport.sentMessages[0].body).toContain('Unsicher');
     expect(transport.sentMessages[0].body).toContain('action=preferences');
     expect(transport.sentMessages[0].body).toContain('Benachrichtigungseinstellungen aktualisieren');
     expect(transport.sentMessages[0].body).toContain('Umgebung: Outdoor');
+    expect(transport.sentMessages[0].htmlBody).toContain('Unsicher');
   });
 
   it('includes a cancel link for trainer recipients in reminder mails', () => {
