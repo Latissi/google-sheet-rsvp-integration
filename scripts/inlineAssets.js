@@ -12,7 +12,6 @@ const ASSETS_DIR = path.join(ROOT, 'assets');
 const OUTPUT_FILE = path.join(ROOT, 'src', 'runtime', 'publicAssets.ts');
 
 const assets = [
-  { name: 'FTW_LOGO_DATA_URI',          file: 'ftwlogo.webp',          mime: 'image/webp' },
   { name: 'FRANCONIA_WELCOME_DATA_URI', file: 'franconia_welcome.webp', mime: 'image/webp' },
   { name: 'FRANCONIA_HAPPY_DATA_URI',   file: 'franconia_happy.webp',   mime: 'image/webp' },
   { name: 'FRANCONIA_SAD_DATA_URI',     file: 'franconia_sad.webp',     mime: 'image/webp' },

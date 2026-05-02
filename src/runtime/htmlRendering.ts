@@ -1,7 +1,7 @@
 import { TrainingDefinition } from '../domain/types';
 import { MAX_RSVP_COMMENT_LENGTH } from '../application/rsvp/UpdateRsvpCommentService';
 import { escapeHtml } from '../infrastructure/adapters/htmlEscape';
-import { FTW_LOGO_DATA_URI, FRANCONIA_WELCOME_DATA_URI, FRANCONIA_HAPPY_DATA_URI, FRANCONIA_SAD_DATA_URI } from './publicAssets';
+import { FRANCONIA_WELCOME_DATA_URI, FRANCONIA_HAPPY_DATA_URI, FRANCONIA_SAD_DATA_URI } from './publicAssets';
 import {
   CancelTrainingConfirmationPayload,
   RegistrationRequestParameters,
@@ -15,7 +15,7 @@ type PublicTrainingSheetNameMap = Map<string, string>;
 
 // ── Page title constants ──────────────────────────────────────────────────────
 
-export const PUBLIC_JOIN_TITLE = 'Anmeldung Trainings-Mailerinnerungen';
+export const PUBLIC_JOIN_TITLE = 'Anmeldung FTW Trainings-Mailerinnerungen';
 export const PUBLIC_PREFERENCES_TITLE = 'Trainingsauswahl';
 export const PUBLIC_COMPLETION_TITLE = 'Anmeldung abgeschlossen';
 export const PUBLIC_RSVP_RESPONSE_TITLE = 'Rückmeldung';
@@ -79,7 +79,6 @@ export function buildRegistrationPageHtml(
   return renderPublicPage(
     PUBLIC_JOIN_TITLE,
     [
-      `<div style="text-align:center;margin-bottom:1.25rem"><img src="${FTW_LOGO_DATA_URI}" alt="Vereinslogo" style="max-width:140px;height:auto" /></div>`,
       `<p>Mit der Anmeldung werden vorab Erinnerungen an deine Mail gesendet, wenn du noch keine Teilnahme Rückmeldung im Google Sheet gegeben hast. Die Auswahl der Trainingstermine erfolgt im nächsten Schritt.</p>`,
       message ? `<p class="notice">${escapeHtml(message)}</p>` : '',
       `<form method="post" action="${escapeHtml(formAction)}" target="_top">`,

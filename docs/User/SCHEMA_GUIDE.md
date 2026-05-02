@@ -141,6 +141,8 @@ Regeln:
 - Trainer erhalten in Reminder-Mails zusätzlich einen Web-App-Link `action=cancel-training`. Dieser Link zeigt zuerst eine Bestätigungsseite und schreibt die Absage erst nach POST-Bestätigung in die `InfoZeile`.
 
 ## 3. Registrierung über die Web-App
+Die Registrierungsseite ist unter `WEBAPP_ADRESSE?action=join` erreichbar.
+
 Pflichtparameter:
 
 - `action=register`
